@@ -179,20 +179,43 @@ class mod_adaptivequiz_mod_form extends moodleform_mod {
         $this->add_action_buttons();
     }
 
+    /**
+     * Adds completion rule to the form
+     *
+     * @return array
+     */
     public function add_completion_rules(): array {
+        global $CFG;
         $form = $this->_form;
-        $form->addElement('checkbox', 'completionattemptcompleted', ' ',
-            get_string('completionattemptcompletedform', 'adaptivequiz'));
+        $completionstring = 'completionattemptcompleted';
+        $version43min = version_compare($CFG->version, '2023102700', '>=');
+        if ($version43min) {
+            $suffix = $this->get_suffix();
+            $completionstring .= $suffix;
+        }
+        $form->addElement('checkbox', $completionstring, get_string('completionattemptcompletedform', 'adaptivequiz'));
 
-        return ['completionattemptcompleted'];
+        return [$completionstring];
     }
 
+    /**
+     * Gives back true if completion rules are set and enabled
+     *
+     * @param array $data Array of submitted form values.
+     * @return bool
+     */
     public function completion_rule_enabled($data): bool {
-        if (!isset($data['completionattemptcompleted'])) {
-            return false;
+        global $CFG;
+        $completionstring = 'completionattemptcompleted';
+        $version43min = version_compare($CFG->version, '2023102700', '>=');
+        if ($version43min) {
+            $suffix = $this->get_suffix();
+            $completionstring .= $suffix;
         }
-
-        return $data['completionattemptcompleted'] != 0;
+        if (!isset($data[$completionstring])) {
+             return false;
+        }
+        return $data[$completionstring] != 0;
     }
 
     /**
