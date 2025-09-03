@@ -683,6 +683,6 @@ class attempt {
         });
         $questiontag = array_shift($questiontags);
 
-        return substr($questiontag->name, strlen(ADAPTIVEQUIZ_QUESTION_TAG));
+        return (int)substr($questiontag->name, strlen(ADAPTIVEQUIZ_QUESTION_TAG));
     }
 }
