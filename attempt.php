@@ -115,9 +115,7 @@ if (!empty($uniqueid) && confirm_sesskey()) {
             $quba->process_all_actions($time);
             $quba->finish_all_questions($time);
         };
-
         cat_session::process_administered_item_result($uniqueid, $adaptivequiz, $adaptiveattempt, $qubahelper);
-
     } catch (question_out_of_sequence_exception $e) {
         $url = new moodle_url('/mod/adaptivequiz/attempt.php', array('cmid' => $id));
         throw new moodle_exception('submissionoutofsequencefriendlymessage', 'question', $url);
@@ -125,7 +123,6 @@ if (!empty($uniqueid) && confirm_sesskey()) {
     } catch (Exception $e) {
         $url = new moodle_url('/mod/adaptivequiz/attempt.php', array('cmid' => $id));
         $debuginfo = '';
-
         if (!empty($e->debuginfo)) {
             $debuginfo = $e->debuginfo;
         }

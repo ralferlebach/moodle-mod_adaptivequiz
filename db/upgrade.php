@@ -93,5 +93,27 @@ function xmldb_adaptivequiz_upgrade($oldversion) {
         upgrade_mod_savepoint(true, 2024082100, 'adaptivequiz');
     }
 
+    if ($oldversion < 2024102101) {
+        // Transfer attempt parameters to a dedicated table.
+        $table = new xmldb_table('adaptivequiz_cat_params');
+        $table->add_field('id', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, XMLDB_SEQUENCE);
+        $table->add_field('attempt', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL);
+        $table->add_field('difficultysum', XMLDB_TYPE_NUMBER, '10, 7', null, XMLDB_NOTNULL, null, '0.0');
+        $table->add_field('standarderror', XMLDB_TYPE_NUMBER, '10, 5', null, XMLDB_NOTNULL, null, '0.0');
+        $table->add_field('measure', XMLDB_TYPE_NUMBER, '10, 5', null, XMLDB_NOTNULL, null, '0.0');
+        $table->add_field('usermodified', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL);
+        $table->add_field('timecreated', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL);
+        $table->add_field('timemodified', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL);
+
+        $table->add_key('primary', XMLDB_KEY_PRIMARY, ['id']);
+        $table->add_key('attempt', XMLDB_KEY_FOREIGN, ['attempt'], 'adaptivequiz_attempt', ['id']);
+
+        if (!$dbman->table_exists($table)) {
+            $dbman->create_table($table);
+        }
+
+        upgrade_mod_savepoint(true, 2024102101, 'adaptivequiz');
+    }
+
     return true;
 }

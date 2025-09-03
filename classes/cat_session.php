@@ -145,7 +145,6 @@ class cat_session {
         // If this is a custom CAT model, update the attempt, call the callback and exit.
         if ($adaptivequiz->catmodel) {
             self::catmodel_post_process_item_result($quba, $adaptivequiz, $adaptiveattempt);
-
             adaptivequiz_update_attempt_data($uniqueid, $adaptivequiz->id, $USER->id, 0, 0, 0);
 
             return;
