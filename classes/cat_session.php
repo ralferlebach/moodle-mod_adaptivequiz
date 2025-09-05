@@ -74,8 +74,11 @@ class cat_session {
         $slots = $quba->get_slots();
         $previousslot = !empty($slots) ? end($slots) : null;
 
-        $itemadministration = $itemadministrationfactory->item_administration_implementation($quba, $adaptiveattempt,
-            $adaptivequiz);
+        $itemadministration = $itemadministrationfactory->item_administration_implementation(
+            $quba,
+            $adaptiveattempt,
+            $adaptivequiz
+        );
         $itemadministrationevaluation = $itemadministration->evaluate_ability_to_administer_next_item($previousslot);
 
         if ($itemadministrationevaluation->item_administration_is_to_stop()) {

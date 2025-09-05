@@ -40,7 +40,9 @@ use stdClass;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class attempt {
-
+    /**
+     * The name of the module
+     */
     private const TABLE = 'adaptivequiz_attempt';
 
     /**
