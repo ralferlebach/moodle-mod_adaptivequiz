@@ -17,7 +17,7 @@
 /**
  * Adaptive quiz attempt script.
  *
- * @pacakage   mod_adaptivequiz
+ * @package   mod_adaptivequiz
  * @copyright  2013 onwards Remote-Learner {@link http://www.remote-learner.ca/}
  * @copyright  2022 onwards Vitaly Potenko <potenkov@gmail.com>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
