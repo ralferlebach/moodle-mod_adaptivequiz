@@ -15,29 +15,27 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * @copyright  2022 onwards Vitaly Potenko <potenkov@gmail.com>
+ * Interface to add custom behaviour when an instance of adaptive quiz is created.
+ *
+ * @package    mod_adaptivequiz
+ * @copyright  2023 Vitaly Potenko <potenkov@gmail.com>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-namespace mod_adaptivequiz\local\activityinstance;
+namespace mod_adaptivequiz\local\catmodel\instance;
 
-use basic_testcase;
-use mod_adaptivequiz\local\report\questions_difficulty_range;
+use mod_adaptivequiz_mod_form;
 use stdClass;
 
-/**
- * @covers \mod_adaptivequiz\local\report\questions_difficulty_range
- */
-class questions_difficulty_range_test extends basic_testcase {
+interface catmodel_add_instance_handler {
 
-    public function test_it_can_be_created_from_activity_record(): void {
-        $record = new stdClass();
-        $record->lowestlevel = 5;
-        $record->highestlevel = 25;
-
-        $range = questions_difficulty_range::from_activity_instance($record);
-
-        $this->assertEquals(5, $range->lowest_level());
-        $this->assertEquals(25, $range->highest_level());
-    }
+    /**
+     * Called when an instance of adaptive quiz activity is created.
+     *
+     * Accepts submitted data from mod_form and the form object itself to perform custom steps required by a custom CAT model.
+     *
+     * @param stdClass $adaptivequiz Submitted instance data from mod_form.
+     * @param mod_adaptivequiz_mod_form|null $form
+     */
+    public function add_instance_callback(stdClass $adaptivequiz, ?mod_adaptivequiz_mod_form $form = null): void;
 }

@@ -15,39 +15,28 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * The class represents the sum of difficulty levels of the questions attempted measured in logits.
- *
- * @copyright  2013 onwards Remote-Learner {@link http://www.remote-learner.ca/}
  * @copyright  2022 onwards Vitaly Potenko <potenkov@gmail.com>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-declare(strict_types=1);
+namespace mod_adaptivequiz\local\report;
 
-namespace mod_adaptivequiz\local\catalgorithm;
+use basic_testcase;
+use stdClass;
 
-use InvalidArgumentException;
+/**
+ * @covers \mod_adaptivequiz\local\report\questions_difficulty_range
+ */
+class questions_difficulty_range_test extends basic_testcase {
 
-final class difficulty_logit {
+    public function test_it_can_be_created_from_activity_record(): void {
+        $record = new stdClass();
+        $record->lowestlevel = 5;
+        $record->highestlevel = 25;
 
-    /**
-     * @var float $value
-     */
-    private $value;
+        $range = questions_difficulty_range::from_activity_instance($record);
 
-    private function __construct(float $value) {
-        if ($value === INF) {
-            throw new InvalidArgumentException('unexpected infinite value for the logit');
-        }
-
-        $this->value = $value;
-    }
-
-    public function as_float(): float {
-        return $this->value;
-    }
-
-    public static function from_float(float $value): self {
-        return new self($value);
+        $this->assertEquals(5, $range->lowest_level());
+        $this->assertEquals(25, $range->highest_level());
     }
 }

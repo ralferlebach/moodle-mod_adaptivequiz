@@ -25,12 +25,12 @@
 
 defined('MOODLE_INTERNAL') || die();
 
-use core\output\notification;
 use mod_adaptivequiz\form\requiredpassword;
 use mod_adaptivequiz\local\attempt\attempt_state;
-use mod_adaptivequiz\local\catalgorithm\catalgo;
+use mod_adaptivequiz\local\catalgo;
 use mod_adaptivequiz\output\ability_measure;
 use mod_adaptivequiz\output\attempt_progress;
+use mod_adaptivequiz\output\attempts_number;
 use mod_adaptivequiz\output\report\attempt_administration_report;
 use mod_adaptivequiz\output\report\attempt_answers_distribution_report;
 use mod_adaptivequiz\output\report\individual_user_attempts\individual_user_attempt_action;
@@ -69,20 +69,10 @@ class mod_adaptivequiz_renderer extends plugin_renderer_base {
      *
      * @param int $cmid
      * @param bool $attemptallowed
-     * @param string $activityavailabilitynotification
      * @param bool $browsersecurityenabled
      * @return string
      */
-    public function attempt_controls_or_notification(
-        int $cmid,
-        bool $attemptallowed,
-        string $activityavailabilitynotification,
-        bool $browsersecurityenabled
-    ): string {
-        if ($activityavailabilitynotification) {
-            return $this->notification($activityavailabilitynotification, notification::NOTIFY_WARNING);
-        }
-
+    public function attempt_controls_or_notification(int $cmid, bool $attemptallowed, bool $browsersecurityenabled): string {
         if (!$attemptallowed) {
             return html_writer::div(get_string('noattemptsallowed', 'adaptivequiz'), 'alert alert-info text-center');
         }
@@ -116,10 +106,9 @@ class mod_adaptivequiz_renderer extends plugin_renderer_base {
      * @param int $cmid
      * @param question_usage_by_activity $quba
      * @param int $slot Slot number of the question to be displayed.
-     * @param int $level Difficulty level of question.
      * @param int $questionnumber The order number of question in the quiz.
      */
-    public function question_submit_form($cmid, $quba, $slot, $level, int $questionnumber): string {
+    public function question_submit_form($cmid, $quba, $slot, int $questionnumber): string {
         $output = '';
 
         $processurl = new moodle_url('/mod/adaptivequiz/attempt.php');
@@ -151,8 +140,6 @@ class mod_adaptivequiz_renderer extends plugin_renderer_base {
         $output .= html_writer::empty_tag('input', array('type' => 'hidden', 'name' => 'sesskey', 'value' => sesskey()));
 
         $output .= html_writer::empty_tag('input', array('type' => 'hidden', 'name' => 'slots', 'value' => $slot));
-
-        $output .= html_writer::empty_tag('input', array('type' => 'hidden', 'name' => 'dl', 'value' => $level));
 
         // Finish the form.
         $output .= html_writer::end_tag('div');
@@ -807,6 +794,33 @@ class mod_adaptivequiz_renderer extends plugin_renderer_base {
     protected function render_attempt_administration_report(attempt_administration_report $report): string {
         return $this->render_from_template('mod_adaptivequiz/attempt_administration_report',
             $report->export_for_template($this));
+    }
+
+    /**
+     * A helper for the relevant renderer's method.
+     *
+     * @param stdClass $adaptivequiz
+     * @param stdClass $cm
+     */
+    public function attempts_number(stdClass $adaptivequiz, stdClass $cm): string {
+        return $this->render_attempts_number(attempts_number::when_custom_catmodel_in_use($adaptivequiz, $cm));
+    }
+
+    /**
+     * Renders the number of attempts for the view.php page.
+     *
+     * @param attempts_number $attemptsnumber
+     */
+    protected function render_attempts_number(attempts_number $attemptsnumber): string {
+        $text = get_string('attemptsnumber', 'adaptivequiz', $attemptsnumber->number);
+
+        if (!$attemptsnumber->reporturl) {
+            return $text;
+        }
+
+        return html_writer::link($attemptsnumber->reporturl, $text,
+            ['title' => get_string('attemptsnumberlinktitle', 'adaptivequiz')]
+        );
     }
 
     /**

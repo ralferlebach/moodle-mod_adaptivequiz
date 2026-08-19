@@ -17,7 +17,7 @@
 /**
  * Adaptive quiz attempt script.
  *
- * @package    mod_adaptivequiz
+ * @package   mod_adaptivequiz
  * @copyright  2013 onwards Remote-Learner {@link http://www.remote-learner.ca/}
  * @copyright  2022 onwards Vitaly Potenko <potenkov@gmail.com>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
@@ -27,19 +27,11 @@ require_once(__DIR__ . '/../../config.php');
 require_once($CFG->dirroot . '/mod/adaptivequiz/locallib.php');
 require_once($CFG->dirroot . '/tag/lib.php');
 
-use mod_adaptivequiz\local\adaptive_quiz_requires;
-use mod_adaptivequiz\local\attempt\attempt;
-use mod_adaptivequiz\local\attempt\cat_calculation_steps_result;
-use mod_adaptivequiz\local\catalgorithm\catalgo;
-use mod_adaptivequiz\local\fetchquestion;
-use mod_adaptivequiz\local\itemadministration\item_administration;
-use mod_adaptivequiz\local\question\question_answer_evaluation;
-use mod_adaptivequiz\local\question\questions_answered_summary_provider;
-use mod_adaptivequiz\local\report\questions_difficulty_range;
+use mod_adaptivequiz\cat_session;
+use mod_adaptivequiz\local\attempt;
 
 $id = required_param('cmid', PARAM_INT); // Course module id.
 $uniqueid  = optional_param('uniqueid', 0, PARAM_INT);  // Unique id of the attempt.
-$attempteddifficultylevel  = optional_param('dl', 0, PARAM_INT);
 
 if (!$cm = get_coursemodule_from_id('adaptivequiz', $id)) {
     throw new moodle_exception('invalidcoursemodule');
@@ -69,7 +61,7 @@ try {
 
 // Setup page global for standard viewing.
 $viewurl = new moodle_url('/mod/adaptivequiz/view.php', array('id' => $cm->id));
-$PAGE->set_url('/mod/adaptivequiz/view.php', array('cmid' => $cm->id));
+$PAGE->set_url('/mod/adaptivequiz/view.php', array('id' => $cm->id));
 $PAGE->set_title(format_string($adaptivequiz->name));
 $PAGE->set_context($context);
 $PAGE->activityheader->disable();
@@ -77,17 +69,6 @@ $PAGE->add_body_class('limitedwidth');
 
 // Check if the user has the attempt capability.
 require_capability('mod/adaptivequiz:attempt', $context);
-
-try {
-    (new adaptive_quiz_requires())
-        ->deferred_feedback_question_behaviour_is_enabled();
-} catch (moodle_exception $activityavailabilityexception) {
-    throw new moodle_exception(
-        'activityavailabilitystudentnotification',
-        'adaptivequiz',
-        new moodle_url('/mod/adaptivequiz/view.php', ['id' => $cm->id])
-    );
-}
 
 // Check if the user has any previous attempts at this activity.
 $count = adaptivequiz_count_user_previous_attempts($adaptivequiz->id, $USER->id);
@@ -120,73 +101,21 @@ if (!empty($adaptivequiz->password)) {
     }
 }
 
-$adaptiveattempt = attempt::find_in_progress_for_user($adaptivequiz, $USER->id);
-if ($adaptiveattempt === null) {
-    $adaptiveattempt = attempt::create($adaptivequiz, $USER->id);
-}
-
-$algo = new stdClass();
+// Create an instance of the adaptiveattempt class.
+$adaptiveattempt = new attempt($adaptivequiz, $USER->id);
 $standarderror = 0.0;
-
-$determinenextdifficultylevelresult = null;
+$message = '';
 
 // If uniqueid is not empty the process respones.
 if (!empty($uniqueid) && confirm_sesskey()) {
-    // Check if the uniqueid belongs to the same attempt record the user is currently using.
-    if (!adaptivequiz_uniqueid_part_of_attempt($uniqueid, $cm->instance, $USER->id)) {
-        throw new moodle_exception('uniquenotpartofattempt', 'adaptivequiz');
-    }
-
     // Process student's responses.
     try {
-        // Set a time stamp for the actions below.
-        $time = time();
-        // Load the user's current usage from the DB.
-        $quba = question_engine::load_questions_usage_by_activity((int) $uniqueid);
-        // Update the actions done to the question.
-        $quba->process_all_actions($time);
-        // Finish the grade attempt at the question.
-        $quba->finish_all_questions($time);
-        // Save the data about the usage to the DB.
-        question_engine::save_questions_usage_by_activity($quba);
-
-        if (!empty($attempteddifficultylevel)) {
-            // Check if the minimum number of attempts have been reached.
-            $minattemptreached = adaptivequiz_min_attempts_reached($uniqueid, $cm->instance, $USER->id);
-
-            // Create an instance of the CAT algo class.
-            $algo = new catalgo($minattemptreached, (int) $attempteddifficultylevel);
-
-            $questionanswerevaluation = new question_answer_evaluation($quba);
-            $questionanswerevaluationresult = $questionanswerevaluation->perform();
-
-            // Determine the next difficulty level or whether there is an error.
-            $determinenextdifficultylevelresult = $algo->determine_next_difficulty_level(
-                (float) $adaptiveattempt->read_attempt_data()->difficultysum,
-                (int) $adaptiveattempt->read_attempt_data()->questionsattempted,
-                questions_difficulty_range::from_activity_instance($adaptivequiz),
-                (float) $adaptivequiz->standarderror,
-                $questionanswerevaluationresult,
-                (new questions_answered_summary_provider($quba))->collect_summary()
-            );
-
-            // Increment difficulty level for attempt.
-            $difflogit = $algo->get_levellogit();
-            if (is_infinite($difflogit)) {
-                throw new moodle_exception('unableupdatediffsum', 'adaptivequiz',
-                    new moodle_url('/mod/adaptivequiz/attempt.php', ['cmid' => $id]));
-            }
-
-            $standarderror = $algo->get_standarderror();
-
-            try {
-                $catcalculationresult = cat_calculation_steps_result::from_floats($difflogit, $standarderror, $algo->get_measure());
-                $adaptiveattempt->update_after_question_answered($catcalculationresult, time());
-            } catch (Exception $exception) {
-                throw new moodle_exception('unableupdatediffsum', 'adaptivequiz',
-                    new moodle_url('/mod/adaptivequiz/attempt.php', ['cmid' => $id]));
-            }
-        }
+        $qubahelper = function (question_usage_by_activity $quba): void {
+            $time = time();
+            $quba->process_all_actions($time);
+            $quba->finish_all_questions($time);
+        };
+        cat_session::process_administered_item_result($uniqueid, $adaptivequiz, $adaptiveattempt, $qubahelper);
     } catch (question_out_of_sequence_exception $e) {
         $url = new moodle_url('/mod/adaptivequiz/attempt.php', array('cmid' => $id));
         throw new moodle_exception('submissionoutofsequencefriendlymessage', 'question', $url);
@@ -194,7 +123,6 @@ if (!empty($uniqueid) && confirm_sesskey()) {
     } catch (Exception $e) {
         $url = new moodle_url('/mod/adaptivequiz/attempt.php', array('cmid' => $id));
         $debuginfo = '';
-
         if (!empty($e->debuginfo)) {
             $debuginfo = $e->debuginfo;
         }
@@ -203,50 +131,16 @@ if (!empty($uniqueid) && confirm_sesskey()) {
     }
 }
 
-// Initialize quba.
-$qubaid = $adaptiveattempt->read_attempt_data()->uniqueid;
-$quba = ($qubaid == 0)
-    ? question_engine::make_questions_usage_by_activity('mod_adaptivequiz', $context)
-    : question_engine::load_questions_usage_by_activity($qubaid);
-if ($qubaid == 0) {
-    $quba->set_preferred_behaviour(attempt::ATTEMPTBEHAVIOUR);
-}
+cat_session::run_item_administration($uniqueid, $adaptivequiz, $context, $adaptiveattempt);
 
-$adaptivequiz->context = $context;
-$adaptivequiz->cm = $cm;
-
-$fetchquestion = new fetchquestion($adaptivequiz, 1, $adaptivequiz->lowestlevel, $adaptivequiz->highestlevel);
-
-$itemadministration = new item_administration($quba, $fetchquestion);
-$itemadministrationevaluation = $itemadministration->evaluate_ability_to_administer_next_item($adaptiveattempt, $adaptivequiz,
-    $adaptiveattempt->read_attempt_data()->questionsattempted, $attempteddifficultylevel, $determinenextdifficultylevelresult);
-
-// Check item administration evaluation.
-if ($itemadministrationevaluation->item_administration_is_to_stop()) {
-    // Set the attempt to complete, update the standard error and attempt message, then redirect the user to the attempt-finished
-    // page.
-    if ($algo instanceof catalgo) {
-        $standarderror = $algo->get_standarderror();
-    }
-
-    $noquestionsfetchedforattempt = $uniqueid == 0;
-    if ($noquestionsfetchedforattempt) {
-        // The script will try to complete an 'empty' attempt as it couldn't fetch the first question for some reason.
-        // This is an invalid behaviour, which could be caused by a misconfigured questions pool. Stop it here.
-        throw new moodle_exception('attemptnofirstquestion', 'adaptivequiz',
-            (new moodle_url('/mod/adaptivequiz/view.php', ['id' => $cm->id]))->out());
-    }
-
-    $adaptiveattempt->complete($context, $standarderror, $itemadministrationevaluation->stoppage_reason(), time());
-
+$attemptcompleted = !empty($adaptiveattempt->get_status());
+if ($attemptcompleted) {
     redirect(new moodle_url('/mod/adaptivequiz/attemptfinished.php',
         ['cmid' => $cm->id, 'id' => $cm->instance, 'uattid' => $uniqueid]));
 }
 
-// Retrieve the question slot id.
-$slot = $itemadministrationevaluation->next_item()->slot();
-
-$level = $itemadministrationevaluation->next_item()->difficulty_level();
+$quba = $adaptiveattempt->get_quba();
+$slot = $adaptiveattempt->get_question_slot_number();
 
 $headtags = $output->init_metadata($quba, $slot);
 $PAGE->requires->js_init_call('M.mod_adaptivequiz.init_attempt_form', array($viewurl->out(), $adaptivequiz->browsersecurity),
@@ -272,15 +166,15 @@ if (!empty($adaptivequiz->password) && empty($condition)) {
 
     $mform->display();
 } else {
-    $attemptdata = $adaptiveattempt->read_attempt_data();
+    $attemptrecord = $adaptiveattempt->get_attempt();
 
     if ($adaptivequiz->showattemptprogress) {
         echo $output->container_start('attempt-progress-container');
-        echo $output->attempt_progress($attemptdata->questionsattempted, $adaptivequiz->maximumquestions);
+        echo $output->attempt_progress($attemptrecord->questionsattempted, $adaptivequiz->maximumquestions);
         echo $output->container_end();
     }
 
-    echo $output->question_submit_form($id, $quba, $slot, $level, $attemptdata->questionsattempted + 1);
+    echo $output->question_submit_form($id, $quba, $slot, $attemptrecord->questionsattempted + 1);
 }
 
 echo $output->print_footer();

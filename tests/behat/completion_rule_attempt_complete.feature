@@ -27,26 +27,29 @@ Feature: Set activity as completed when at least one attempt is completed
       | question | tag    |
       | TF1      | adpq_2 |
       | TF2      | adpq_3 |
-    And I log in as "teacher1"
-    And I add a "adaptivequiz" activity to course "Course 1" section "1" and I fill the form with:
-      | Name                         | Adaptive Quiz               |
-      | Description                  | Adaptive quiz description.  |
-      | Question pool                | Adaptive Quiz Questions (2) |
-      | Starting level of difficulty | 2                           |
-      | Lowest level of difficulty   | 1                           |
-      | Highest level of difficulty  | 10                          |
-      | Minimum number of questions  | 2                           |
-      | Maximum number of questions  | 20                          |
-      | Standard Error to stop       | 5                           |
-      | ID number                    | adaptivequiz1               |
-      | Add requirements             | 1                           |
-      | completionattemptcompleted   | 1                           |
-    And I log out
+    And the following "activity" exists:
+      | activity          | adaptivequiz            |
+      | idnumber          | adaptivequiz1           |
+      | course            | C1                      |
+      | name              | Adaptive Quiz           |
+      | startinglevel     | 2                       |
+      | lowestlevel       | 1                       |
+      | highestlevel      | 10                      |
+      | minimumquestions  | 2                       |
+      | maximumquestions  | 20                      |
+      | standarderror     | 5                       |
+      | questionpoolnamed | Adaptive Quiz Questions |
 
   @javascript
-  Scenario: Student completes an attempt
-    When I log in as "student1"
-    And I am on the "adaptivequiz1" "Activity" page
+  Scenario: Teacher sets the completion rule and student completes an attempt
+    Given I am on the "Adaptive Quiz" "adaptivequiz activity editing" page logged in as teacher1
+    And I expand all fieldsets
+    And I set the following fields to these values:
+      | Add requirements           | 1 |
+      | completionattemptcompleted | 1 |
+    And I click on "Save and return to course" "button"
+    And I log out
+    When I am on the "adaptivequiz1" "Activity" page logged in as "student1"
     And I click on "Start attempt" "link"
     And I click on "True" "radio" in the "First question" "question"
     And I press "Submit answer"
@@ -54,8 +57,7 @@ Feature: Set activity as completed when at least one attempt is completed
     And I press "Submit answer"
     And I press "Continue"
     And I log out
-    And I log in as "teacher1"
-    And I am on the "adaptivequiz1" "Activity" page
+    And I am on the "adaptivequiz1" "Activity" page logged in as "teacher1"
     Then "Adaptive Quiz" should have the "Complete an attempt" completion condition
     And I am on "Course 1" course homepage
     And I navigate to "Reports" in current page administration

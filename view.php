@@ -27,18 +27,17 @@ require_once(__DIR__ . '/../../config.php');
 require_once($CFG->libdir . '/tablelib.php');
 require_once($CFG->dirroot.'/mod/adaptivequiz/locallib.php');
 
-use core\output\notification;
-use mod_adaptivequiz\local\adaptive_quiz_requires;
 use mod_adaptivequiz\local\report\questions_difficulty_range;
 use mod_adaptivequiz\local\report\users_attempts\filter\filter;
 use mod_adaptivequiz\local\report\users_attempts\filter\filter_form;
 use mod_adaptivequiz\local\report\users_attempts\filter\filter_options;
 use mod_adaptivequiz\local\report\users_attempts\user_preferences\filter_user_preferences;
-use mod_adaptivequiz\local\report\users_attempts\user_preferences\user_preferences;
+use mod_adaptivequiz\local\user_attempts_table;
+use mod_adaptivequiz\local\report\users_attempts\users_attempts_table;
 use mod_adaptivequiz\local\report\users_attempts\user_preferences\user_preferences_form;
 use mod_adaptivequiz\local\report\users_attempts\user_preferences\user_preferences_repository;
-use mod_adaptivequiz\local\report\users_attempts\users_attempts_table;
-use mod_adaptivequiz\local\user_attempts_table;
+use mod_adaptivequiz\local\report\users_attempts\user_preferences\user_preferences;
+use mod_adaptivequiz\output\attempts_number;
 use mod_adaptivequiz\output\user_attempt_summary;
 
 $id = optional_param('id', 0, PARAM_INT);
@@ -68,8 +67,10 @@ $PAGE->add_body_class('limitedwidth');
 /** @var mod_adaptivequiz_renderer $renderer */
 $renderer = $PAGE->get_renderer('mod_adaptivequiz');
 
+$customcatmodelinuse = !empty($adaptivequiz->catmodel);
+
 $canviewattemptsreport = has_capability('mod/adaptivequiz:viewreport', $context);
-if ($canviewattemptsreport) {
+if ($canviewattemptsreport && !$customcatmodelinuse) {
     $reportuserprefs = user_preferences_repository::get();
 
     $reportuserprefsform = new user_preferences_form($PAGE->url->out());
@@ -129,16 +130,6 @@ if ($canviewattemptsreport) {
     }
 }
 
-$activityisnotavailablenotification = '';
-try {
-    (new adaptive_quiz_requires())
-        ->deferred_feedback_question_behaviour_is_enabled();
-} catch (moodle_exception $activityavailabilityexception) {
-    $activityisnotavailablenotification = $canviewattemptsreport
-        ? get_string('activityavailabilitymanagernotification', 'adaptivequiz', $activityavailabilityexception->getMessage())
-        : get_string('activityavailabilitystudentnotification', 'adaptivequiz');
-}
-
 $event = \mod_adaptivequiz\event\course_module_viewed::create([
     'objectid' => $PAGE->cm->instance,
     'context' => $PAGE->context,
@@ -152,22 +143,18 @@ $PAGE->set_heading(format_string($course->fullname));
 
 echo $OUTPUT->header();
 
-if ($canviewattemptsreport && $activityisnotavailablenotification) {
-    echo $OUTPUT->notification($activityisnotavailablenotification, notification::NOTIFY_WARNING, false);
+if ($canviewattemptsreport && $customcatmodelinuse) {
+    echo $renderer->container_start('text-center');
+    echo $renderer->attempts_number($adaptivequiz, $cm);
+    echo $renderer->container_end();
 }
 
 if (has_capability('mod/adaptivequiz:attempt', $context)) {
     $completedattemptscount = adaptivequiz_count_user_previous_attempts($adaptivequiz->id, $USER->id);
 
     echo $renderer->container_start('attempt-controls-or-notification-container pb-3');
-    if (!($canviewattemptsreport && $activityisnotavailablenotification)) {
-        echo $renderer->attempt_controls_or_notification(
-            $cm->id,
-            adaptivequiz_allowed_attempt($adaptivequiz->attempts, $completedattemptscount),
-            $activityisnotavailablenotification,
-            $adaptivequiz->browsersecurity
-        );
-    }
+    echo $renderer->attempt_controls_or_notification($cm->id,
+        adaptivequiz_allowed_attempt($adaptivequiz->attempts, $completedattemptscount), $adaptivequiz->browsersecurity);
     echo $renderer->container_end();
 
     $allattemptscount = $DB->count_records('adaptivequiz_attempt',
@@ -196,7 +183,7 @@ if (has_capability('mod/adaptivequiz:attempt', $context)) {
     }
 }
 
-if ($canviewattemptsreport) {
+if ($canviewattemptsreport && !$customcatmodelinuse) {
     echo $renderer->heading(get_string('activityreports', 'adaptivequiz'), '3', 'text-center');
 
     groups_print_activity_menu($cm, new moodle_url('/mod/adaptivequiz/view.php', ['id' => $cm->id]));

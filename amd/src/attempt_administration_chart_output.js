@@ -149,8 +149,9 @@ define([
 
         // Hide lines and points for standard error min/max datasets.
         config.data.datasets[DatasetConfig.indices.STANDARD_ERROR_MAX].pointStyle = false;
-        config.data.datasets[DatasetConfig.indices.STANDARD_ERROR_MAX].showLine = false;
         config.data.datasets[DatasetConfig.indices.STANDARD_ERROR_MIN].pointStyle = false;
+
+        config.data.datasets[DatasetConfig.indices.STANDARD_ERROR_MAX].showLine = false;
         config.data.datasets[DatasetConfig.indices.STANDARD_ERROR_MIN].showLine = false;
 
         // Hide entire datasets with standard error percentages and right/wrong flags.

@@ -83,7 +83,7 @@ class attempt_state_change_observers_test extends advanced_testcase {
         $event = attempt_completed::create([
             'objectid' => $attemptid,
             'context' => $context,
-            'userid' => $user->id
+            'userid' => $user->id,
         ]);
         $event->add_record_snapshot('adaptivequiz_attempt', $attemptrecordsnapshot);
         $event->add_record_snapshot('adaptivequiz', $adaptivequiz);

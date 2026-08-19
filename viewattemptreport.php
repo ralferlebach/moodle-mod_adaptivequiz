@@ -26,8 +26,8 @@ require_once(dirname(__FILE__).'/../../config.php');
 require_once($CFG->dirroot.'/mod/adaptivequiz/locallib.php');
 
 use mod_adaptivequiz\local\report\individual_user_attempts\filter as user_attempts_table;
-use mod_adaptivequiz\local\report\individual_user_attempts\table as individual_user_attempts_table;
 use mod_adaptivequiz\local\report\questions_difficulty_range;
+use mod_adaptivequiz\local\report\individual_user_attempts\table as individual_user_attempts_table;
 
 $id = required_param('cmid', PARAM_INT);
 $userid = required_param('userid', PARAM_INT);

@@ -15,24 +15,25 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * @copyright  2013 onwards Remote-Learner {@link http://www.remote-learner.ca/}
- * @copyright  2022 onwards Vitaly Potenko <potenkov@gmail.com>
+ * Interface to be implemented when a custom CAT model wants to add some validation to the mod_form.
+ *
+ * @package    mod_adaptivequiz
+ * @copyright  2023 Vitaly Potenko <potenkov@gmail.com>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-namespace mod_adaptivequiz\local\catalgorithm;
+namespace mod_adaptivequiz\local\catmodel\form;
 
-use base_testcase;
-use InvalidArgumentException;
+interface catmodel_mod_form_validator {
 
-/**
- * @group mod_adaptivequiz
- * @covers \mod_adaptivequiz\local\catalgorithm\difficulty_logit
- */
-class difficulty_logit_test extends base_testcase {
-
-    public function test_it_cannot_be_instantiated_with_infinite_value(): void {
-        $this->expectException(InvalidArgumentException::class);
-        difficulty_logit::from_float(INF);
-    }
+    /**
+     * Adds validation to mod_form which may be required for the fields added by the custom CAT model.
+     *
+     * See the description of parameters and return values for {@see \moodleform::validation()}.
+     *
+     * @param array $data
+     * @param array $files
+     * @return array
+     */
+    public function validation_callback(array $data, array $files): array;
 }
