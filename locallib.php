@@ -17,6 +17,7 @@
 /**
  * Some utility functions for the adaptive quiz activity.
  *
+ * @package    mod_adaptivequiz
  * @copyright  2013 onwards Remote-Learner {@link http://www.remote-learner.ca/}
  * @copyright  2022 onwards Vitaly Potenko <potenkov@gmail.com>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
@@ -32,7 +33,7 @@ require_once($CFG->dirroot . '/question/engine/lib.php');
 use core_question\local\bank\question_edit_contexts;
 use mod_adaptivequiz\event\attempt_completed;
 use mod_adaptivequiz\local\attempt\attempt_state;
-use mod_adaptivequiz\local\catalgorithm\catalgo;
+use mod_adaptivequiz\local\catalgo;
 use qbank_managecategories\helper as qbank_managecategories_helper;
 
 // Default tagging used.
@@ -56,11 +57,11 @@ define('ADAPTIVEQUIZ_STOPCRI_MAXLEVEL', 'maxlevel');
 define('ADAPTIVEQUIZ_STOPCRI_MINLEVEL', 'minlevel');
 
 /**
- * This function returns an array of question bank categories accessible to the
- * current user in the given context
- * @param context $context A context object
- * @return array An array whose keys are the question category ids and values
- * are the name of the question category
+ * This function returns an array of question bank categories accessible to the current user in the given context.
+ *
+ * @param context $context A context object.
+ * @return array An array whose keys are the question category ids and values are the name of the question category.
+ * @deprecated Since version 2.6.0.
  */
 function adaptivequiz_get_question_categories(context $context) {
     if (empty($context)) {
@@ -87,9 +88,11 @@ function adaptivequiz_get_question_categories(context $context) {
 }
 
 /**
- * This function is healper method to create default
- * @param object $context A context object
- * @return mixed The default category in the course context or false
+ * This function is helper method to create default.
+ *
+ * @param object $context A context object.
+ * @return mixed The default category in the course context or false.
+ * @deprecated Since version 2.6.0.
  */
 function adaptivequiz_make_default_categories($context) {
     if (empty($context)) {
@@ -103,10 +106,11 @@ function adaptivequiz_make_default_categories($context) {
 }
 
 /**
- * This function returns an array of question categories that were
- * selected for use for the activity instance
- * @param int $instance Instance id
- * @return array an array of question category ids
+ * This function returns an array of question categories that were selected for use for the activity instance.
+ *
+ * @param int $instance Instance id.
+ * @return array An array of question category ids.
+ * @deprecated Since version 2.6.0.
  */
 function adaptivequiz_get_selected_question_cateogires($instance) {
     global $DB;
@@ -176,6 +180,90 @@ function adaptivequiz_uniqueid_part_of_attempt($uniqueid, $instance, $userid) {
 
     $param = array('uniqueid' => $uniqueid, 'instance' => $instance, 'userid' => $userid);
     return $DB->record_exists('adaptivequiz_attempt', $param);
+}
+
+/**
+ * This function increments the difficultysum value and the number of questions attempted for the adaptivequiz_attempt record
+ * @throws dml_exception A DML specific exception
+ * @param int $uniqueid uniqueid value of the adaptivequiz_attempt record
+ * @param int $instance instance value of the adaptivequiz_attempt record
+ * @param int $userid unerid value of the adaptivequiz_attempt record
+ * @param float $level the logit of the difficulty level
+ * @param float $standarderror the standard error of the user's attempt
+ * @param float $measure the measure of ability for the attempt
+ * @return bool true of update successful, otherwise false
+ */
+function adaptivequiz_update_attempt_data($uniqueid, $instance, $userid, $level, $standarderror, $measure) {
+    global $DB;
+
+    // Check if the is an infinity.
+    if (is_infinite($level)) {
+        return false;
+    }
+
+    $param = array('uniqueid' => $uniqueid, 'instance' => $instance, 'userid' => $userid);
+    try {
+        $fields = 'id,difficultysum,questionsattempted,timemodified,standarderror,measure';
+        $attempt = $DB->get_record('adaptivequiz_attempt', $param, $fields, MUST_EXIST);
+    } catch (dml_exception $e) {
+        $debuginfo = '';
+
+        if (!empty($e->debuginfo)) {
+            $debuginfo = $e->debuginfo;
+        }
+
+        throw new moodle_exception('updateattempterror', 'adaptivequiz', '', $e->getMessage(), $debuginfo);
+    }
+
+    $attempt->difficultysum = (float) $attempt->difficultysum + (float) $level;
+    $attempt->questionsattempted = (int) $attempt->questionsattempted + 1;
+    $attempt->standarderror = (float) $standarderror;
+    $attempt->measure = (float) $measure;
+    $attempt->timemodified = time();
+
+    $DB->update_record('adaptivequiz_attempt', $attempt);
+
+    return true;
+}
+
+/**
+ * This function sets the complete status for an attempt.
+ *
+ * @throws dml_exception
+ * @throws coding_exception
+ */
+function adaptivequiz_complete_attempt(
+    int $uniqueid,
+    stdClass $adaptivequiz,
+    context_module $context,
+    int $userid,
+    string $standarderror,
+    string $statusmessage
+): void {
+    global $DB;
+
+    $attempt = $DB->get_record('adaptivequiz_attempt',
+        ['uniqueid' => $uniqueid, 'instance' => $adaptivequiz->id, 'userid' => $userid], '*', MUST_EXIST);
+
+    // Need to keep the record as it is before triggering the event below.
+    $attemptrecordsnapshot = clone $attempt;
+
+    $attempt->attemptstate = attempt_state::COMPLETED;
+    $attempt->attemptstopcriteria = $statusmessage;
+    $attempt->timemodified = time();
+    $attempt->standarderror = $standarderror;
+    $DB->update_record('adaptivequiz_attempt', $attempt);
+
+    adaptivequiz_update_grades($adaptivequiz, $userid);
+
+    $event = attempt_completed::create([
+        'objectid' => $attempt->id,
+        'context' => $context,
+        'userid' => $userid
+    ]);
+    $event->add_record_snapshot('adaptivequiz_attempt', $attemptrecordsnapshot);
+    $event->add_record_snapshot('adaptivequiz', $adaptivequiz);
+    $event->trigger();
 }
 
 /**

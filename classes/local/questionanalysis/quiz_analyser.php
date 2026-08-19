@@ -29,7 +29,9 @@ use question_engine;
 use stdClass;
 
 /**
- * Questions-analyser class. The class provides a mechanism for loading and analysing question usage, performance, and efficacy.
+ * Questions-analyser class.
+ *
+ * The class provides a mechanism for loading and analysing question usage, performance, and efficacy.
  *
  * @package    mod_adaptivequiz
  * @copyright  2013 Remote-Learner {@link http://www.remote-learner.ca/}
@@ -54,12 +56,11 @@ class quiz_analyser {
     }
 
     /**
-     * Load attempts from an adaptive quiz instance
+     * Load attempts from an adaptive quiz instance.
      *
      * @param int $instance
-     * @return void
      */
-    public function load_attempts($instance) {
+    public function load_attempts(int $instance): void {
         global $DB;
 
         $adaptivequiz  = $DB->get_record('adaptivequiz', ['id' => $instance], '*');

@@ -22,10 +22,11 @@ This Moodle activity module was originally created as a collaborative effort bet
 College][3] and [Remote Learner][4]. The current repository was forked from
 [https://github.com/middlebury/moodle-mod_adaptivequiz][5].
 
-The current branch of the repository is compatible with the latest dev version of Moodle. This is not a release branch
-and can be used at your own risk.
+The current branch of the repository is compatible with Moodle 5.0, 5.1 and 5.2.
 
-Further support and development of the plugin to be expected.
+**<span style="font-size:1.25em">IMPORTANT: the current branch is not an official plugin release for Moodle 5! It is
+an alpha and is intended for test sites only. Use the current branch at your own risk for any public Moodle
+sites.</span>**
 
 [3]: http://www.middlebury.edu/
 [4]: http://remote-learner.net/
@@ -48,7 +49,7 @@ abilities on will make the test ineffective and may provide inconclusive results
 
 Take for example a language placement test. Low-difficulty vocabulary and
 reading-comprehension questions would likely be answerable by all but the most novice
-test-takers. Likewise, high-difficulty questions involving advanced gramatical
+test-takers. Likewise, high-difficulty questions involving advanced grammatical
 constructs and nuanced reading-comprehension would be likely only be correctly
 answered by advanced, high-level test-takers. Such questions would all be good
 candidates for usage in an Adaptive Test. In contrast, a question like "Is 25¥ a good
@@ -63,6 +64,15 @@ Questions must be tagged with a 'difficulty score' using the format
 of the scale is arbitrary (e.g. 1-10, 0-99, 1-1000), but should have enough levels to
 distinguish between
 question difficulties.
+
+### Moodle 5 updates ###
+The current version allows to start operating with entire question banks in Moodle. This means a quiz manager
+can link an entire question bank or several question banks to use them as an item bank for the adaptive quiz.
+This is the key difference from any previous plugin version where the item bank consisted of linked question
+categories. For the upgraded sites however, all question categories linked as an item bank (or 'questions pool')
+in previous plugin versions remain linked with no changes. Please note, that quiz managers won't be able to
+link more separate question categories in the new plugin version, this is a temporary limitation in the new
+item bank management. As a new item bank, only entire question banks can be linked.
 
 The Testing Process
 -------------------
@@ -158,9 +168,9 @@ additional questions.
 
 Starting level
 ---------------
-As mentioned above, this usually will be set in the lower part of the difficulty
+As mentioned above, this will usually be set in the lower part of the difficulty
 range (about 1/3 of the way up from the bottom) so that most test takers will be able
-answer one of the first two questions correctly and get a moral boost from their
+to answer one of the first two questions correctly and get a moral boost from their
 correct answers. If the starting level is too high, low-ability users would be asked
 several questions they can't answer before the test begins asking them questions at a
 level they can answer.
@@ -190,5 +200,5 @@ For example, given a test with levels 1-10 and a test-taker that answered every
 question 5 and below correctly and every question 6 and up wrong, the test-taker's
 ability measure would fall close to 5.5.
 
-Remember that the ability measure does have error associated with it. Be sure to take the standard error amount into account when
-acting on the score.
+Remember that the ability measure does have error associated with it. Be sure to take the standard error amount into account
+when acting on the score.

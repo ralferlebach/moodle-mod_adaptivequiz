@@ -16,46 +16,54 @@ Feature: Set activity as completed when at least one attempt is completed
       | user     | course | role           |
       | teacher1 | C1     | editingteacher |
       | student1 | C1     | student        |
+    And the following "activities" exist:
+      | activity | name    | course | idnumber |
+      | qbank    | Qbank 1 | C1     | qbank1   |
     And the following "question categories" exist:
-      | contextlevel | reference | name                    |
-      | Course       | C1        | Adaptive Quiz Questions |
+      | contextlevel    | reference | name                    |
+      | Activity module | qbank1    | Adaptive Quiz Questions |
     And the following "questions" exist:
       | questioncategory        | qtype     | name | questiontext    | answer |
       | Adaptive Quiz Questions | truefalse | TF1  | First question  | True   |
       | Adaptive Quiz Questions | truefalse | TF2  | Second question | True   |
     And the following "core_question > Tags" exist:
       | question | tag    |
-      | TF1      | adpq_2 |
-      | TF2      | adpq_3 |
-    And I log in as "teacher1"
-    And I add a "adaptivequiz" activity to course "Course 1" section "1" and I fill the form with:
-      | Name                         | Adaptive Quiz               |
-      | Description                  | Adaptive quiz description.  |
-      | Question pool                | Adaptive Quiz Questions (2) |
-      | Starting level of difficulty | 2                           |
-      | Lowest level of difficulty   | 1                           |
-      | Highest level of difficulty  | 10                          |
-      | Minimum number of questions  | 2                           |
-      | Maximum number of questions  | 20                          |
-      | Standard Error to stop       | 5                           |
-      | ID number                    | adaptivequiz1               |
-      | Add requirements             | 1                           |
-      | completionattemptcompleted   | 1                           |
-    And I log out
+      | TF1      | adpq_1 |
+      | TF2      | adpq_2 |
+    And the following "activity" exists:
+      | activity          | adaptivequiz            |
+      | idnumber          | adaptivequiz1           |
+      | course            | C1                      |
+      | name              | Adaptive Quiz           |
+      | startinglevel     | 1                       |
+      | lowestlevel       | 1                       |
+      | highestlevel      | 2                       |
+      | minimumquestions  | 2                       |
+      | maximumquestions  | 2                       |
+      | standarderror     | 5                       |
+      | questionpoolnamed | Adaptive Quiz Questions |
+    And the following "mod_adaptivequiz > links with question banks" exist:
+      | adaptivequiz  | idnumber |
+      | Adaptive Quiz | qbank1   |
 
   @javascript
-  Scenario: Student completes an attempt
-    When I log in as "student1"
-    And I am on the "adaptivequiz1" "Activity" page
-    And I click on "Start attempt" "link"
+  Scenario: Teacher sets the completion rule and student completes an attempt
+    Given I am on the "Adaptive Quiz" "adaptivequiz activity editing" page logged in as teacher1
+    And I expand all fieldsets
+    And I set the following fields to these values:
+      | Add requirements           | 1 |
+      | completionattemptcompleted | 1 |
+    And I click on "Save and return to course" "button"
+    And I log out
+    When I am on the "adaptivequiz1" "Activity" page logged in as "student1"
+    And I click on "Start attempt" "button"
     And I click on "True" "radio" in the "First question" "question"
     And I press "Submit answer"
     And I click on "True" "radio" in the "Second question" "question"
     And I press "Submit answer"
     And I press "Continue"
     And I log out
-    And I log in as "teacher1"
-    And I am on the "adaptivequiz1" "Activity" page
+    And I am on the "adaptivequiz1" "Activity" page logged in as "teacher1"
     Then "Adaptive Quiz" should have the "Complete an attempt" completion condition
     And I am on "Course 1" course homepage
     And I navigate to "Reports" in current page administration

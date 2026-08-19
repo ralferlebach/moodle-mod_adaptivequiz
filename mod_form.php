@@ -14,13 +14,6 @@
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
-defined('MOODLE_INTERNAL') || die();
-
-require_once($CFG->dirroot . '/course/moodleform_mod.php');
-require_once($CFG->dirroot . '/mod/adaptivequiz/locallib.php');
-
-use mod_adaptivequiz\local\repository\questions_repository;
-
 /**
  * Definition of activity settings form.
  *
@@ -29,15 +22,27 @@ use mod_adaptivequiz\local\repository\questions_repository;
  * @copyright  2022 onwards Vitaly Potenko <potenkov@gmail.com>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
+
+defined('MOODLE_INTERNAL') || die();
+
+require_once($CFG->dirroot . '/course/moodleform_mod.php');
+require_once($CFG->dirroot . '/mod/adaptivequiz/locallib.php');
+
+use mod_adaptivequiz\attempt_feedback_placeholders_helper;
+use mod_adaptivequiz\output\editor_placeholders;
+
+/**
+ * Module instance settings form
+ */
 class mod_adaptivequiz_mod_form extends moodleform_mod {
 
     /**
      * Form definition.
      */
     public function definition() {
-        $mform = $this->_form;
+        global $OUTPUT;
 
-        $pluginconfig = get_config('adaptivequiz');
+        $mform = $this->_form;
 
         // Adding the "general" fieldset, where all the common settings are showed.
         $mform->addElement('header', 'general', get_string('general', 'form'));
@@ -85,81 +90,49 @@ class mod_adaptivequiz_mod_form extends moodleform_mod {
         $mform->addHelpButton('browsersecurity', 'browsersecurity', 'adaptivequiz');
         $mform->setDefault('browsersecurity', 0);
 
-        // Retireve a list of available course categories.
-        adaptivequiz_make_default_categories($this->context);
-        $options = adaptivequiz_get_question_categories($this->context);
-        $selquestcat = adaptivequiz_get_selected_question_cateogires($this->_instance);
-
-        $select = $mform->addElement('select', 'questionpool', get_string('questionpool', 'adaptivequiz'), $options);
-        $mform->addHelpButton('questionpool', 'questionpool', 'adaptivequiz');
-        $select->setMultiple(true);
-        $mform->addRule('questionpool', null, 'required', null, 'client');
-        $mform->getElement('questionpool')->setSelected($selquestcat);
-
-        $mform->addElement('text', 'startinglevel', get_string('startinglevel', 'adaptivequiz'),
-            ['size' => '3', 'maxlength' => '3']);
-        $mform->addHelpButton('startinglevel', 'startinglevel', 'adaptivequiz');
-        $mform->addRule('startinglevel', get_string('formelementempty', 'adaptivequiz'), 'required', null, 'client');
-        $mform->addRule('startinglevel', get_string('formelementnumeric', 'adaptivequiz'), 'numeric', null, 'client');
-        $mform->setType('startinglevel', PARAM_INT);
-        $mform->setDefault('startinglevel', $pluginconfig->startinglevel);
-
-        $mform->addElement('text', 'lowestlevel', get_string('lowestlevel', 'adaptivequiz'),
-            ['size' => '3', 'maxlength' => '3']);
-        $mform->addHelpButton('lowestlevel', 'lowestlevel', 'adaptivequiz');
-        $mform->addRule('lowestlevel', get_string('formelementempty', 'adaptivequiz'), 'required', null, 'client');
-        $mform->addRule('lowestlevel', get_string('formelementnumeric', 'adaptivequiz'), 'numeric', null, 'client');
-        $mform->setType('lowestlevel', PARAM_INT);
-        $mform->setDefault('lowestlevel', $pluginconfig->lowestlevel);
-
-        $mform->addElement('text', 'highestlevel', get_string('highestlevel', 'adaptivequiz'),
-            ['size' => '3', 'maxlength' => '3']);
-        $mform->addHelpButton('highestlevel', 'highestlevel', 'adaptivequiz');
-        $mform->addRule('highestlevel', get_string('formelementempty', 'adaptivequiz'), 'required', null, 'client');
-        $mform->addRule('highestlevel', get_string('formelementnumeric', 'adaptivequiz'), 'numeric', null, 'client');
-        $mform->setType('highestlevel', PARAM_INT);
-        $mform->setDefault('highestlevel', $pluginconfig->highestlevel);
-
-        $mform->addElement('textarea', 'attemptfeedback', get_string('attemptfeedback', 'adaptivequiz'),
-            'wrap="virtual" rows="10" cols="50"');
-        $mform->addHelpButton('attemptfeedback', 'attemptfeedback', 'adaptivequiz');
-        $mform->setType('attemptfeedback', PARAM_NOTAGS);
-
-        $mform->addElement('select', 'showabilitymeasure', get_string('showabilitymeasure', 'adaptivequiz'),
-            [get_string('no'), get_string('yes')]);
-        $mform->addHelpButton('showabilitymeasure', 'showabilitymeasure', 'adaptivequiz');
-        $mform->setDefault('showabilitymeasure', 0);
-
         $mform->addElement('select', 'showattemptprogress', get_string('modformshowattemptprogress', 'adaptivequiz'),
             [get_string('no'), get_string('yes')]);
         $mform->addHelpButton('showattemptprogress', 'modformshowattemptprogress', 'adaptivequiz');
         $mform->setDefault('showattemptprogress', 0);
 
-        $mform->addElement('header', 'stopingconditionshdr', get_string('stopingconditionshdr', 'adaptivequiz'));
+        $mform->addElement('select', 'showabilitymeasuresummary', get_string('showabilitymeasuresummary', 'adaptivequiz'),
+            [get_string('no'), get_string('yes')]);
+        $mform->addHelpButton('showabilitymeasuresummary', 'showabilitymeasuresummary', 'adaptivequiz');
+        $mform->setDefault('showabilitymeasuresummary', 0);
 
-        $mform->addElement('text', 'minimumquestions', get_string('minimumquestions', 'adaptivequiz'),
-            ['size' => '3', 'maxlength' => '3']);
-        $mform->addHelpButton('minimumquestions', 'minimumquestions', 'adaptivequiz');
-        $mform->addRule('minimumquestions', get_string('formelementempty', 'adaptivequiz'), 'required', null, 'client');
-        $mform->addRule('minimumquestions', get_string('formelementnumeric', 'adaptivequiz'), 'numeric', null, 'client');
-        $mform->setType('minimumquestions', PARAM_INT);
-        $mform->setDefault('minimumquestions', $pluginconfig->minimumquestions);
+        $mform->addElement('header', 'attemptfeedbackhdr', get_string('attemptfeedbackhdr', 'adaptivequiz'));
 
-        $mform->addElement('text', 'maximumquestions', get_string('maximumquestions', 'adaptivequiz'),
-            ['size' => '3', 'maxlength' => '3']);
-        $mform->addHelpButton('maximumquestions', 'maximumquestions', 'adaptivequiz');
-        $mform->addRule('maximumquestions', get_string('formelementempty', 'adaptivequiz'), 'required', null, 'client');
-        $mform->addRule('maximumquestions', get_string('formelementnumeric', 'adaptivequiz'), 'numeric', null, 'client');
-        $mform->setType('maximumquestions', PARAM_INT);
-        $mform->setDefault('maximumquestions', $pluginconfig->maximumquestions);
+        $isnewinstance = !$this->current->instance;
+        if (!$isnewinstance) {
+            $customfeedbackenabled = $this->current->attemptfeedbackenable;
+            if ($customfeedbackenabled == 1 || $customfeedbackenabled == -1) {
+                $mform->setExpanded('attemptfeedbackhdr');
+            }
+        }
 
-        $mform->addElement('text', 'standarderror', get_string('standarderror', 'adaptivequiz'),
-            ['size' => '10', 'maxlength' => '10']);
-        $mform->addHelpButton('standarderror', 'standarderror', 'adaptivequiz');
-        $mform->addRule('standarderror', get_string('formelementempty', 'adaptivequiz'), 'required', null, 'client');
-        $mform->addRule('standarderror', get_string('formelementdecimal', 'adaptivequiz'), 'numeric', null, 'client');
-        $mform->setType('standarderror', PARAM_FLOAT);
-        $mform->setDefault('standarderror', $pluginconfig->standarderror);
+        $mform->addElement('advcheckbox', 'attemptfeedbackenable', get_string('attemptfeedbackenable', 'adaptivequiz'));
+
+        $mform->addElement('editor', 'attemptfeedbackeditor', get_string('attemptfeedback', 'adaptivequiz'),
+            ['rows' => 10],
+            ['maxfiles' => EDITOR_UNLIMITED_FILES, 'noclean' => true, 'context' => $this->context, 'subdirs' => true]);
+        $mform->setType('attemptfeedbackeditor', PARAM_RAW);
+        $mform->addHelpButton('attemptfeedbackeditor', 'attemptfeedback', 'adaptivequiz');
+        $mform->disabledIf('attemptfeedbackeditor', 'attemptfeedbackenable', 'notchecked');
+
+        $feedbackplaceholders = new editor_placeholders(attempt_feedback_placeholders_helper::configured()->placeholder_options());
+        $feedbackplaceholderscontent = $OUTPUT->render_from_template('mod_adaptivequiz/editor_placeholders_desc',
+            $feedbackplaceholders->export_for_template($OUTPUT));
+        $mform->addElement('static', 'attemptfeedbackplaceholdersdesc', '', $feedbackplaceholderscontent);
+        $mform->addHelpButton('attemptfeedbackplaceholdersdesc', 'attemptfeedbackplaceholdersdesc', 'adaptivequiz');
+
+        $mform->addElement('select', 'showabilitymeasurefeedback', get_string('showabilitymeasurefeedback', 'adaptivequiz'),
+            [get_string('no'), get_string('yes')]);
+        $mform->addHelpButton('showabilitymeasurefeedback', 'showabilitymeasurefeedback', 'adaptivequiz');
+        $mform->setDefault('showabilitymeasurefeedback', 0);
+
+        $mform->addElement('header', 'advancedhdr', get_string('advanced'));
+        $mform->addElement('advcheckbox', 'debuginfoenable', get_string('debuginfoenable', 'adaptivequiz'));
+        $mform->addHelpButton('debuginfoenable', 'debuginfoenable', 'adaptivequiz');
 
         // Grade settings.
         $this->standard_grading_coursemodule_elements();
@@ -179,6 +152,9 @@ class mod_adaptivequiz_mod_form extends moodleform_mod {
         $this->add_action_buttons();
     }
 
+    /**
+     * Custom completion rules support.
+     */
     public function add_completion_rules(): array {
         $form = $this->_form;
         $form->addElement('checkbox', 'completionattemptcompleted', ' ',
@@ -187,6 +163,9 @@ class mod_adaptivequiz_mod_form extends moodleform_mod {
         return ['completionattemptcompleted'];
     }
 
+    /**
+     * Custom completion rules support.
+     */
     public function completion_rule_enabled($data): bool {
         if (!isset($data['completionattemptcompleted'])) {
             return false;
@@ -196,74 +175,49 @@ class mod_adaptivequiz_mod_form extends moodleform_mod {
     }
 
     /**
-     * Perform extra validation. @see validation() in moodleform_mod.php.
+     * Overrides the parent's method.
      *
-     * @param array $data Array of submitted form values.
-     * @param array $files Array of file data.
-     * @return array Array of form elements that didn't pass validation.
-     * @throws coding_exception
-     * @throws dml_exception
+     * @param array $defaultvalues Passed by reference, the parameter's original name is changed to meet the code style.
      */
-    public function validation($data, $files) {
-        $errors = parent::validation($data, $files);
+    public function data_preprocessing(&$defaultvalues) {
+        parent::data_preprocessing($defaultvalues);
 
-        if (empty($data['questionpool'])) {
-            $errors['questionpool'] = get_string('formquestionpool', 'adaptivequiz');
+        $isnewinstance = !$this->current->instance;
+        if ($isnewinstance) {
+            return;
         }
 
-        // Validate for positivity.
-        if (0 >= $data['minimumquestions']) {
-            $errors['minimumquestions'] = get_string('formelementnegative', 'adaptivequiz');
+        // Whether the instance is in 'transition state' to start using the editor-powered custom feedback.
+        $newcustomfeedbackpending = $this->current->attemptfeedbackenable == -1;
+        if ($newcustomfeedbackpending) {
+            $legacycustomfeedbackenabled = !empty($this->current->attemptfeedback);
+            if ($legacycustomfeedbackenabled) {
+                $defaultvalues['attemptfeedbackenable'] = 1;
+                $defaultvalues['attemptfeedbackeditor'] = [
+                    'text' => $defaultvalues['attemptfeedback'],
+                    'format' => FORMAT_HTML,
+                ];
+
+                return;
+            }
+
+            $defaultvalues['attemptfeedbackenable'] = 0;
+            $defaultvalues['attemptfeedbackeditor'] = [
+                'text' => '',
+                'format' => FORMAT_HTML,
+            ];
+
+            return;
         }
 
-        if (0 >= $data['maximumquestions']) {
-            $errors['maximumquestions'] = get_string('formelementnegative', 'adaptivequiz');
+        $feedbackdraftitemid = file_get_submitted_draft_itemid('attemptfeedback');
+        if (!empty($defaultvalues['attemptfeedback'])) {
+            $defaultvalues['attemptfeedbackeditor'] = [
+                'text' => file_prepare_draft_area($feedbackdraftitemid, $this->context->id, 'mod_adaptivequiz', 'attemptfeedback',
+                    0, ['subdirs' => 0], $defaultvalues['attemptfeedback']),
+                'itemid' => $feedbackdraftitemid,
+                'format' => $defaultvalues['attemptfeedbackformat'],
+            ];
         }
-
-        if (0 >= $data['startinglevel']) {
-            $errors['startinglevel'] = get_string('formelementnegative', 'adaptivequiz');
-        }
-
-        if (0 >= $data['lowestlevel']) {
-            $errors['lowestlevel'] = get_string('formelementnegative', 'adaptivequiz');
-        }
-
-        if (0 >= $data['highestlevel']) {
-            $errors['highestlevel'] = get_string('formelementnegative', 'adaptivequiz');
-        }
-
-        if ((float) 0 > (float) $data['standarderror'] || (float) 50 <= (float) $data['standarderror']) {
-            $errors['standarderror'] = get_string('formstderror', 'adaptivequiz');
-        }
-
-        // Validate higher and lower values.
-        if ($data['minimumquestions'] >= $data['maximumquestions']) {
-            $errors['minimumquestions'] = get_string('formminquestgreaterthan', 'adaptivequiz');
-        }
-
-        if ($data['lowestlevel'] >= $data['highestlevel']) {
-            $errors['lowestlevel'] = get_string('formlowlevelgreaterthan', 'adaptivequiz');
-        }
-
-        if (!($data['startinglevel'] >= $data['lowestlevel'] && $data['startinglevel'] <= $data['highestlevel'])) {
-            $errors['startinglevel'] = get_string('formstartleveloutofbounds', 'adaptivequiz');
-        }
-
-        if ($questionspoolerrormsg = $this->validate_questions_pool($data['questionpool'], $data['startinglevel'])) {
-            $errors['questionpool'] = $questionspoolerrormsg;
-        }
-
-        return $errors;
-    }
-
-    /**
-     * @param int[] $qcategoryidlist A list of id of selected questions categories.
-     * @return string An error message if any.
-     * @throws coding_exception
-     */
-    private function validate_questions_pool(array $qcategoryidlist, int $startinglevel): string {
-        return questions_repository::count_adaptive_questions_in_pool_with_level($qcategoryidlist, $startinglevel) > 0
-            ? ''
-            : get_string('questionspoolerrornovalidstartingquestions', 'adaptivequiz');
     }
 }

@@ -16,9 +16,12 @@ Feature: Adaptive quiz content
       | user     | course | role           |
       | teacher1 | C1     | editingteacher |
       | student1 | C1     | student        |
+    And the following "activities" exist:
+      | activity | name    | course | idnumber |
+      | qbank    | Qbank 1 | C1     | qbank1   |
     And the following "question categories" exist:
-      | contextlevel | reference | name                    |
-      | Course       | C1        | Adaptive Quiz Questions |
+      | contextlevel    | reference | name                    |
+      | Activity module | qbank1    | Adaptive Quiz Questions |
     And the following "questions" exist:
       | questioncategory        | qtype     | name | questiontext                | answer |
       | Adaptive Quiz Questions | truefalse | Q1   | Question 1 (difficulty 1).  | True   |
@@ -32,17 +35,17 @@ Feature: Adaptive quiz content
       | Adaptive Quiz Questions | truefalse | Q9   | Question 9 (difficulty 5).  | True   |
       | Adaptive Quiz Questions | truefalse | Q10  | Question 10 (difficulty 5). | True   |
     And the following "core_question > Tags" exist:
-      | question  | tag    |
-      | Q1        | adpq_1 |
-      | Q2        | adpq_1 |
-      | Q3        | adpq_2 |
-      | Q4        | adpq_2 |
-      | Q5        | adpq_3 |
-      | Q6        | adpq_3 |
-      | Q7        | adpq_4 |
-      | Q8        | adpq_4 |
-      | Q9        | adpq_5 |
-      | Q10       | adpq_5 |
+      | question | tag    |
+      | Q1       | adpq_1 |
+      | Q2       | adpq_1 |
+      | Q3       | adpq_2 |
+      | Q4       | adpq_2 |
+      | Q5       | adpq_3 |
+      | Q6       | adpq_3 |
+      | Q7       | adpq_4 |
+      | Q8       | adpq_4 |
+      | Q9       | adpq_5 |
+      | Q10      | adpq_5 |
 
   @javascript
   Scenario: 20% standard error, user performs 1 level above the starting level
@@ -58,8 +61,11 @@ Feature: Adaptive quiz content
       | maximumquestions  | 10                      |
       | standarderror     | 20                      |
       | questionpoolnamed | Adaptive Quiz Questions |
+    And the following "mod_adaptivequiz > links with question banks" exist:
+      | adaptivequiz  | idnumber |
+      | Adaptive Quiz | qbank1   |
     When I am on the "adaptivequiz1" "Activity" page logged in as "student1"
-    And I click on "Start attempt" "link"
+    And I click on "Start attempt" "button"
     Then I should see " (difficulty 2)."
     And I click on "True" "radio"
     And I press "Submit answer"
@@ -94,8 +100,11 @@ Feature: Adaptive quiz content
       | maximumquestions  | 10                      |
       | standarderror     | 20                      |
       | questionpoolnamed | Adaptive Quiz Questions |
+    And the following "mod_adaptivequiz > links with question banks" exist:
+      | adaptivequiz  | idnumber |
+      | Adaptive Quiz | qbank1   |
     When I am on the "adaptivequiz1" "Activity" page logged in as "student1"
-    And I click on "Start attempt" "link"
+    And I click on "Start attempt" "button"
     Then I should see " (difficulty 2)."
     And I click on "False" "radio"
     And I press "Submit answer"
@@ -124,8 +133,11 @@ Feature: Adaptive quiz content
       | maximumquestions  | 10                      |
       | standarderror     | 20                      |
       | questionpoolnamed | Adaptive Quiz Questions |
+    And the following "mod_adaptivequiz > links with question banks" exist:
+      | adaptivequiz  | idnumber |
+      | Adaptive Quiz | qbank1   |
     When I am on the "adaptivequiz1" "Activity" page logged in as "student1"
-    And I click on "Start attempt" "link"
+    And I click on "Start attempt" "button"
     Then I should see " (difficulty 2)."
     And I click on "True" "radio"
     And I press "Submit answer"

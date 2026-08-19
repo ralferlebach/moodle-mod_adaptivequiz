@@ -16,53 +16,91 @@
 
 namespace mod_adaptivequiz\completion;
 
+defined('MOODLE_INTERNAL') || die();
+
+global $CFG;
+require_once($CFG->dirroot . '/mod/adaptivequiz/locallib.php');
+
 use advanced_testcase;
 use cm_info;
 use context_module;
-use mod_adaptivequiz\local\attempt\attempt;
+use mod_adaptivequiz\local\attempt;
+use PHPUnit\Framework\Attributes\CoversClass;
 
 /**
- * Tests activity's custom completion rules.
+ * A test class.
  *
  * @package    mod_adaptivequiz
  * @copyright  2022 Vitaly Potenko <potenkov@gmail.com>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- *
- * @covers     \mod_adaptivequiz\completion\custom_completion
  */
-class custom_completion_test extends advanced_testcase {
+#[CoversClass(\mod_adaptivequiz\completion\custom_completion::class)]
+final class custom_completion_test extends advanced_testcase {
 
     public function test_it_defines_completion_state_based_on_attempt_completion(): void {
+        global $DB;
+
         $this->resetAfterTest();
 
-        $course = $this->getDataGenerator()->create_course();
+        $questiongenerator = $this->getDataGenerator()->get_plugin_generator('core_question');
+        $modgenerator = $this->getDataGenerator()->get_plugin_generator('mod_adaptivequiz');
+
+        $course = $this->getDataGenerator()->create_course([
+            'enablecompletion' => 1,
+        ]);
+
+        $questioncategory = $questiongenerator->create_question_category([
+            'name' => 'My category',
+        ]);
+
+        $question = $questiongenerator->create_question('shortanswer', null, [
+            'category' => $questioncategory->id,
+        ]);
+
+        $startinglevel = 1;
+
+        $questiongenerator->create_question_tag([
+            'questionid' => $question->id,
+            'tag' => "adpq_$startinglevel",
+        ]);
+
+        $adaptivequiz = $modgenerator->create_instance([
+            'course' => $course->id,
+            'startinglevel' => $startinglevel,
+            'lowestlevel' => 1,
+            'highestlevel' => 10,
+            'questionpool' => [
+                $questioncategory->id,
+            ],
+            'completion' => COMPLETION_TRACKING_AUTOMATIC,
+            'completionattemptcompleted' => 1,
+        ]);
+
         $user = $this->getDataGenerator()->create_user();
 
-        $questioncategory = $this->getDataGenerator()
-            ->get_plugin_generator('core_question')
-            ->create_question_category(['name' => 'My category']);
+        // End of setup.
 
-        $adaptivequiz = $this->getDataGenerator()
-            ->get_plugin_generator('mod_adaptivequiz')
-            ->create_instance([
-                'course' => $course->id,
-                'completionattemptcompleted' => 1,
-                'questionpool' => [$questioncategory->id],
-            ]);
+        $context = context_module::instance($adaptivequiz->cmid);
 
-        $cm = get_coursemodule_from_instance('adaptivequiz', $adaptivequiz->id, $course->id);
+        $adaptivequizforattempt = clone($adaptivequiz);
+        $adaptivequizforattempt->context = $context;
 
-        $attempt = attempt::create($adaptivequiz, $user->id);
+        $attempt = new attempt($adaptivequizforattempt, $user->id);
 
+        $cm = get_coursemodule_from_id(modulename: 'adaptivequiz', cmid: $adaptivequiz->cmid, courseid: 0, sectionnum: false,
+            strictness: MUST_EXIST);
         $cminfo = cm_info::create($cm);
-        $cminfo->override_customdata('customcompletionrules',
-            ['completionattemptcompleted' => $adaptivequiz->completionattemptcompleted]);
 
         $completion = new custom_completion($cminfo, $user->id);
-
         $this->assertEquals(COMPLETION_INCOMPLETE, $completion->get_state('completionattemptcompleted'));
 
-        $attempt->complete(context_module::instance($cm->id), 1, 'php unit test', time());
+        $attempt->set_level($adaptivequiz->startinglevel);
+        $attempt->start_attempt();
+
+        $attemptrecord = $attempt->get_attempt();
+        $attemptuniqueid = $DB->get_field('adaptivequiz_attempt', 'uniqueid', ['id' => $attemptrecord->id], MUST_EXIST);
+
+        adaptivequiz_complete_attempt($attemptuniqueid, $adaptivequiz, $context, $user->id, '1', 'php unit test');
 
         $this->assertEquals(COMPLETION_COMPLETE, $completion->get_state('completionattemptcompleted'));
     }
