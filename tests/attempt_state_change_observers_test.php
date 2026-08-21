@@ -73,6 +73,8 @@ class attempt_state_change_observers_test extends advanced_testcase {
         $attemptrecordsnapshot->standarderror = 1.51186;
         $attemptrecordsnapshot->measure = 1.94591;
         $attemptrecordsnapshot->timefinished = 1658525029;
+        $attemptrecordsnapshot->resultstatus = 'valid';
+        $attemptrecordsnapshot->resultvalid = 1;
         $attemptrecordsnapshot->timecreated = 1658524979;
         $attemptrecordsnapshot->timemodified = 1658525029;
 

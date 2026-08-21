@@ -107,5 +107,37 @@ function xmldb_adaptivequiz_upgrade($oldversion) {
         upgrade_mod_savepoint(true, 2026082100, 'adaptivequiz');
     }
 
+    if ($oldversion < 2026082105) {
+        // Issue #8: couple activity completion to a valid CAT result. Add the
+        // per-attempt result fields and the per-activity completion rule flag.
+        // Additive and idempotent.
+        $table = new xmldb_table('adaptivequiz_attempt');
+        $field = new xmldb_field('resultstatus', XMLDB_TYPE_CHAR, '255', null, null, null, null, 'timefinished');
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+        $field = new xmldb_field('resultvalid', XMLDB_TYPE_INTEGER, '1', null, XMLDB_NOTNULL, null, '0', 'resultstatus');
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        $table = new xmldb_table('adaptivequiz');
+        $field = new xmldb_field(
+            'completionvalidresult',
+            XMLDB_TYPE_INTEGER,
+            '1',
+            null,
+            XMLDB_NOTNULL,
+            null,
+            '0',
+            'completionattemptcompleted'
+        );
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        upgrade_mod_savepoint(true, 2026082105, 'adaptivequiz');
+    }
+
     return true;
 }

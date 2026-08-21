@@ -56,6 +56,43 @@ class cat_session {
     ): void {
         global $USER;
 
+        // Issue #6: serialise item administration per attempt (adaptive quiz
+        // instance + user). This closes the double-click / concurrent-request
+        // race in which two requests would both select a question and each add
+        // its own QUBA slot for the same item. AJAX and full page requests both
+        // go through here, so the lock covers both.
+        $lockfactory = \core\lock\lock_config::get_lock_factory('mod_adaptivequiz');
+        $lockkey = 'adaptivequiz_itemadministration_' . $adaptivequiz->id . '_' . $USER->id;
+        $lock = $lockfactory->get_lock($lockkey, 10);
+        if (!$lock) {
+            // A concurrent request for the same attempt is already administering
+            // an item; bail out rather than risk creating a duplicate slot.
+            return;
+        }
+
+        try {
+            self::run_item_administration_locked($uniqueid, $adaptivequiz, $context, $adaptiveattempt);
+        } finally {
+            $lock->release();
+        }
+    }
+
+    /**
+     * The item administration body, executed while holding the per-attempt lock.
+     *
+     * @param int $uniqueid
+     * @param stdClass $adaptivequiz
+     * @param context_module $context
+     * @param attempt $adaptiveattempt
+     */
+    private static function run_item_administration_locked(
+        int $uniqueid,
+        stdClass $adaptivequiz,
+        context_module $context,
+        attempt $adaptiveattempt
+    ): void {
+        global $USER;
+
         $adaptiveattempt->get_attempt();
         $quba = $adaptiveattempt->initialize_quba($context);
 
@@ -102,7 +139,25 @@ class cat_session {
 
         $slot = $itemadministrationevaluation->next_item()->quba_slot();
         if (is_null($slot)) {
-            $question = question_bank::load_question($itemadministrationevaluation->next_item()->question_id());
+            $questionid = $itemadministrationevaluation->next_item()->question_id();
+
+            // Issue #6: defensive guard against duplicate slots. If an active
+            // slot for this question already exists (for example created by a
+            // concurrent request that ran just before the lock was acquired),
+            // reuse it instead of adding a second slot for the same item.
+            $existingslot = self::find_active_slot_for_question($quba, $questionid);
+            if ($existingslot !== null) {
+                debugging(
+                    'adaptivequiz: reusing existing active slot ' . $existingslot . ' for question '
+                        . $questionid . ' instead of creating a duplicate slot.',
+                    DEBUG_DEVELOPER
+                );
+                $adaptiveattempt->set_question_slot_number($existingslot);
+
+                return;
+            }
+
+            $question = question_bank::load_question($questionid);
             $slot = $quba->add_question($question);
 
             if (!$quba->get_question_state($slot)->is_active()) {
@@ -117,6 +172,32 @@ class cat_session {
 
             $adaptiveattempt->set_question_slot_number($slot);
         }
+    }
+
+    /**
+     * Finds an active (unanswered) QUBA slot that already holds the given question.
+     *
+     * Used as a defensive guard against duplicate slots for the same item
+     * (Issue #6).
+     *
+     * @param question_usage_by_activity $quba
+     * @param int $questionid
+     * @return int|null The slot number, or null if no active slot holds the question.
+     */
+    private static function find_active_slot_for_question(
+        question_usage_by_activity $quba,
+        int $questionid
+    ): ?int {
+        foreach ($quba->get_slots() as $slot) {
+            if (
+                (int) $quba->get_question($slot)->id === (int) $questionid
+                && $quba->get_question_state($slot)->is_active()
+            ) {
+                return $slot;
+            }
+        }
+
+        return null;
     }
 
     /**

@@ -125,6 +125,8 @@ class attempt_test extends advanced_testcase {
         $expected->difficultysum = '0.0000000';
         $expected->measure = '0.00000';
         $expected->timefinished = null;
+        $expected->resultstatus = null;
+        $expected->resultvalid = '0';
         $expected->timemodified = '0';
         $expected->timecreated = '0';
 
