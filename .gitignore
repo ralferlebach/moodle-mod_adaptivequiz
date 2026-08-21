@@ -1,4 +1,3 @@
-/catmodel/catquiz
 # OS artefacts
 .DS_Store
 Thumbs.db
@@ -61,5 +60,8 @@ project.properties
 /catquizcentralhub/host
 /catquizcentralhub/client
 
-# Interne Sitzungsdokumentation - nicht ausliefern/hochladen.
+# Internal documentation
 /doc/
+
+# Unbundled subplugins
+/catmodel/catquiz

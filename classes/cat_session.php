@@ -142,16 +142,13 @@ class cat_session {
             $questionid = $itemadministrationevaluation->next_item()->question_id();
 
             // Issue #6: defensive guard against duplicate slots. If an active
-            // slot for this question already exists (for example created by a
-            // concurrent request that ran just before the lock was acquired),
-            // reuse it instead of adding a second slot for the same item.
+            // slot for this question already exists (for example on a reload of
+            // an unanswered item, or from a concurrent request that ran just
+            // before the lock was acquired), reuse it instead of adding a second
+            // slot for the same item. Reusing is the intended, normal outcome
+            // here, so this deliberately does not raise a debugging notice.
             $existingslot = self::find_active_slot_for_question($quba, $questionid);
             if ($existingslot !== null) {
-                debugging(
-                    'adaptivequiz: reusing existing active slot ' . $existingslot . ' for question '
-                        . $questionid . ' instead of creating a duplicate slot.',
-                    DEBUG_DEVELOPER
-                );
                 $adaptiveattempt->set_question_slot_number($existingslot);
 
                 return;
