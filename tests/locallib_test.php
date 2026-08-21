@@ -296,6 +296,45 @@ class locallib_test extends advanced_testcase {
     }
 
     /**
+     * The completion timestamp is stamped once and is immutable across
+     * repeated completions (Issue #5).
+     *
+     * Teeth test: forcing a sentinel timefinished and completing again must
+     * leave it untouched. Removing the "only if empty" guard in
+     * adaptivequiz_complete_attempt() makes the second completion overwrite the
+     * sentinel with the current time, failing this assertion.
+     *
+     * @covers ::adaptivequiz_complete_attempt
+     */
+    public function test_timefinished_is_immutable_across_completions(): void {
+        global $DB;
+
+        $this->resetAfterTest();
+        $this->setup_test_data_xml();
+
+        $adaptivequiz = $DB->get_record('adaptivequiz', ['id' => 1]);
+        $context = context_module::instance(5);
+        $userid = 2;
+        $attemptid = 1;
+
+        // A running attempt has no completion time.
+        $running = $DB->get_record('adaptivequiz_attempt', ['id' => $attemptid]);
+        $this->assertNull($running->timefinished);
+
+        // First completion stamps the timestamp.
+        adaptivequiz_complete_attempt(3, $adaptivequiz, $context, $userid, 'first');
+        $completed = $DB->get_record('adaptivequiz_attempt', ['id' => $attemptid]);
+        $this->assertNotEmpty($completed->timefinished);
+
+        // Force a distinct sentinel, complete again: the timestamp must not move.
+        $sentinel = 12345;
+        $DB->set_field('adaptivequiz_attempt', 'timefinished', $sentinel, ['id' => $attemptid]);
+        adaptivequiz_complete_attempt(3, $adaptivequiz, $context, $userid, 'second');
+        $recompleted = $DB->get_record('adaptivequiz_attempt', ['id' => $attemptid]);
+        $this->assertEquals($sentinel, (int) $recompleted->timefinished);
+    }
+
+    /**
      * @test
      * @covers ::adaptivequiz_complete_attempt
      */
@@ -316,7 +355,7 @@ class locallib_test extends advanced_testcase {
         $adaptivequiz = $DB->get_record('adaptivequiz', ['id' => $adaptivequizid]);
         $context = context_module::instance($cmid);
 
-        adaptivequiz_complete_attempt(3, $adaptivequiz, $context, $userid, '1', 'php unit test');
+        adaptivequiz_complete_attempt(3, $adaptivequiz, $context, $userid, 'php unit test');
 
         $events = $eventsink->get_events();
 

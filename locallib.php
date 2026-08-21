@@ -246,10 +246,31 @@ function adaptivequiz_complete_attempt(
     // Need to keep the record as it is before triggering the event below.
     $attemptrecordsnapshot = clone $attempt;
 
+    $now = time();
     $attempt->attemptstate = attempt_state::COMPLETED;
     $attempt->attemptstopcriteria = $statusmessage;
-    $attempt->timemodified = time();
+    // Issue #5: the completion timestamp is authoritative and immutable. Set it
+    // exactly once, at the transition to COMPLETED; never overwrite it on a
+    // repeated completion (which keeps the whole finalisation idempotent).
+    if (empty($attempt->timefinished)) {
+        $attempt->timefinished = $now;
+    }
+    $attempt->timemodified = $now;
     $DB->update_record('adaptivequiz_attempt', $attempt);
+
+    // Issue #5: hand the just-completed attempt to the CAT model so it can run
+    // its idempotent finaliser (persist endtime/result) from the authoritative
+    // status change, independently of whether the attempt-finished page is ever
+    // reached. Only the attempt's own catmodel is invoked; plain attempts
+    // without a catmodel are unaffected.
+    if (!empty($adaptivequiz->catmodel)) {
+        $catmodelcomponentname = 'adaptivequizcatmodel_' . $adaptivequiz->catmodel;
+        $pluginswithfunction = get_plugin_list_with_function('adaptivequizcatmodel', 'post_complete_attempt_callback');
+        if (array_key_exists($catmodelcomponentname, $pluginswithfunction)) {
+            $functionname = $pluginswithfunction[$catmodelcomponentname];
+            $functionname($adaptivequiz, $context, $userid, $attempt);
+        }
+    }
 
     adaptivequiz_update_grades($adaptivequiz, $userid);
 

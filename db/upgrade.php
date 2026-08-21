@@ -93,5 +93,19 @@ function xmldb_adaptivequiz_upgrade($oldversion) {
         upgrade_mod_savepoint(true, 2024082100, 'adaptivequiz');
     }
 
+    if ($oldversion < 2026082100) {
+        // Issue #5: authoritative, immutable completion timestamp on the attempt.
+        // NULL while the attempt is running; set exactly once at the transition
+        // to COMPLETED. Additive and idempotent.
+        $table = new xmldb_table('adaptivequiz_attempt');
+        $field = new xmldb_field('timefinished', XMLDB_TYPE_INTEGER, '10', null, null, null, null, 'measure');
+
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        upgrade_mod_savepoint(true, 2026082100, 'adaptivequiz');
+    }
+
     return true;
 }

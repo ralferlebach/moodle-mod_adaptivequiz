@@ -58,7 +58,7 @@ class custom_completion_test extends advanced_testcase {
 
         $this->assertEquals(COMPLETION_INCOMPLETE, $completion->get_state('completionattemptcompleted'));
 
-        adaptivequiz_complete_attempt($attemptuniqueid, $adaptivequiz, $context, $userid, '1', 'php unit test');
+        adaptivequiz_complete_attempt($attemptuniqueid, $adaptivequiz, $context, $userid, 'php unit test');
 
         $this->assertEquals(COMPLETION_COMPLETE, $completion->get_state('completionattemptcompleted'));
     }

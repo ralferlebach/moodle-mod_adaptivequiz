@@ -124,6 +124,7 @@ class attempt_test extends advanced_testcase {
         $expected->standarderror = '1.00000';
         $expected->difficultysum = '0.0000000';
         $expected->measure = '0.00000';
+        $expected->timefinished = null;
         $expected->timemodified = '0';
         $expected->timecreated = '0';
 
@@ -805,7 +806,7 @@ class attempt_test extends advanced_testcase {
         $adaptivequiz = $DB->get_record('adaptivequiz', ['id' => $adaptivequizid]);
         $context = context_module::instance($cmid);
 
-        adaptivequiz_complete_attempt($uniqueid, $adaptivequiz, $context, $userid, '', '');
+        adaptivequiz_complete_attempt($uniqueid, $adaptivequiz, $context, $userid, '');
 
         $this->assertTrue(attempt::user_has_completed_on_quiz($adaptivequizid, $userid));
     }

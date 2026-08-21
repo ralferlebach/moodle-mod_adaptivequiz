@@ -59,6 +59,7 @@
         <FIELD NAME="difficultysum" TYPE="number" LENGTH="10" NOTNULL="true" DEFAULT="0.0" SEQUENCE="false" DECIMALS="7" COMMENT="The sum of difficulty levels attempted measured in logits"/>
         <FIELD NAME="standarderror" TYPE="number" LENGTH="10" NOTNULL="true" DEFAULT="0.0" SEQUENCE="false" DECIMALS="5" COMMENT="The standard error that was achieved during the attempt"/>
         <FIELD NAME="measure" TYPE="number" LENGTH="10" NOTNULL="true" DEFAULT="0.0" SEQUENCE="false" DECIMALS="5" COMMENT="The attempt ability measure in logits"/>
+        <FIELD NAME="timefinished" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="Authoritative, immutable moment the attempt was completed as unix timestamp. NULL while the attempt is running."/>
         <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Time created timestamp"/>
         <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Time modified timestamp"/>
       </FIELDS>
