@@ -185,7 +185,25 @@ class mod_adaptivequiz_renderer extends plugin_renderer_base {
         if (empty(trim($attemptfeedback))) {
             $attemptfeedback = get_string('attemptfeedbackdefaulttext', 'adaptivequiz');
         }
-        $output .= html_writer::tag('p', s($attemptfeedback), ['class' => 'submitbtns adaptivequizfeedback']);
+        // Feedback may contain HTML supplied by the selected CAT-model subplugin.
+        // Format it as Moodle HTML instead of escaping the complete fragment with s().
+        $formatoptions = [
+            'context' => $this->page->context,
+            'para' => false,
+            'filter' => true,
+            'overflowdiv' => true,
+        ];
+
+        $attemptfeedback = trim(format_text(
+            $attemptfeedback,
+            FORMAT_HTML,
+            $formatoptions
+        ));
+
+        $output .= html_writer::div(
+            $attemptfeedback,
+            'submitbtns adaptivequizfeedback'
+        );
 
         if ($abilitymeasure) {
             $output .= $this->render($abilitymeasure);
