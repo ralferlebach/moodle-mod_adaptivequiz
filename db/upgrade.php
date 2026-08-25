@@ -93,67 +93,8 @@ function xmldb_adaptivequiz_upgrade($oldversion) {
         upgrade_mod_savepoint(true, 2024082100, 'adaptivequiz');
     }
 
-    if ($oldversion < 2026082000) {
-        // Restore the attempt result fields used by the upstream schema.
-        //
-        // The ALiSe fork moved these fields to adaptivequiz_cat_params in
-        // version 2023052800. No data migration is required when returning
-        // to this schema because the legacy table contains no relevant data.
-        $table = new xmldb_table('adaptivequiz_attempt');
-
-        $field = new xmldb_field(
-            'difficultysum',
-            XMLDB_TYPE_NUMBER,
-            '10, 7',
-            null,
-            XMLDB_NOTNULL,
-            null,
-            '0.0',
-            'questionsattempted'
-        );
-        if (!$dbman->field_exists($table, $field)) {
-            $dbman->add_field($table, $field);
-        }
-
-        $field = new xmldb_field(
-            'standarderror',
-            XMLDB_TYPE_NUMBER,
-            '10, 5',
-            null,
-            XMLDB_NOTNULL,
-            null,
-            '0.0',
-            'difficultysum'
-        );
-        if (!$dbman->field_exists($table, $field)) {
-            $dbman->add_field($table, $field);
-        }
-
-        $field = new xmldb_field(
-            'measure',
-            XMLDB_TYPE_NUMBER,
-            '10, 5',
-            null,
-            XMLDB_NOTNULL,
-            null,
-            '0.0',
-            'standarderror'
-        );
-        if (!$dbman->field_exists($table, $field)) {
-            $dbman->add_field($table, $field);
-        }
-
-        // Remove the obsolete ALiSe-only CAT parameters table.
-        $legacytable = new xmldb_table('adaptivequiz_cat_params');
-        if ($dbman->table_exists($legacytable)) {
-            $dbman->drop_table($legacytable);
-        }
-
-        upgrade_mod_savepoint(true, 2026082000, 'adaptivequiz');
-    }
-
     if ($oldversion < 2026082100) {
-        // authoritative, immutable completion timestamp on the attempt.
+        // Issue #5: authoritative, immutable completion timestamp on the attempt.
         // NULL while the attempt is running; set exactly once at the transition
         // to COMPLETED. Additive and idempotent.
         $table = new xmldb_table('adaptivequiz_attempt');

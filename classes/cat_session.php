@@ -147,7 +147,17 @@ class cat_session {
             // before the lock was acquired), reuse it instead of adding a second
             // slot for the same item. Reusing is the intended, normal outcome
             // here, so this deliberately does not raise a debugging notice.
-            $existingslot = self::find_active_slot_for_question($quba, $questionid);
+            //
+            // On a resume/reload the alternative CAT model may re-select a
+            // DIFFERENT next item than the one already sitting in the active,
+            // unanswered slot (the catquiz progress drops the unanswered last
+            // question, so its strategy picks afresh). A CAT attempt only ever
+            // has a single active unanswered slot at a time, so if the by-question
+            // lookup misses, fall back to reusing whatever active slot exists
+            // rather than appending a new one - otherwise the visible question
+            // (slot) number keeps growing across every resume/reload.
+            $existingslot = self::find_active_slot_for_question($quba, $questionid)
+                ?? self::find_any_active_slot($quba);
             if ($existingslot !== null) {
                 $adaptiveattempt->set_question_slot_number($existingslot);
 
@@ -190,6 +200,31 @@ class cat_session {
                 (int) $quba->get_question($slot)->id === (int) $questionid
                 && $quba->get_question_state($slot)->is_active()
             ) {
+                return $slot;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Finds any active (unanswered) QUBA slot, regardless of which question it
+     * holds.
+     *
+     * A CAT attempt only ever has a single active unanswered slot at a time (the
+     * item currently presented to the user). When a fresh item is requested while
+     * such a slot already exists, we are resuming or reloading and must re-present
+     * that slot rather than appending a new one - otherwise the slot (question)
+     * number grows on every resume/reload (Issue #6).
+     *
+     * @param question_usage_by_activity $quba
+     * @return int|null The slot number, or null if there is no active slot.
+     */
+    private static function find_any_active_slot(
+        question_usage_by_activity $quba
+    ): ?int {
+        foreach ($quba->get_slots() as $slot) {
+            if ($quba->get_question_state($slot)->is_active()) {
                 return $slot;
             }
         }

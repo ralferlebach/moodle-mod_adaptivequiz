@@ -526,4 +526,76 @@ class cat_session_test extends advanced_testcase {
 
         self::assertNull($method->invoke(null, $quba, (int) $question->id));
     }
+
+    public function test_find_any_active_slot(): void {
+        $this->resetAfterTest();
+
+        $datagenerator = $this->getDataGenerator();
+        $questionsgenerator = $datagenerator->get_plugin_generator('core_question');
+        $modgenerator = $datagenerator->get_plugin_generator('mod_adaptivequiz');
+
+        $course = $datagenerator->create_course();
+        $user = $datagenerator->create_user();
+
+        $qcategory = $questionsgenerator->create_question_category([
+            'contextid' => context_course::instance($course->id)->id,
+        ]);
+        $question = $questionsgenerator->create_question('truefalse', null, [
+            'category' => $qcategory->id,
+        ]);
+        $questionsgenerator->create_question_tag([
+            'questionid' => $question->id,
+            'tag' => 'adpq_3',
+        ]);
+
+        $adaptivequiz = $modgenerator->create_instance([
+            'course' => $course->id,
+            'questionpool' => [$qcategory->id],
+            'lowestlevel' => 3,
+            'highestlevel' => 6,
+            'startinglevel' => 3,
+            'minimumquestions' => 2,
+            'maximumquestions' => 3,
+            'standarderror' => 5,
+        ]);
+
+        $cm = get_coursemodule_from_instance('adaptivequiz', $adaptivequiz->id, $course->id, false, MUST_EXIST);
+        $modcontext = context_module::instance($cm->id);
+
+        $this->setUser($user);
+
+        $attempt = new attempt($adaptivequiz, $user->id);
+        $attempt->get_attempt();
+        $attempt->initialize_quba($modcontext);
+        $quba = $attempt->get_quba();
+
+        $anyslot = new ReflectionMethod(cat_session::class, 'find_any_active_slot');
+        $anyslot->setAccessible(true);
+        $byquestion = new ReflectionMethod(cat_session::class, 'find_active_slot_for_question');
+        $byquestion->setAccessible(true);
+
+        // No slots yet: nothing to reuse.
+        self::assertNull($anyslot->invoke(null, $quba));
+
+        $loaded = question_bank::load_question($question->id);
+        $slot = $quba->add_question($loaded);
+        $quba->start_question($slot);
+        question_engine::save_questions_usage_by_activity($quba);
+
+        // The active slot is found regardless of which question id is requested:
+        // this is what lets a resume reuse the existing slot even when the CAT
+        // model re-selected a different next item (so the by-question lookup misses).
+        self::assertSame($slot, $anyslot->invoke(null, $quba));
+        self::assertNull($byquestion->invoke(null, $quba, (int) $question->id + 999));
+
+        // Once answered/finished, there is no active slot to reuse.
+        $time = time();
+        $quba->process_all_actions($time, $quba->prepare_simulated_post_data([
+            $slot => ['answer' => true],
+        ]));
+        $quba->finish_all_questions($time);
+        question_engine::save_questions_usage_by_activity($quba);
+
+        self::assertNull($anyslot->invoke(null, $quba));
+    }
 }
