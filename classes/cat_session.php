@@ -178,7 +178,21 @@ class cat_session {
             }
 
             $adaptiveattempt->set_question_slot_number($slot);
+
+            return;
         }
+
+        /* The CAT model returned an EXISTING slot instead of a question id - the
+           normal outcome when an unanswered item is re-served after a reload or a
+           resume. The slot number still has to be written to the attempt, because
+           attempt.php reads it back via get_question_slot_number() to render the
+           question. Without this the attempt kept whatever slot number it carried
+           before, and the next access to that slot failed with
+           "There is no question_attempt number in this attempt".
+           The built-in default_item_administration never hit this because it sets
+           the slot number itself before returning from_quba_slot(); a sub-plugin
+           that only returns the slot cannot do that. */
+        $adaptiveattempt->set_question_slot_number($slot);
     }
 
     /**
