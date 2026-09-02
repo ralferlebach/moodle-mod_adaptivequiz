@@ -94,11 +94,32 @@ function xmldb_adaptivequiz_upgrade($oldversion) {
     }
 
     if ($oldversion < 2026082100) {
+        // The 'measure' column exists in install.xml but is created by no upgrade
+        // step, so installations that were set up from an older install.xml never
+        // received it. That is not merely cosmetic: closeattempt.php, catalgo.php,
+        // view.php and the reports all read the column, so such an instance fails at
+        // run time and not only during an upgrade.
+        //
+        // Created here with exactly the definition from install.xml, and only when
+        // absent - so a healthy installation is untouched.
+        $table = new xmldb_table('adaptivequiz_attempt');
+        $field = new xmldb_field('measure', XMLDB_TYPE_NUMBER, '10, 5', null, XMLDB_NOTNULL, null, '0.0');
+
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
         // Issue #5: authoritative, immutable completion timestamp on the attempt.
         // NULL while the attempt is running; set exactly once at the transition
         // to COMPLETED. Additive and idempotent.
         $table = new xmldb_table('adaptivequiz_attempt');
-        $field = new xmldb_field('timefinished', XMLDB_TYPE_INTEGER, '10', null, null, null, null, 'measure');
+
+        // No positional argument: it used to say "after measure", which turned into
+        // an AFTER clause on MySQL/MariaDB and failed wherever that column was
+        // missing. PostgreSQL ignores column position, which is why this only ever
+        // surfaced on one engine. Column order carries no meaning in SQL, so the
+        // field is appended - independently of the step above.
+        $field = new xmldb_field('timefinished', XMLDB_TYPE_INTEGER, '10', null, null, null, null);
 
         if (!$dbman->field_exists($table, $field)) {
             $dbman->add_field($table, $field);
@@ -112,11 +133,13 @@ function xmldb_adaptivequiz_upgrade($oldversion) {
         // per-attempt result fields and the per-activity completion rule flag.
         // Additive and idempotent.
         $table = new xmldb_table('adaptivequiz_attempt');
-        $field = new xmldb_field('resultstatus', XMLDB_TYPE_CHAR, '255', null, null, null, null, 'timefinished');
+        // No positional argument here either, for the same reason as above: it would
+        // make this step depend on a column the previous step may not have created.
+        $field = new xmldb_field('resultstatus', XMLDB_TYPE_CHAR, '255', null, null, null, null);
         if (!$dbman->field_exists($table, $field)) {
             $dbman->add_field($table, $field);
         }
-        $field = new xmldb_field('resultvalid', XMLDB_TYPE_INTEGER, '1', null, XMLDB_NOTNULL, null, '0', 'resultstatus');
+        $field = new xmldb_field('resultvalid', XMLDB_TYPE_INTEGER, '1', null, XMLDB_NOTNULL, null, '0');
         if (!$dbman->field_exists($table, $field)) {
             $dbman->add_field($table, $field);
         }
