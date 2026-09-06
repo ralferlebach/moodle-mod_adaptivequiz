@@ -170,7 +170,15 @@ if (!empty($adaptivequiz->password) && empty($condition)) {
 
     if ($adaptivequiz->showattemptprogress) {
         echo $output->container_start('attempt-progress-container');
-        echo $output->attempt_progress($attemptrecord->questionsattempted, $adaptivequiz->maximumquestions);
+        // The progress bar names the question being answered, not the number already
+        // finished. The line below hands the submit form questionsattempted + 1 for
+        // exactly that reason; without the same offset here the bar is one behind and
+        // shows "question 0" on the first screen.
+        //
+        // Corrected here rather than in attempt_progress::__construct(): the class
+        // reconstructs itself in without_progress_bar(), so an offset in the
+        // constructor would be applied a second time on that path.
+        echo $output->attempt_progress($attemptrecord->questionsattempted + 1, $adaptivequiz->maximumquestions);
         echo $output->container_end();
     }
 

@@ -192,9 +192,28 @@ class mod_adaptivequiz_renderer extends plugin_renderer_base {
         }
 
         if (empty($popup)) {
-            $attr = ['type' => 'submit', 'name' => 'attemptfinished', 'value' => get_string('continue'),
-                'class' => 'btn btn-primary'];
+            $attr = [
+                'type' => 'submit',
+                'name' => 'attemptfinished',
+                'value' => get_string('btnbacktotest', 'adaptivequiz'),
+                'class' => 'btn btn-secondary mr-1',
+            ];
             $output .= html_writer::empty_tag('input', $attr);
+
+            // A second way out. The submit above returns to the activity, which is
+            // where a teacher wants to be; a participant who has finished usually
+            // wants the course. With only one button they had to use the browser's
+            // back navigation, and the attempt pages warn against exactly that.
+            //
+            // Rendered as a link rather than a second submit: it leaves the form
+            // instead of posting to it, so no additional handling is needed in
+            // view.php.
+            $courseurl = new moodle_url('/course/view.php', ['id' => $this->page->course->id]);
+            $output .= html_writer::link(
+                $courseurl,
+                get_string('btncontinuetocourse', 'adaptivequiz'),
+                ['class' => 'btn btn-primary']
+            );
         } else {
             // In a 'secure' popup window.
             $this->page->requires->js_init_call('M.mod_adaptivequiz.secure_window.init_close_button', [$url],

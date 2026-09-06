@@ -89,6 +89,25 @@ function adaptivequiz_supports($feature) {
 }
 
 /**
+ * Moves the editor value into the columns the database has.
+ *
+ * The form field is an array of text and format; the table keeps them in two
+ * columns. Kept in one place so the add and update paths cannot drift apart - a
+ * mismatch there would store the feedback on creation and lose it on the next save.
+ *
+ * @param stdClass $adaptivequiz
+ * @return void
+ */
+function adaptivequiz_apply_attempt_feedback_editor(stdClass $adaptivequiz): void {
+    if (!isset($adaptivequiz->attemptfeedbackeditor) || !is_array($adaptivequiz->attemptfeedbackeditor)) {
+        return;
+    }
+
+    $adaptivequiz->attemptfeedback = $adaptivequiz->attemptfeedbackeditor['text'] ?? '';
+    $adaptivequiz->attemptfeedbackformat = $adaptivequiz->attemptfeedbackeditor['format'] ?? FORMAT_HTML;
+}
+
+/**
  * Saves a new instance of the adaptive quiz into the database.
  *
  * Given an object containing all the necessary data (defined by the form in mod_form.php). this function will create a new instance
@@ -99,12 +118,14 @@ function adaptivequiz_supports($feature) {
  * @return int The id of the newly inserted adaptive quiz record.
  */
 function adaptivequiz_add_instance(stdClass $adaptivequiz, ?mod_adaptivequiz_mod_form $mform = null) {
+    adaptivequiz_apply_attempt_feedback_editor($adaptivequiz);
+
     global $DB;
 
     $time = time();
     $adaptivequiz->timecreated = $time;
     $adaptivequiz->timemodified = $time;
-    $adaptivequiz->attemptfeedbackformat = 0;
+    $adaptivequiz->attemptfeedbackformat = $adaptivequiz->attemptfeedbackformat ?? 0;
 
     $instance = $DB->insert_record('adaptivequiz', $adaptivequiz);
 
@@ -204,6 +225,8 @@ function adaptivequiz_update_questcat_association(int $instance, stdClass $adapt
  * @return bool Success/failure.
  */
 function adaptivequiz_update_instance(stdClass $adaptivequiz, ?mod_adaptivequiz_mod_form $mform = null) {
+    adaptivequiz_apply_attempt_feedback_editor($adaptivequiz);
+
     global $DB;
 
     $adaptivequiz->timemodified = time();

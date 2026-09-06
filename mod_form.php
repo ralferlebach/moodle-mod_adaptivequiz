@@ -120,10 +120,30 @@ class mod_adaptivequiz_mod_form extends moodleform_mod {
         $mform->setType('highestlevel', PARAM_INT);
         $mform->setDefault('highestlevel', $pluginconfig->highestlevel);
 
-        $mform->addElement('textarea', 'attemptfeedback', get_string('attemptfeedback', 'adaptivequiz'),
-            'wrap="virtual" rows="10" cols="50"');
-        $mform->addHelpButton('attemptfeedback', 'attemptfeedback', 'adaptivequiz');
-        $mform->setType('attemptfeedback', PARAM_NOTAGS);
+        // The feedback is rendered as HTML by renderer::attempt_feedback(), which
+        // passes it through html_writer::tag() without escaping. A plain textarea
+        // with PARAM_NOTAGS stripped every tag on submit, so the field could never
+        // hold what the output side is able to display.
+        //
+        // 'noclean' keeps embedded scripts intact: the feedback page is authored by
+        // teachers, and the plugin's own catmodel feedback relies on markup that
+        // clean_text() would remove.
+        $mform->addElement(
+            'editor',
+            'attemptfeedbackeditor',
+            get_string('attemptfeedback', 'adaptivequiz'),
+            null,
+            [
+                'subdirs' => 0,
+                'maxfiles' => 0,
+                'changeformat' => 0,
+                'context' => $this->context,
+                'noclean' => 1,
+                'trusttext' => 0,
+            ]
+        );
+        $mform->addHelpButton('attemptfeedbackeditor', 'attemptfeedback', 'adaptivequiz');
+        $mform->setType('attemptfeedbackeditor', PARAM_RAW);
 
         $mform->addElement('select', 'showabilitymeasure', get_string('showabilitymeasure', 'adaptivequiz'),
             [get_string('no'), get_string('yes')]);
@@ -335,6 +355,13 @@ class mod_adaptivequiz_mod_form extends moodleform_mod {
      * @param array $defaultvalues
      */
     public function data_preprocessing(&$defaultvalues) {
+        // The editor element expects an array; without this the stored feedback is
+        // not shown when the activity is edited again.
+        $defaultvalues['attemptfeedbackeditor'] = [
+            'text' => $defaultvalues['attemptfeedback'] ?? '',
+            'format' => $defaultvalues['attemptfeedbackformat'] ?? FORMAT_HTML,
+        ];
+
         parent::data_preprocessing($defaultvalues);
 
         // Run preprocessing hook from the custom CAT model being used (if any).
