@@ -15,19 +15,24 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Plugin basic info.
+ * German strings for the adaptive quiz activity.
+ *
+ * Deliberately not a full translation. The plugin's German strings normally come from
+ * AMOS (lang.moodle.org), and a downloaded language pack takes precedence over the
+ * one shipped here - so a half-finished translation in the repository would be
+ * overwritten for anyone who installs the German pack, while quietly diverging for
+ * everyone who does not.
+ *
+ * What belongs here are strings that AMOS does not have yet: the two buttons on the
+ * attempt result page were added with the plugin itself and exist in no language pack.
  *
  * @package    mod_adaptivequiz
- * @copyright  2013 Remote-Learner {@link http://www.remote-learner.ca/}
+ * @copyright  2013 onwards Remote-Learner {@link http://www.remote-learner.ca/}
  * @copyright  2022 onwards Vitaly Potenko <potenkov@gmail.com>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 defined('MOODLE_INTERNAL') || die();
 
-$plugin->version   = 2026090602;
-$plugin->release = '3.0.0';
-$plugin->maturity = MATURITY_RC;
-$plugin->requires = 2024042200;
-$plugin->cron = 0;
-$plugin->component = 'mod_adaptivequiz';
+$string['btnbacktotest'] = 'Zurück zum Test';
+$string['btncontinuetocourse'] = 'Weiter zum Kurs';
