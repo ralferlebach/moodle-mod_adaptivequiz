@@ -47,7 +47,21 @@ if ($adaptivequiz->showabilitymeasure) {
     $abilitymeasurerenderable = ability_measure::of_attempt_on_adaptive_quiz($adaptivequiz, $abilitymeasurevalue);
 }
 
-require_login($course, true, $cm);
+// Deliberately without the course module: passing $cm makes require_login()
+// enforce $cm->uservisible, and that is false as soon as the activity - or the
+// section it sits in - is unavailable. A common setup restricts the section on
+// completion of this very quiz, so finishing it would take the result page away
+// at the moment the participant wants to read it.
+//
+// Course access is still required, and the ownership check below is what actually
+// protects this page: it only ever shows the attempt of the person asking.
+// Teachers and managers reach other people's attempts through the reports.
+//
+// The consequence is intended and worth stating plainly: hiding the activity no
+// longer hides the result page. attempt.php is untouched and still enforces
+// visibility, so a hidden activity cannot be continued - only its finished result
+// can be read.
+require_login($course);
 $context = context_module::instance($cm->id);
 
 // TODO - check if user has capability to attempt.
