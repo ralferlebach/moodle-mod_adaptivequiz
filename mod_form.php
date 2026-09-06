@@ -265,21 +265,37 @@ class mod_adaptivequiz_mod_form extends moodleform_mod {
 
     public function add_completion_rules(): array {
         $form = $this->_form;
-        $form->addElement('checkbox', 'completionattemptcompleted', ' ',
+
+        // Since Moodle 4.3 the completion form is rendered for the activity and for
+        // the course default on the same page. Core distinguishes the two by
+        // appending a suffix to every element name - mod_quiz does this in three
+        // places.
+        //
+        // Without it both use the identical name: the second overwrites the first,
+        // and the rule ends up belonging to whichever was rendered last.
+        $suffix = $this->get_suffix();
+
+        $form->addElement('checkbox', 'completionattemptcompleted' . $suffix, ' ',
             get_string('completionattemptcompletedform', 'adaptivequiz'));
         $form->addElement(
             'checkbox',
-            'completionvalidresult',
+            'completionvalidresult' . $suffix,
             ' ',
             get_string('completionvalidresultform', 'adaptivequiz')
         );
 
-        return ['completionattemptcompleted', 'completionvalidresult'];
+        return ['completionattemptcompleted' . $suffix, 'completionvalidresult' . $suffix];
     }
 
     public function completion_rule_enabled($data): bool {
-        return (!empty($data['completionattemptcompleted']) && $data['completionattemptcompleted'] != 0)
-            || (!empty($data['completionvalidresult']) && $data['completionvalidresult'] != 0);
+        // The same suffix: the keys in $data carry it, so a lookup without it finds
+        // nothing and the rule reads as disabled.
+        $suffix = $this->get_suffix();
+
+        return (!empty($data['completionattemptcompleted' . $suffix])
+                && $data['completionattemptcompleted' . $suffix] != 0)
+            || (!empty($data['completionvalidresult' . $suffix])
+                && $data['completionvalidresult' . $suffix] != 0);
     }
 
     /**
