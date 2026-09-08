@@ -75,6 +75,12 @@ if (!$validattempt) {
     throw new moodle_exception('notyourattempt', 'adaptivequiz', $url);
 }
 
+// The require_login() call above omits the course module, so it does not set the
+// module on the page either - and the navigation then reads properties off a null
+// course module while building the secondary nav. Setting it here restores that
+// without reintroducing the visibility check, which is the whole point of the call
+// above: a completed activity may be hidden while its result stays readable.
+$PAGE->set_cm($cm, $course);
 $PAGE->set_url('/mod/adaptivequiz/view.php', array('id' => $cm->id));
 $PAGE->set_title(format_string($adaptivequiz->name));
 $PAGE->set_context($context);
