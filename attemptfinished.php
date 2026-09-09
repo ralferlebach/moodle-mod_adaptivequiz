@@ -40,7 +40,19 @@ if (!$course = $DB->get_record('course', ['id' => $cm->course])) {
 $adaptivequiz = $DB->get_record('adaptivequiz', ['id' => $cm->instance], '*', MUST_EXIST);
 $attempt = $DB->get_record('adaptivequiz_attempt', ['uniqueid' => $uniqueid], '*', MUST_EXIST);
 
-require_login($course, true, $cm);
+// Deliberately without the course module: passing $cm makes require_login() enforce
+// $cm->uservisible, and that is false as soon as the activity - or the section it sits in - is
+// unavailable. A common setup restricts the section on completion of this very quiz, so finishing
+// it would take the result page away at the moment the participant wants to read it.
+//
+// Course access is still required, and the ownership check below is what actually protects this
+// page: it only ever shows the attempt of the person asking. Teachers and managers reach other
+// people's attempts through the reports.
+//
+// The consequence is intended and worth stating plainly: hiding the activity no longer hides the
+// result page. attempt.php is untouched and still enforces visibility, so a hidden activity
+// cannot be continued - only its finished result can be read.
+require_login($course);
 $context = context_module::instance($cm->id);
 
 // TODO - check if user has capability to attempt.
@@ -54,6 +66,10 @@ if (!$validattempt) {
     throw new moodle_exception('notyourattempt', 'adaptivequiz', $url);
 }
 
+// The require_login() call above omits the course module, so it does not set the module on the page
+// either - and the navigation then reads properties off a null course module while building the
+// secondary navigation. Setting it here restores that without reintroducing the visibility check.
+$PAGE->set_cm($cm, $course);
 $PAGE->set_url('/mod/adaptivequiz/view.php', ['id' => $cm->id]);
 $PAGE->set_title(format_string($adaptivequiz->name));
 $PAGE->set_context($context);

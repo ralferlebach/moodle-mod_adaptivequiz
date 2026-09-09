@@ -165,6 +165,18 @@ phpcs-Lauf im Quellverzeichnis meldet die Sprachdateien nie.
 | `grunt` | lokal nicht pruefbar (npm-Abhaengigkeiten des Moodle-Baums fehlen) |
 | `behat` | lokal nicht pruefbar (Browsertreiber), non-blocking |
 
+Zwei Fehler im ersten Workflow, beide im zweiten Lauf sichtbar geworden:
+
+- **Das Plugin-Argument fehlte.** `moodle-plugin-ci phplint` und die uebrigen Schritte
+  verlangen den Pfad als Argument; ohne ihn brechen sie mit *Not enough arguments
+  (missing: "plugin")* ab. Lokal war das nie aufgefallen, weil ich die Schritte
+  immer mit Pfad aufgerufen habe. Alle Schritte tragen jetzt `./plugin`.
+- **Der Installationsschritt scheitert auf PHP 8.5.** `moodle-plugin-ci install`
+  initialisiert auch Behat, und `admin/tool/behat/cli/util_single_run.php` meldet
+  unter 8.5 Dutzende Deprecations aus dem Moodle-Kern. Auf 8.5 laeuft der
+  Installer deshalb mit `--no-init`; PHPUnit, Behat und Grunt entfallen dort, die
+  statischen Schritte liefern weiterhin ein echtes Ergebnis.
+
 Zwei bewusste Ausnahmen im Workflow:
 
 - **`PSR1.Classes.ClassDeclaration` ausgenommen.** `mod_adaptivequiz_csv_renderer`

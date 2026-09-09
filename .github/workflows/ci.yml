@@ -19,11 +19,13 @@ jobs:
   test:
     name: ${{ matrix.moodle-branch }} · PHP ${{ matrix.php }} · ${{ matrix.database }}
     runs-on: ubuntu-latest
-    # PHP 8.5 laeuft mit, blockiert aber nicht: Moodles phpunit.xml setzt
-    # failOnDeprecation="true", und unter 8.5 melden sechs Kernstellen Deprecations
-    # (lib/dml/pgsql_native_moodle_database.php, lib/pear/HTML/QuickForm.php,
-    # lib/classes/plugin_manager.php, backup/util/xml/parser, mod/workshop/lib.php).
-    # Aus dem Plugin selbst kommt keine. Scharf schalten, sobald der Kern nachzieht.
+    # PHP 8.5 laeuft mit, blockiert aber nicht. Moodle 5.x ist unter 8.5 noch nicht sauber:
+    # der Kern meldet Deprecations aus lib/classes/xml_parser.php, lib/dml/pgsql_native_*,
+    # lib/pear/HTML/QuickForm.php, lib/classes/plugininfo/base.php, user/profile/lib.php und
+    # weiteren Stellen. moodle-plugin-ci bricht bei jeder PHP-Meldung ab, und Moodles
+    # phpunit.xml setzt failOnDeprecation="true". Aus dem Plugin selbst kommt keine einzige
+    # Meldung. Auf 8.5 laufen deshalb nur die statischen Schritte; scharf schalten, sobald
+    # der Kern nachzieht.
     continue-on-error: ${{ matrix.php == '8.5' }}
 
     services:
@@ -85,44 +87,51 @@ jobs:
           sudo locale-gen en_AU.UTF-8
           echo "NVM_DIR=$HOME/.nvm" >> $GITHUB_ENV
 
+      # --no-init auf PHP 8.5: der Installer laesst Behat und PHPUnit initialisieren, und
+      # admin/tool/behat/cli/util_single_run.php meldet unter 8.5 Dutzende Deprecations aus dem
+      # Moodle-Kern (xml_parser_free, nicht-kanonische Casts, case mit Semikolon, backtick).
+      # moodle-plugin-ci bricht bei jeder PHP-Meldung ab. Ohne die Initialisierung laufen
+      # wenigstens die statischen Schritte durch und liefern auf 8.5 ein echtes Ergebnis.
       - name: Moodle installieren
-        run: moodle-plugin-ci install --plugin ./plugin --db-host=127.0.0.1
+        run: moodle-plugin-ci install --plugin ./plugin --db-host=127.0.0.1 ${{ matrix.php == '8.5' && '--no-init' || '' }}
         env:
           DB: ${{ matrix.database }}
           MOODLE_BRANCH: ${{ matrix.moodle-branch }}
 
       - name: PHP-Syntax
         if: ${{ always() }}
-        run: moodle-plugin-ci phplint
+        run: moodle-plugin-ci phplint ./plugin
 
       # PSR1.Classes.ClassDeclaration ist ausgenommen: mod_adaptivequiz_csv_renderer ist ein
       # Renderer-Subtyp und muss laut Moodles renderer_factory in renderer.php stehen.
       - name: Code-Style
         if: ${{ always() }}
-        run: moodle-plugin-ci phpcs --max-warnings 0 --exclude=PSR1.Classes.ClassDeclaration
+        run: moodle-plugin-ci phpcs --max-warnings 0 --exclude=PSR1.Classes.ClassDeclaration ./plugin
 
       - name: PHPDoc
         if: ${{ always() }}
-        run: moodle-plugin-ci phpdoc --max-warnings 0
+        run: moodle-plugin-ci phpdoc --max-warnings 0 ./plugin
 
       - name: Mustache-Templates
         if: ${{ always() }}
-        run: moodle-plugin-ci mustache
+        run: moodle-plugin-ci mustache ./plugin
 
       - name: Grunt
-        if: ${{ always() }}
-        run: moodle-plugin-ci grunt --max-lint-warnings 0
+        if: ${{ always() && matrix.php != '8.5' }}
+        run: moodle-plugin-ci grunt --max-lint-warnings 0 ./plugin
 
+      # Auf PHP 8.5 gibt es keine initialisierte Testumgebung (siehe Installationsschritt), und
+      # Moodles phpunit.xml setzt failOnDeprecation="true" - der Lauf waere ohnehin rot.
       - name: PHPUnit
-        if: ${{ always() }}
-        run: moodle-plugin-ci phpunit --fail-on-warning
+        if: ${{ always() && matrix.php != '8.5' }}
+        run: moodle-plugin-ci phpunit --fail-on-warning ./plugin
 
       # Behat laeuft vorerst non-blocking: es braucht einen Browsertreiber und ist damit
       # ausserhalb der CI nicht nachstellbar. Scharf schalten, sobald ein Lauf gruen war.
       - name: Behat
-        if: ${{ always() }}
+        if: ${{ always() && matrix.php != '8.5' }}
         continue-on-error: true
-        run: moodle-plugin-ci behat --profile chrome
+        run: moodle-plugin-ci behat --profile chrome ./plugin
 
   architecture:
     name: Architekturgrenze zu local_catquiz
