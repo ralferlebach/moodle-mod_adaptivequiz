@@ -111,9 +111,35 @@ Der Vertrag umfasst sechs Erweiterungspunkte, aufgeloest ueber
 | `mod_form_extension::apply()` | `catmodel_mod_form_modifier` |
 | `mod_form_extension::validate()` | `catmodel_mod_form_validator` |
 | `mod_form_extension::preprocess()` | `catmodel_mod_form_data_preprocessor` |
+| noch nicht aufgerufen | `item_administration_factory` |
 
-Noch nicht portiert ist die Delegation waehrend eines Versuchs
-(Fragenauswahl und Item-Administration). Das ist der Rest von Phase 3.
+### Was an der Item-Administration offen ist
+
+Die Vertragsklassen `item_administration`, `item_administration_factory`,
+`item_administration_evaluation` und `next_item` sind portiert, und der Resolver
+findet eine Fabrik, die ein Catmodel anbietet. **Aufgerufen wird sie noch
+nicht.** Das ist bewusst so ausgeliefert, und der Grund gehoert dokumentiert:
+
+`attempt.php` wickelt einen Versuch prozedural ab. Antwortverarbeitung,
+Schwierigkeitsberechnung, Abbruchpruefung, `redirect()` und Rendering liegen in
+einem Skript ineinander. Um die eingebaute Logik hinter den Vertrag zu ziehen,
+muesste sie aus dem Skript herausgeloest werden - der Fork hat dafuer
+`attempt.php` neu geschrieben und `cat_session` eingefuehrt. Das ist keine
+mechanische Portierung, sondern ein Umbau von rund 130 Zeilen Upstream-Code mit
+`redirect()`-Aufrufen mittendrin, und er laesst sich mit den vorhandenen Tests
+nicht bitgenau absichern.
+
+Deshalb als eigener Arbeitsschritt vorgemerkt, mit dieser Reihenfolge:
+
+1. `default_item_administration` aus `attempt.php` herausloesen, ohne
+   Verhaltensaenderung; Nachweis ueber `attempt_test`, `catalgo_test`,
+   `fetchquestion_test` und `locallib_test`.
+2. `attempt.php` auf die Fabrik umstellen, Default wie bisher.
+3. Erst dann die Verzweigung auf ein Catmodel einschalten.
+
+Bis dahin ist `item_administration_factory` ein veroeffentlichter Vertrag ohne
+Aufrufstelle im Host. Ein Catmodel kann ihn implementieren, der Host fragt ihn
+noch nicht.
 
 ## Offene Punkte, die aus der Baseline folgen
 

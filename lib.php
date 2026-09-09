@@ -99,9 +99,13 @@ function adaptivequiz_add_instance(stdClass $adaptivequiz, ?mod_adaptivequiz_mod
     $adaptivequiz->timecreated = $time;
     $adaptivequiz->timemodified = $time;
 
+    // The activity form always submits these two, everything that creates an instance
+    // programmatically usually does not. Both are NOT NULL in the database (issue #9).
+    $adaptivequiz->attemptfeedbackenable = empty($adaptivequiz->attemptfeedbackenable) ? 0 : 1;
+
     $attemptfeedbacktext = '';
     $attemptfeedbackformat = FORMAT_MOODLE;
-    if ($adaptivequiz->attemptfeedbackenable) {
+    if ($adaptivequiz->attemptfeedbackenable && isset($adaptivequiz->attemptfeedbackeditor)) {
         $attemptfeedbacktext = $adaptivequiz->attemptfeedbackeditor['text'];
         if (isset($adaptivequiz->attemptfeedbackeditor['itemid'])) {
             $attemptfeedbacktext = file_save_draft_area_files(
@@ -223,7 +227,10 @@ function adaptivequiz_update_instance(stdClass $adaptivequiz, ?mod_adaptivequiz_
     // Get the current value, so we can see what changed.
     $oldquiz = $DB->get_record('adaptivequiz', ['id' => $adaptivequiz->instance]);
 
-    if ($adaptivequiz->attemptfeedbackenable) {
+    // See adaptivequiz_add_instance(): the fields are optional outside the activity form.
+    $adaptivequiz->attemptfeedbackenable = empty($adaptivequiz->attemptfeedbackenable) ? 0 : 1;
+
+    if ($adaptivequiz->attemptfeedbackenable && isset($adaptivequiz->attemptfeedbackeditor)) {
         $attemptfeedbacktext = $adaptivequiz->attemptfeedbackeditor['text'];
         if (isset($adaptivequiz->attemptfeedbackeditor['itemid'])) {
             $attemptfeedbacktext = file_save_draft_area_files(

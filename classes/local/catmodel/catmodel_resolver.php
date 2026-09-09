@@ -93,6 +93,9 @@ final class catmodel_resolver {
             );
         }
 
+        // The item administration sits in its own namespace, mirroring the host.
+        $classes += core_component::get_component_classes_in_namespace($component, 'local\\itemadministration');
+
         return array_keys($classes);
     }
 }

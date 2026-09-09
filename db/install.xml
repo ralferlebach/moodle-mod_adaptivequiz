@@ -12,13 +12,13 @@
         <FIELD NAME="intro" TYPE="text" NOTNULL="true" SEQUENCE="false" COMMENT="Description of activity"/>
         <FIELD NAME="introformat" TYPE="int" LENGTH="4" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="activity intro text format"/>
         <FIELD NAME="attempts" TYPE="int" LENGTH="2" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Number of allowed attempts"/>
-        <FIELD NAME="password" TYPE="char" LENGTH="255" NOTNULL="true" SEQUENCE="false" COMMENT="A password that the student must enter before starting or continuing an adaptive quiz attempt."/>
+        <FIELD NAME="password" TYPE="char" LENGTH="255" NOTNULL="true" DEFAULT="" SEQUENCE="false" COMMENT="A password that the student must enter before starting or continuing an adaptive quiz attempt."/>
         <FIELD NAME="browsersecurity" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Restriciton on the browser the student must use. E.g. securewindow."/>
         <FIELD NAME="attemptfeedback" TYPE="text" NOTNULL="true" SEQUENCE="false" COMMENT="Feedback given to students when their attempt has been completed."/>
         <FIELD NAME="attemptfeedbackformat" TYPE="int" LENGTH="2" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Format of attempt feedback"/>
-        <FIELD NAME="attemptfeedbackenable" TYPE="int" LENGTH="1" NOTNULL="true" SEQUENCE="false"/>
-        <FIELD NAME="showabilitymeasurefeedback" TYPE="int" LENGTH="1" NOTNULL="true" SEQUENCE="false" COMMENT="Whether the ability measure should be presented to a test-taker once the attempt is finished."/>
-        <FIELD NAME="showabilitymeasuresummary" TYPE="int" LENGTH="1" NOTNULL="true" SEQUENCE="false" COMMENT="Whether the ability measure is displayed in user's attempts summary."/>
+        <FIELD NAME="attemptfeedbackenable" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Whether the attempt feedback text is shown."/>
+        <FIELD NAME="showabilitymeasurefeedback" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Whether the ability measure should be presented to a test-taker once the attempt is finished."/>
+        <FIELD NAME="showabilitymeasuresummary" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Whether the ability measure is displayed in user's attempts summary."/>
         <FIELD NAME="showattemptprogress" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Whether quiz progress info should be presented to a test-taker during attempting a quiz."/>
         <FIELD NAME="highestlevel" TYPE="int" LENGTH="3" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="The highest difficulty level the adaptive quiz will go to."/>
         <FIELD NAME="lowestlevel" TYPE="int" LENGTH="3" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="The lowest difficulty level the adaptive quiz will go to."/>
@@ -30,7 +30,7 @@
         <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Time created timestamp"/>
         <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Time modified timesampt"/>
         <FIELD NAME="completionattemptcompleted" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Stores whether a custom completion rule based on whether a user has a completed attempt enabled."/>
-        <FIELD NAME="debuginfoenable" TYPE="int" LENGTH="1" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="debuginfoenable" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
         <FIELD NAME="catmodel" TYPE="char" LENGTH="255" NOTNULL="false" SEQUENCE="false" COMMENT="Name of the CAT model subplugin driving this instance, empty for the built-in algorithm."/>
       </FIELDS>
       <KEYS>

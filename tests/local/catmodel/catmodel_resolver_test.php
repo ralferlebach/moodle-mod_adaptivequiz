@@ -17,6 +17,7 @@
 namespace mod_adaptivequiz\local\catmodel;
 
 use adaptivequizcatmodel_testcatmodel\local\catmodel\form\mod_form_handler;
+use adaptivequizcatmodel_testcatmodel\local\itemadministration\stop_immediately_administration;
 use adaptivequizcatmodel_testcatmodel\local\catmodel\instance\instance_handler;
 use MoodleQuickForm;
 use advanced_testcase;
@@ -27,6 +28,9 @@ use mod_adaptivequiz\local\catmodel\form\mod_form_extension;
 use mod_adaptivequiz\local\catmodel\instance\catmodel_add_instance_handler;
 use mod_adaptivequiz\local\catmodel\instance\catmodel_delete_instance_handler;
 use mod_adaptivequiz\local\catmodel\instance\catmodel_update_instance_handler;
+use mod_adaptivequiz\local\itemadministration\item_administration_evaluation;
+use mod_adaptivequiz\local\itemadministration\item_administration_factory;
+use mod_adaptivequiz\local\itemadministration\next_item;
 
 /**
  * Tests the generic CAT model subplugin contract.
@@ -197,6 +201,39 @@ final class catmodel_resolver_test extends advanced_testcase {
         $defaults = mod_form_extension::preprocess(['catmodel' => 'testcatmodel']);
         $this->assertArrayHasKey(mod_form_handler::FIELD, $defaults);
         $this->assertSame(['unrelated' => 1], mod_form_extension::preprocess(['unrelated' => 1]));
+    }
+
+    /**
+     * The item administration of an attempt is an extension point like the others.
+     */
+    public function test_item_administration_is_resolved(): void {
+        $this->resetAfterTest();
+
+        $factory = catmodel_resolver::handler('testcatmodel', item_administration_factory::class);
+        $this->assertInstanceOf(item_administration_factory::class, $factory);
+
+        $administration = new stop_immediately_administration();
+        $evaluation = $administration->evaluate_ability_to_administer_next_item(null);
+
+        $this->assertTrue($evaluation->item_administration_is_to_stop());
+        $this->assertSame(stop_immediately_administration::REASON, $evaluation->stoppage_reason());
+        $this->assertNull($evaluation->next_item());
+    }
+
+    /**
+     * The value objects of the item administration refuse states that make no sense.
+     */
+    public function test_item_administration_value_objects_guard_their_invariants(): void {
+        $item = next_item::from_question_id(7);
+        $this->assertSame(7, $item->question_id());
+        $this->assertNull($item->quba_slot());
+
+        $evaluation = item_administration_evaluation::with_next_item($item);
+        $this->assertFalse($evaluation->item_administration_is_to_stop());
+        $this->assertSame($item, $evaluation->next_item());
+
+        $this->expectException(coding_exception::class);
+        next_item::from_question_id(0);
     }
 
     /**
