@@ -258,7 +258,10 @@ function adaptivequiz_update_instance(stdClass $adaptivequiz, ?mod_adaptivequiz_
     // Save question tag association data.
     adaptivequiz_update_questcat_association($adaptivequiz->id, $adaptivequiz);
 
-    // Update related grade item.
+    // Update related grade item. The grading method is optional outside the activity form; an
+    // update that does not mention it keeps the stored one.
+    $adaptivequiz->grademethod = $adaptivequiz->grademethod ?? $oldquiz->grademethod;
+
     if ($oldquiz->grademethod != $adaptivequiz->grademethod) {
         adaptivequiz_update_grades($adaptivequiz);
     } else {

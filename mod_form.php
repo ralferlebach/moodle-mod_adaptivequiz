@@ -112,7 +112,7 @@ class mod_adaptivequiz_mod_form extends moodleform_mod {
 
         $isnewinstance = !$this->current->instance;
         if (!$isnewinstance) {
-            $customfeedbackenabled = $this->current->attemptfeedbackenable;
+            $customfeedbackenabled = $this->current->attemptfeedbackenable ?? 0;
             if ($customfeedbackenabled == 1 || $customfeedbackenabled == -1) {
                 $mform->setExpanded('attemptfeedbackhdr');
             }
@@ -230,28 +230,41 @@ class mod_adaptivequiz_mod_form extends moodleform_mod {
 
     /**
      * Custom completion rules support.
+     *
+     * Since Moodle 4.3 the completion settings are rendered twice on the same page, once for the
+     * activity and once for the course default. Core keeps them apart by appending a suffix to
+     * every element name. Without it both forms use the identical name, the second overwrites the
+     * first, and the rule ends up belonging to whichever was rendered last - which is why a
+     * duplicated activity could no longer be set back to no completion condition.
+     *
+     * @return array Names of the custom rule elements, suffix included.
      */
     public function add_completion_rules(): array {
-        $form = $this->_form;
-        $form->addElement(
+        $suffix = $this->get_suffix();
+
+        $this->_form->addElement(
             'checkbox',
-            'completionattemptcompleted',
+            'completionattemptcompleted' . $suffix,
             ' ',
             get_string('completionattemptcompletedform', 'adaptivequiz')
         );
 
-        return ['completionattemptcompleted'];
+        return ['completionattemptcompleted' . $suffix];
     }
 
     /**
      * Custom completion rules support.
+     *
+     * The keys of the submitted data carry the same suffix, so a lookup without it finds nothing
+     * and the rule always reads as disabled.
+     *
+     * @param array $data Submitted form data.
+     * @return bool Whether the custom rule is switched on.
      */
     public function completion_rule_enabled($data): bool {
-        if (!isset($data['completionattemptcompleted'])) {
-            return false;
-        }
+        $key = 'completionattemptcompleted' . $this->get_suffix();
 
-        return $data['completionattemptcompleted'] != 0;
+        return !empty($data[$key]) && $data[$key] != 0;
     }
 
     /**
