@@ -26,8 +26,15 @@ namespace mod_adaptivequiz;
 use completion_info;
 use core\event\base;
 
+/**
+ * Attempt state change observers.
+ */
 class attempt_state_change_observers {
-
+    /**
+     * Attempt completed.
+     *
+     * @param base $event Event.
+     */
     public static function attempt_completed(base $event): void {
         global $DB;
 
@@ -46,7 +53,7 @@ class attempt_state_change_observers {
         if (!$completion->is_enabled()) {
             return;
         }
-        if (!$adaptivequiz->completionattemptcompleted && empty($adaptivequiz->completionvalidresult)) {
+        if (!$adaptivequiz->completionattemptcompleted) {
             return;
         }
         if (!$cm = get_coursemodule_from_instance('adaptivequiz', $adaptivequiz->id, $adaptivequiz->course)) {

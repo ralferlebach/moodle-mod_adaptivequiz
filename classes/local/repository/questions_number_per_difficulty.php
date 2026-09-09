@@ -26,6 +26,9 @@
 
 namespace mod_adaptivequiz\local\repository;
 
+/**
+ * Questions number per difficulty.
+ */
 final class questions_number_per_difficulty {
     /**
      * @var int $difficulty
@@ -37,15 +40,31 @@ final class questions_number_per_difficulty {
      */
     private $questionsnumber;
 
+    /**
+     * Construct.
+     *
+     * @param int $difficulty Difficulty.
+     * @param int $questionsnumber Questionsnumber.
+     */
     public function __construct(int $difficulty, int $questionsnumber) {
         $this->difficulty = $difficulty;
         $this->questionsnumber = $questionsnumber;
     }
 
+    /**
+     * Difficulty.
+     *
+     * @return int
+     */
     public function difficulty(): int {
         return $this->difficulty;
     }
 
+    /**
+     * Questions number.
+     *
+     * @return int
+     */
     public function questions_number(): int {
         return $this->questionsnumber;
     }

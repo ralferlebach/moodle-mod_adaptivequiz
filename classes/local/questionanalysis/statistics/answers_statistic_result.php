@@ -24,6 +24,9 @@
 
 namespace mod_adaptivequiz\local\questionanalysis\statistics;
 
+/**
+ * Answers statistic result.
+ */
 class answers_statistic_result implements question_statistic_result {
     /** @var int $count  */
     protected $count = null;
@@ -37,7 +40,7 @@ class answers_statistic_result implements question_statistic_result {
      * @param int $count
      * @return void
      */
-    public function __construct ($count, $printable) {
+    public function __construct($count, $printable) {
         $this->count = $count;
         $this->printable = $printable;
     }
@@ -47,7 +50,7 @@ class answers_statistic_result implements question_statistic_result {
      *
      * @return mixed string or numeric
      */
-    public function sortable () {
+    public function sortable() {
         return $this->count;
     }
 
@@ -57,7 +60,7 @@ class answers_statistic_result implements question_statistic_result {
      * @param numeric $result
      * @return mixed string or numeric
      */
-    public function printable () {
+    public function printable() {
         return $this->printable;
     }
 }

@@ -24,13 +24,16 @@
 
 namespace mod_adaptivequiz\local\questionanalysis\statistics;
 
+/**
+ * Question statistic result.
+ */
 interface question_statistic_result {
     /**
      * A sortable version of the result.
      *
      * @return mixed string or numeric
      */
-    public function sortable ();
+    public function sortable();
 
     /**
      * A printable version of the result.
@@ -38,5 +41,5 @@ interface question_statistic_result {
      * @param numeric $result
      * @return mixed string or numeric
      */
-    public function printable ();
+    public function printable();
 }

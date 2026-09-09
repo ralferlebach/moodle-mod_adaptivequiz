@@ -14,35 +14,32 @@
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
-/**
- * PHPUnit tests for the renderer class.
- *
- * @copyright  2013 Remote-Learner {@link http://www.remote-learner.ca/}
- * @copyright  2022 onwards Vitaly Potenko <potenkov@gmail.com>
- * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- */
-
 namespace mod_adaptivequiz;
 
 defined('MOODLE_INTERNAL') || die();
 
 global $CFG;
-require_once($CFG->dirroot.'/mod/adaptivequiz/locallib.php');
-require_once($CFG->dirroot.'/mod/adaptivequiz/renderer.php');
-require_once($CFG->dirroot.'/tag/lib.php');
+require_once($CFG->dirroot . '/mod/adaptivequiz/locallib.php');
+require_once($CFG->dirroot . '/mod/adaptivequiz/renderer.php');
+require_once($CFG->dirroot . '/tag/lib.php');
 
 use advanced_testcase;
 use mod_adaptivequiz_renderer;
 use moodle_page;
 use moodle_url;
+use PHPUnit\Framework\Attributes\CoversClass;
 use stdClass;
 
 /**
- * @group mod_adaptivequiz
- * @covers \mod_adaptivequiz_renderer
+ * A test class.
+ *
+ * @package    mod_adaptivequiz
+ * @copyright  2013 Remote-Learner {@link http://www.remote-learner.ca/}
+ * @copyright  2022 onwards Vitaly Potenko <potenkov@gmail.com>
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
+#[CoversClass(\mod_adaptivequiz_renderer::class)]
 class renderer_test extends advanced_testcase {
-
     /**
      * This function tests the output from the get_js_module.
      */
@@ -88,7 +85,7 @@ class renderer_test extends advanced_testcase {
         $dummypage = new moodle_page();
         $target = 'mod_adaptivequiz';
         $renderer = new mod_adaptivequiz_renderer($dummypage, $target);
-        $url = new moodle_url('/test/phpunittest/test.php', array('cmid' => 99));
+        $url = new moodle_url('/test/phpunittest/test.php', ['cmid' => 99]);
         $text = 'phpunit test button';
 
         $output = $renderer->print_form_and_button($url, $text);

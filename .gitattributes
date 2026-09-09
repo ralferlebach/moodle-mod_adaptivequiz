@@ -1,13 +1,11 @@
-# Enforce LF line endings for all text files.
-* text=auto eol=lf
-
-# Files and directories that must not be part of a distributed release archive
-# (git archive / export). Runtime code, language strings, templates, PHPUnit and
-# Behat tests, and the changelog are kept; development-only tooling and internal
-# session documentation are excluded.
-/.github/               export-ignore
-/doc/                   export-ignore
-/.gitignore             export-ignore
-/.gitattributes         export-ignore
-/erpnext.yml            export-ignore
-/cli/	export-ignore
+# Nicht ausliefern: reine Entwicklungs- und Testbestandteile.
+# Das neutrale Test-Catmodel und die Tests, die es voraussetzen, gehoeren
+# zur Entwicklung, nicht ins ausgelieferte Plugin.
+/catmodel/testcatmodel   export-ignore
+/tests/local/catmodel    export-ignore
+/tools           export-ignore
+/doc            export-ignore
+/.github        export-ignore
+/.gitattributes export-ignore
+/.gitignore     export-ignore
+/PORTING_MATRIX.md export-ignore
