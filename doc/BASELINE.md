@@ -186,6 +186,28 @@ Zwei bewusste Ausnahmen im Workflow:
   Unter 8.5 melden sechs Kernstellen Deprecations, aus dem Plugin keine einzige.
   Der Lauf endet deshalb mit Exit 1, unabhaengig von `--fail-on-warning`.
 
+## Privacy (Issue #6)
+
+Das Modul hatte keinen Privacy-Provider. Ohne einen ist weder Auskunft noch
+Loeschung moeglich, und ein DSGVO-konformer Produktivbetrieb scheidet aus.
+
+`mod_adaptivequiz\privacy\provider` deckt jetzt ab:
+
+| Gegenstand | Behandlung |
+|---|---|
+| `adaptivequiz_attempt` (zehn Spalten) | deklariert, exportiert, geloescht |
+| Antworten des Versuchs | ueber `core_question` deklariert, exportiert und geloescht |
+| Note im Gradebook | als Subsystem `core_grades` deklariert |
+| Berichtseinstellungen | zwei Nutzereinstellungen deklariert |
+
+Was **nicht** abgedeckt ist und offen bleibt: Catmodel-Subplugins koennen eigene
+personenbezogene Daten halten - `local_catquiz` tut das mit den geschaetzten
+Faehigkeiten je Skala. Der Host muesste dafuer die Subplugin-Delegation der
+Privacy API implementieren, so wie `mod_quiz` es fuer `quizaccess` tut, und
+jedes Catmodel einen eigenen Provider mitbringen. Das ist ein eigener
+Arbeitsschritt; bis dahin ist die Auskunft fuer eine Installation mit Catmodel
+unvollstaendig.
+
 ## Offene Punkte, die aus der Baseline folgen
 
 **Code-Style.** Der Upstream-Stand erzeugt unter dem Moodle-Standard
