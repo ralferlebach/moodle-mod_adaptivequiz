@@ -32,17 +32,17 @@ Feature: Adaptive quiz content
       | Adaptive Quiz Questions | truefalse | Q9   | Question 9 (difficulty 5).  | True   |
       | Adaptive Quiz Questions | truefalse | Q10  | Question 10 (difficulty 5). | True   |
     And the following "core_question > Tags" exist:
-      | question  | tag    |
-      | Q1        | adpq_1 |
-      | Q2        | adpq_1 |
-      | Q3        | adpq_2 |
-      | Q4        | adpq_2 |
-      | Q5        | adpq_3 |
-      | Q6        | adpq_3 |
-      | Q7        | adpq_4 |
-      | Q8        | adpq_4 |
-      | Q9        | adpq_5 |
-      | Q10       | adpq_5 |
+      | question | tag    |
+      | Q1       | adpq_1 |
+      | Q2       | adpq_1 |
+      | Q3       | adpq_2 |
+      | Q4       | adpq_2 |
+      | Q5       | adpq_3 |
+      | Q6       | adpq_3 |
+      | Q7       | adpq_4 |
+      | Q8       | adpq_4 |
+      | Q9       | adpq_5 |
+      | Q10      | adpq_5 |
 
   @javascript
   Scenario: 20% standard error, user performs 1 level above the starting level

@@ -14,56 +14,108 @@
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
+/**
+ * @copyright  2022 onwards Vitaly Potenko <potenkov@gmail.com>
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
+
 namespace mod_adaptivequiz\completion;
+
+defined('MOODLE_INTERNAL') || die();
+
+global $CFG;
+require_once($CFG->dirroot . '/mod/adaptivequiz/locallib.php');
 
 use advanced_testcase;
 use cm_info;
-use context_module;
-use mod_adaptivequiz\local\attempt\attempt;
+use mod_adaptivequiz\completion\custom_completion;
 
 /**
- * Tests activity's custom completion rules.
- *
- * @package    mod_adaptivequiz
- * @copyright  2022 Vitaly Potenko <potenkov@gmail.com>
- * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- *
- * @covers     \mod_adaptivequiz\completion\custom_completion
+ * @covers \mod_adaptivequiz\completion\custom_completion
  */
 class custom_completion_test extends advanced_testcase {
 
-    public function test_it_defines_completion_state_based_on_attempt_completion(): void {
+    public function test_it_defines_completion_state_based_on_attempt_completion():void {
+        global $DB;
+
         $this->resetAfterTest();
+        $this->setup_test_data_xml();
 
-        $course = $this->getDataGenerator()->create_course();
-        $user = $this->getDataGenerator()->create_user();
+        $attemptuniqueid = 330;
+        $adaptivequizid = 330;
+        $cmid = 5;
+        $userid = 2;
 
-        $questioncategory = $this->getDataGenerator()
-            ->get_plugin_generator('core_question')
-            ->create_question_category(['name' => 'My category']);
-
-        $adaptivequiz = $this->getDataGenerator()
-            ->get_plugin_generator('mod_adaptivequiz')
-            ->create_instance([
-                'course' => $course->id,
-                'completionattemptcompleted' => 1,
-                'questionpool' => [$questioncategory->id],
-            ]);
-
-        $cm = get_coursemodule_from_instance('adaptivequiz', $adaptivequiz->id, $course->id);
-
-        $attempt = attempt::create($adaptivequiz, $user->id);
+        $adaptivequiz = $DB->get_record('adaptivequiz', ['id' => $adaptivequizid]);
+        $context = \context_module::instance($cmid);
+        $cm = get_coursemodule_from_id('adaptivequiz', $cmid);
 
         $cminfo = cm_info::create($cm);
         $cminfo->override_customdata('customcompletionrules',
             ['completionattemptcompleted' => $adaptivequiz->completionattemptcompleted]);
 
-        $completion = new custom_completion($cminfo, $user->id);
+        $completion = new custom_completion($cminfo, $userid);
 
         $this->assertEquals(COMPLETION_INCOMPLETE, $completion->get_state('completionattemptcompleted'));
 
-        $attempt->complete(context_module::instance($cm->id), 1, 'php unit test', time());
+        adaptivequiz_complete_attempt($attemptuniqueid, $adaptivequiz, $context, $userid, 'php unit test');
 
         $this->assertEquals(COMPLETION_COMPLETE, $completion->get_state('completionattemptcompleted'));
+    }
+
+    /**
+     * Issue #8: the completionvalidresult rule requires a completed attempt with
+     * a valid CAT result. A technically completed but invalid attempt does not
+     * satisfy it; setting the attempt's resultvalid flag does.
+     *
+     * @covers \mod_adaptivequiz\completion\custom_completion::get_state
+     */
+    public function test_completionvalidresult_requires_a_valid_result(): void {
+        global $DB;
+
+        $this->resetAfterTest();
+        $this->setup_test_data_xml();
+
+        $attemptuniqueid = 330;
+        $adaptivequizid = 330;
+        $cmid = 5;
+        $userid = 2;
+
+        $adaptivequiz = $DB->get_record('adaptivequiz', ['id' => $adaptivequizid]);
+        $context = \context_module::instance($cmid);
+        $cm = get_coursemodule_from_id('adaptivequiz', $cmid);
+
+        $cminfo = cm_info::create($cm);
+        $cminfo->override_customdata(
+            'customcompletionrules',
+            ['completionattemptcompleted' => 1, 'completionvalidresult' => 1]
+        );
+
+        $completion = new custom_completion($cminfo, $userid);
+
+        // No completed attempt yet.
+        $this->assertEquals(COMPLETION_INCOMPLETE, $completion->get_state('completionvalidresult'));
+
+        // Technically complete the attempt. With no CAT result, resultvalid stays 0.
+        adaptivequiz_complete_attempt($attemptuniqueid, $adaptivequiz, $context, $userid, 'php unit test');
+        $this->assertEquals(
+            COMPLETION_INCOMPLETE,
+            $completion->get_state('completionvalidresult'),
+            'A technically completed but invalid attempt must not satisfy the rule.'
+        );
+
+        // A valid CAT result satisfies the rule.
+        $attempt = $DB->get_record('adaptivequiz_attempt', ['uniqueid' => $attemptuniqueid], '*', MUST_EXIST);
+        $DB->set_field('adaptivequiz_attempt', 'resultvalid', 1, ['id' => $attempt->id]);
+        $this->assertEquals(COMPLETION_COMPLETE, $completion->get_state('completionvalidresult'));
+
+        // The legacy rule remains satisfied by the completed attempt.
+        $this->assertEquals(COMPLETION_COMPLETE, $completion->get_state('completionattemptcompleted'));
+    }
+
+    private function setup_test_data_xml() {
+        $this->dataset_from_files(
+            [__DIR__.'/../fixtures/mod_adaptivequiz_adaptiveattempt.xml']
+        )->to_database();
     }
 }

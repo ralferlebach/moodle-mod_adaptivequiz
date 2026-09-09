@@ -72,6 +72,9 @@ class attempt_state_change_observers_test extends advanced_testcase {
         $attemptrecordsnapshot->difficultysum = 0.0000000;
         $attemptrecordsnapshot->standarderror = 1.51186;
         $attemptrecordsnapshot->measure = 1.94591;
+        $attemptrecordsnapshot->timefinished = 1658525029;
+        $attemptrecordsnapshot->resultstatus = 'valid';
+        $attemptrecordsnapshot->resultvalid = 1;
         $attemptrecordsnapshot->timecreated = 1658524979;
         $attemptrecordsnapshot->timemodified = 1658525029;
 
@@ -83,7 +86,7 @@ class attempt_state_change_observers_test extends advanced_testcase {
         $event = attempt_completed::create([
             'objectid' => $attemptid,
             'context' => $context,
-            'userid' => $user->id
+            'userid' => $user->id,
         ]);
         $event->add_record_snapshot('adaptivequiz_attempt', $attemptrecordsnapshot);
         $event->add_record_snapshot('adaptivequiz', $adaptivequiz);

@@ -14,8 +14,6 @@
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
-declare(strict_types=1);
-
 namespace mod_adaptivequiz\local\itemadministration;
 
 use coding_exception;
@@ -80,7 +78,6 @@ final class item_administration_evaluation {
      * A named constructor to quickly instantiate an evaluation object for the 'stoppage' result of evaluation.
      *
      * @param string $reason
-     * @return self
      */
     public static function with_stoppage_reason(string $reason): self {
         return new self(null, $reason);
@@ -90,7 +87,6 @@ final class item_administration_evaluation {
      * A named constructor to quickly instantiate an evaluation object with the next item (question) data.
      *
      * @param next_item $item
-     * @return self
      */
     public static function with_next_item(next_item $item): self {
         return new self($item, null);

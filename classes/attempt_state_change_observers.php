@@ -46,7 +46,7 @@ class attempt_state_change_observers {
         if (!$completion->is_enabled()) {
             return;
         }
-        if (!$adaptivequiz->completionattemptcompleted) {
+        if (!$adaptivequiz->completionattemptcompleted && empty($adaptivequiz->completionvalidresult)) {
             return;
         }
         if (!$cm = get_coursemodule_from_instance('adaptivequiz', $adaptivequiz->id, $adaptivequiz->course)) {

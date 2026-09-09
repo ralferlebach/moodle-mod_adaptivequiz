@@ -82,5 +82,85 @@ function xmldb_adaptivequiz_upgrade($oldversion) {
         upgrade_mod_savepoint(true, 2022110200, 'adaptivequiz');
     }
 
+    if ($oldversion < 2024082100) {
+        $table = new xmldb_table('adaptivequiz');
+        $field = new xmldb_field('catmodel', XMLDB_TYPE_CHAR, 255);
+
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        upgrade_mod_savepoint(true, 2024082100, 'adaptivequiz');
+    }
+
+    if ($oldversion < 2026082100) {
+        // The 'measure' column exists in install.xml but is created by no upgrade
+        // step, so installations that were set up from an older install.xml never
+        // received it. That is not merely cosmetic: closeattempt.php, catalgo.php,
+        // view.php and the reports all read the column, so such an instance fails at
+        // run time and not only during an upgrade.
+        //
+        // Created here with exactly the definition from install.xml, and only when
+        // absent - so a healthy installation is untouched.
+        $table = new xmldb_table('adaptivequiz_attempt');
+        $field = new xmldb_field('measure', XMLDB_TYPE_NUMBER, '10, 5', null, XMLDB_NOTNULL, null, '0.0');
+
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        // Issue #5: authoritative, immutable completion timestamp on the attempt.
+        // NULL while the attempt is running; set exactly once at the transition
+        // to COMPLETED. Additive and idempotent.
+        $table = new xmldb_table('adaptivequiz_attempt');
+
+        // No positional argument: it used to say "after measure", which turned into
+        // an AFTER clause on MySQL/MariaDB and failed wherever that column was
+        // missing. PostgreSQL ignores column position, which is why this only ever
+        // surfaced on one engine. Column order carries no meaning in SQL, so the
+        // field is appended - independently of the step above.
+        $field = new xmldb_field('timefinished', XMLDB_TYPE_INTEGER, '10', null, null, null, null);
+
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        upgrade_mod_savepoint(true, 2026082100, 'adaptivequiz');
+    }
+
+    if ($oldversion < 2026082105) {
+        // Issue #8: couple activity completion to a valid CAT result. Add the
+        // per-attempt result fields and the per-activity completion rule flag.
+        // Additive and idempotent.
+        $table = new xmldb_table('adaptivequiz_attempt');
+        // No positional argument here either, for the same reason as above: it would
+        // make this step depend on a column the previous step may not have created.
+        $field = new xmldb_field('resultstatus', XMLDB_TYPE_CHAR, '255', null, null, null, null);
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+        $field = new xmldb_field('resultvalid', XMLDB_TYPE_INTEGER, '1', null, XMLDB_NOTNULL, null, '0');
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        $table = new xmldb_table('adaptivequiz');
+        $field = new xmldb_field(
+            'completionvalidresult',
+            XMLDB_TYPE_INTEGER,
+            '1',
+            null,
+            XMLDB_NOTNULL,
+            null,
+            '0',
+            'completionattemptcompleted'
+        );
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        upgrade_mod_savepoint(true, 2026082105, 'adaptivequiz');
+    }
+
     return true;
 }

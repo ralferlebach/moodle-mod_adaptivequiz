@@ -16,8 +16,10 @@
 
 namespace mod_adaptivequiz\local\itemadministration;
 
+use coding_exception;
+
 /**
- * A value object containing info about the next item (question) to be administered during a CAT session.
+ * A value object containing info about the next item (question) to be administered during the CAT session.
  *
  * @package    mod_adaptivequiz
  * @copyright  2023 Vitaly Potenko <potenkov@gmail.com>
@@ -26,37 +28,63 @@ namespace mod_adaptivequiz\local\itemadministration;
 final class next_item {
 
     /**
-     * @var int $difficultylevel
+     * @var int $questionid
      */
-    private $difficultylevel;
+    private $questionid;
 
     /**
-     * @var int $slot Slot of the next question (that is the item), a quba's thing.
+     * @var int $qubaslot
      */
-    private $slot;
+    private $qubaslot;
 
     /**
-     * The constructor.
+     * The constructor, closed, names constructors must be used instead.
      *
-     * @param int $difficultylevel
-     * @param int $slot
+     * @param int|null $questionid
+     * @param int|null $qubaslot
      */
-    public function __construct(int $difficultylevel, int $slot) {
-        $this->difficultylevel = $difficultylevel;
-        $this->slot = $slot;
+    private function __construct(?int $questionid, ?int $qubaslot) {
+        if (!is_null($questionid) && $questionid <= 0) {
+            throw new coding_exception('a positive integer is expected for the question id');
+        }
+
+        if (!is_null($qubaslot) && $qubaslot <= 0) {
+            throw new coding_exception('a positive integer is expected for the slot number');
+        }
+
+        $this->questionid = $questionid;
+        $this->qubaslot = $qubaslot;
     }
 
     /**
-     * Queries for the difficulty level property.
+     * Property getter.
      */
-    public function difficulty_level(): int {
-        return $this->difficultylevel;
+    public function question_id(): ?int {
+        return $this->questionid;
     }
 
     /**
-     * Queries for the slot property.
+     * Property getter.
      */
-    public function slot(): int {
-        return $this->slot;
+    public function quba_slot(): ?int {
+        return $this->qubaslot;
+    }
+
+    /**
+     * A named constructor.
+     *
+     * @param int $questionid
+     */
+    public static function from_question_id(int $questionid): self {
+        return new self($questionid, null);
+    }
+
+    /**
+     * A named constructor.
+     *
+     * @param int $qubaslot
+     */
+    public static function from_quba_slot(int $qubaslot): self {
+        return new self(null, $qubaslot);
     }
 }
