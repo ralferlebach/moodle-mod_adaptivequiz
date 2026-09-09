@@ -31,6 +31,7 @@ use stdClass;
  * @copyright  2026 onwards Ralf Erlebach
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
+#[\PHPUnit\Framework\Attributes\CoversClass(\mod_adaptivequiz_mod_form::class)]
 final class completion_rules_test extends advanced_testcase {
     /**
      * Builds the activity form for an existing instance.

@@ -224,17 +224,17 @@ function xmldb_adaptivequiz_upgrade($oldversion) {
         upgrade_mod_savepoint(true, 2026090902, 'adaptivequiz');
     }
 
-    if ($oldversion < 2026090906) {
+    if ($oldversion < 2026090909) {
         // Issue #9: these columns were NOT NULL without a default, so every insert that did not
-        // mention them failed. Text columns cannot carry a default in XMLDB and are set by
-        // adaptivequiz_add_instance() instead; the flags and the password can.
+        // mention them failed. Only the integer flags can carry one - XMLDB rejects an empty
+        // string as a default for char and text columns, so name, intro, password and
+        // attemptfeedback are filled by adaptivequiz_add_instance() instead.
         $table = new xmldb_table('adaptivequiz');
         $fields = [
             new xmldb_field('attemptfeedbackenable', XMLDB_TYPE_INTEGER, '1', null, XMLDB_NOTNULL, null, '0'),
             new xmldb_field('showabilitymeasurefeedback', XMLDB_TYPE_INTEGER, '1', null, XMLDB_NOTNULL, null, '0'),
             new xmldb_field('showabilitymeasuresummary', XMLDB_TYPE_INTEGER, '1', null, XMLDB_NOTNULL, null, '0'),
             new xmldb_field('debuginfoenable', XMLDB_TYPE_INTEGER, '1', null, XMLDB_NOTNULL, null, '0'),
-            new xmldb_field('password', XMLDB_TYPE_CHAR, '255', null, XMLDB_NOTNULL, null, ''),
         ];
 
         foreach ($fields as $field) {
@@ -243,7 +243,7 @@ function xmldb_adaptivequiz_upgrade($oldversion) {
             }
         }
 
-        upgrade_mod_savepoint(true, 2026090906, 'adaptivequiz');
+        upgrade_mod_savepoint(true, 2026090909, 'adaptivequiz');
     }
 
     return true;

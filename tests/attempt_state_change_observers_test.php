@@ -33,7 +33,7 @@ use stdClass;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 #[CoversClass(\mod_adaptivequiz\attempt_state_change_observers::class)]
-class attempt_state_change_observers_test extends advanced_testcase {
+final class attempt_state_change_observers_test extends advanced_testcase {
     public function test_it_handles_completion_state(): void {
         global $DB;
 

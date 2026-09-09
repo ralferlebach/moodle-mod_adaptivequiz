@@ -99,9 +99,11 @@ function adaptivequiz_add_instance(stdClass $adaptivequiz, ?mod_adaptivequiz_mod
     $adaptivequiz->timecreated = $time;
     $adaptivequiz->timemodified = $time;
 
-    // The activity form always submits these two, everything that creates an instance
-    // programmatically usually does not. Both are NOT NULL in the database (issue #9).
+    // The activity form always submits these, everything that creates an instance
+    // programmatically usually does not. All of them are NOT NULL in the database (issue #9),
+    // and a char column cannot carry an empty string as a default in XMLDB.
     $adaptivequiz->attemptfeedbackenable = empty($adaptivequiz->attemptfeedbackenable) ? 0 : 1;
+    $adaptivequiz->password = $adaptivequiz->password ?? '';
 
     $attemptfeedbacktext = '';
     $attemptfeedbackformat = FORMAT_MOODLE;

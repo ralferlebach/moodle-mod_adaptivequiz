@@ -44,7 +44,7 @@ use question_engine;
 #[CoversFunction('adaptivequiz_update_attempt_data')]
 #[CoversFunction('adaptivequiz_complete_attempt')]
 #[CoversFunction('adaptivequiz_min_attempts_reached')]
-class locallib_test extends advanced_testcase {
+final class locallib_test extends advanced_testcase {
     /**
      * Provide input data to the parameters of the test_allowed_attempt_fail() method.
      */
@@ -277,7 +277,7 @@ class locallib_test extends advanced_testcase {
      * @param int $attempts The number of attempts taken thus far.
      */
     #[DataProvider('attempts_allowed_data_fail')]
-    public function test_allowed_attempt_no_more_attempts_allowed($maxattempts, $attempts) {
+    public function test_allowed_attempt_no_more_attempts_allowed($maxattempts, $attempts): void {
         $data = adaptivequiz_allowed_attempt($maxattempts, $attempts);
         $this->assertFalse($data);
     }
@@ -289,7 +289,7 @@ class locallib_test extends advanced_testcase {
      * @param int $attempts The number of attempts taken thus far.
      */
     #[DataProvider('attempts_allowed_data')]
-    public function test_allowed_attempt($maxattempts, $attempts) {
+    public function test_allowed_attempt($maxattempts, $attempts): void {
         $data = adaptivequiz_allowed_attempt($maxattempts, $attempts);
         $this->assertTrue($data);
     }

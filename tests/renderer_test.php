@@ -39,7 +39,7 @@ use stdClass;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 #[CoversClass(\mod_adaptivequiz_renderer::class)]
-class renderer_test extends advanced_testcase {
+final class renderer_test extends advanced_testcase {
     /**
      * This function tests the output from the get_js_module.
      */
@@ -64,7 +64,7 @@ class renderer_test extends advanced_testcase {
     /**
      * This function tests how init_metadata() handlss an integer
      */
-    public function test_init_metadata_with_integer() {
+    public function test_init_metadata_with_integer(): void {
         $dummypage = new moodle_page();
         $target = 'mod_adaptivequiz';
         $renderer = new mod_adaptivequiz_renderer($dummypage, $target);
@@ -81,7 +81,7 @@ class renderer_test extends advanced_testcase {
     /**
      * This function tests the output from print_form_and_button()
      */
-    public function test_print_form_and_button() {
+    public function test_print_form_and_button(): void {
         $dummypage = new moodle_page();
         $target = 'mod_adaptivequiz';
         $renderer = new mod_adaptivequiz_renderer($dummypage, $target);
@@ -103,7 +103,7 @@ class renderer_test extends advanced_testcase {
     /**
      * This function tests the output from format_report_table_headers()
      */
-    public function test_format_report_table_headers() {
+    public function test_format_report_table_headers(): void {
         $dummypage = new moodle_page();
         $target = 'mod_adaptivequiz';
         $renderer = new mod_adaptivequiz_renderer($dummypage, $target);

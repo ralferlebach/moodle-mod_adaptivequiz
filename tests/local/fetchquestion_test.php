@@ -137,7 +137,7 @@ final class fetchquestion_test extends advanced_testcase {
      * This function tests the retrieval of using illegible tag ids.
      * @see setup_generator_data() for detail of activity instance.
      */
-    public function test_find_questions_fail_tag_ids() {
+    public function test_find_questions_fail_tag_ids(): void {
         $this->resetAfterTest(true);
         $this->setup_test_data_xml();
         $this->setup_generator_data();
@@ -170,7 +170,7 @@ final class fetchquestion_test extends advanced_testcase {
      * This function tests the retrieval of questions using an empty set of question categories.
      * @see setup_generator_data() for detail of activity instance.
      */
-    public function test_find_questions_fail_question_cat() {
+    public function test_find_questions_fail_question_cat(): void {
         $this->resetAfterTest(true);
         $this->setup_test_data_xml();
         $this->setup_generator_data();
@@ -206,7 +206,7 @@ final class fetchquestion_test extends advanced_testcase {
      * @see setup_generator_data() for detail of activity instance
      * @return void
      */
-    public function test_find_questions_exclude() {
+    public function test_find_questions_exclude(): void {
         $this->resetAfterTest(true);
         $this->setup_test_data_xml();
         $this->setup_generator_data();
@@ -233,7 +233,7 @@ final class fetchquestion_test extends advanced_testcase {
     /**
      * This functions tests the accessor methods for the $level class variable.
      */
-    public function test_get_set_level() {
+    public function test_get_set_level(): void {
         $this->resetAfterTest(true);
         $dummyclass = new stdClass();
 
@@ -272,7 +272,7 @@ final class fetchquestion_test extends advanced_testcase {
      * This functions tests the retrevial of tag ids with an associated difficulty level
      * but using legit data.
      */
-    public function test_retrieve_tag() {
+    public function test_retrieve_tag(): void {
         $this->resetAfterTest();
         $this->setup_test_data_xml();
 
@@ -293,7 +293,7 @@ final class fetchquestion_test extends advanced_testcase {
     /**
      * This function test output from fetch_question() where initalize_tags_with_quest_count() returns an empty array
      */
-    public function test_fetch_question_initalize_tags_with_quest_count_return_empty_array() {
+    public function test_fetch_question_initalize_tags_with_quest_count_return_empty_array(): void {
         $this->resetAfterTest(true);
 
         $mockclass = $this
@@ -320,7 +320,7 @@ final class fetchquestion_test extends advanced_testcase {
     /**
      * This function test output from fetch_question() where the initial requested level has available questions
      */
-    public function test_fetch_question_requested_level_has_questions() {
+    public function test_fetch_question_requested_level_has_questions(): void {
         $this->resetAfterTest(true);
 
         $mockclass = $this
@@ -359,7 +359,7 @@ final class fetchquestion_test extends advanced_testcase {
      * This function test output from fetch_question() where one level higher than requested level has available
      * questions.
      */
-    public function test_fetch_question_one_level_higher_has_questions() {
+    public function test_fetch_question_one_level_higher_has_questions(): void {
         $this->resetAfterTest(true);
 
         $mockclass = $this
@@ -398,7 +398,7 @@ final class fetchquestion_test extends advanced_testcase {
      * This function test output from fetch_question() where five levels higher than requested level has available
      * questions.
      */
-    public function test_fetch_question_five_levels_higher_has_questions() {
+    public function test_fetch_question_five_levels_higher_has_questions(): void {
         $this->resetAfterTest(true);
 
         $mockclass = $this
@@ -437,7 +437,7 @@ final class fetchquestion_test extends advanced_testcase {
      * This function test output from fetch_question() where four levels lower than requested level has available
      * questions.
      */
-    public function test_fetch_question_four_levels_lower_has_questions() {
+    public function test_fetch_question_four_levels_lower_has_questions(): void {
         $this->resetAfterTest(true);
 
         $mockclass = $this
@@ -474,7 +474,7 @@ final class fetchquestion_test extends advanced_testcase {
      * This function test output from fetch_question() where searching for a question goes outside
      * the min and max boundaries and stops the searching.
      */
-    public function test_fetch_question_search_outside_min_max_bounds() {
+    public function test_fetch_question_search_outside_min_max_bounds(): void {
         $this->resetAfterTest(true);
 
         $mockclass = $this
@@ -526,7 +526,7 @@ final class fetchquestion_test extends advanced_testcase {
      *
      * @return array
      */
-    public static function constructor_throw_coding_exception_provider() {
+    public static function constructor_throw_coding_exception_provider(): array {
         return [
             [0, 1, 100],
             [1, 100, 100],
@@ -542,7 +542,7 @@ final class fetchquestion_test extends advanced_testcase {
      * @param int $max the maximum level of the attempt
      */
     #[DataProvider('constructor_throw_coding_exception_provider')]
-    public function test_constructor_throw_coding_exception($level, $min, $max) {
+    public function test_constructor_throw_coding_exception($level, $min, $max): void {
         $this->resetAfterTest(true);
 
         $this->expectException('coding_exception');
@@ -552,7 +552,7 @@ final class fetchquestion_test extends advanced_testcase {
     /**
      * This function tests the output from initalize_tags_with_quest_count()
      */
-    public function test_initalize_tags_with_quest_count() {
+    public function test_initalize_tags_with_quest_count(): void {
         $this->resetAfterTest();
 
         $mockclass = $this
@@ -594,7 +594,7 @@ final class fetchquestion_test extends advanced_testcase {
      * This function tests the output from initalize_tags_with_quest_count(), passing an already built difficulty question
      * sum structure, forcing a rebuild.
      */
-    public function test_initalize_tags_with_quest_count_pre_built_quest_sum_struct_rebuild_true() {
+    public function test_initalize_tags_with_quest_count_pre_built_quest_sum_struct_rebuild_true(): void {
         $this->resetAfterTest();
 
         $mockclass = $this
@@ -635,7 +635,7 @@ final class fetchquestion_test extends advanced_testcase {
     /**
      * This function tests the output from decrement_question_sum_from_difficulty().
      */
-    public function test_decrement_question_sum_from_difficulty() {
+    public function test_decrement_question_sum_from_difficulty(): void {
         $this->resetAfterTest(true);
 
         $dummyclass = new stdClass();
@@ -650,7 +650,7 @@ final class fetchquestion_test extends advanced_testcase {
     /**
      * This function tests the output from decrement_question_sum_from_difficulty(), using a key that doesn't exist.
      */
-    public function test_decrement_question_sum_from_difficulty_user_missing_key() {
+    public function test_decrement_question_sum_from_difficulty_user_missing_key(): void {
         $this->resetAfterTest(true);
 
         $dummyclass = new stdClass();

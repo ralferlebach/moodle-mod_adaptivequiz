@@ -28,7 +28,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 #[CoversClass(\mod_adaptivequiz\local\report\users_attempts\user_preferences\filter_user_preferences::class)]
-class filter_user_preferences_test extends basic_testcase {
+final class filter_user_preferences_test extends basic_testcase {
     public function test_it_acquires_correct_default_values_when_unexpected_parameters_provided(): void {
         $filter = filter_user_preferences::from_array([]);
 

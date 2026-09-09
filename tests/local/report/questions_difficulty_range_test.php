@@ -28,7 +28,7 @@ use stdClass;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 #[CoversClass(\mod_adaptivequiz\local\report\questions_difficulty_range::class)]
-class questions_difficulty_range_test extends basic_testcase {
+final class questions_difficulty_range_test extends basic_testcase {
     public function test_it_can_be_created_from_activity_record(): void {
         $record = new stdClass();
         $record->lowestlevel = 5;

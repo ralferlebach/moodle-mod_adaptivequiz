@@ -32,7 +32,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 #[CoversClass(\mod_adaptivequiz\external\search_question_banks::class)]
-class search_question_banks_test extends externallib_advanced_testcase {
+final class search_question_banks_test extends externallib_advanced_testcase {
     public function test_it_returns_qbanks_for_assignment_in_adaptive_quiz_instance(): void {
         global $SITE;
 

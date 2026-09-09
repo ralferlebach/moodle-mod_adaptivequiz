@@ -29,7 +29,7 @@ use stdClass;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 #[CoversClass(\mod_adaptivequiz\local\report\users_attempts\user_preferences\user_preferences::class)]
-class user_preferences_test extends basic_testcase {
+final class user_preferences_test extends basic_testcase {
     public function test_it_acquires_correct_default_values_when_provided_values_are_not_in_valid_range(): void {
         $preferences = user_preferences::from_array(
             ['perpage' => 100, 'showinitialsbar' => 22, 'persistentfilter' => -1]

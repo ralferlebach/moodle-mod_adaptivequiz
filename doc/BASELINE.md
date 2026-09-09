@@ -141,6 +141,39 @@ Bis dahin ist `item_administration_factory` ein veroeffentlichter Vertrag ohne
 Aufrufstelle im Host. Ein Catmodel kann ihn implementieren, der Host fragt ihn
 noch nicht.
 
+## CI-Stand
+
+Der erste Lauf der Matrix fiel in allen dreizehn Jobs im Schritt „Moodle
+installieren" aus. Ursache war eine einzige Zeile aus Issue #9: `DEFAULT=""` auf
+der Spalte `password`. XMLDB lehnt den leeren String als Default fuer char- und
+text-Spalten ab und meldet das per `debugging()`; `moodle-plugin-ci install`
+bricht bei jeder Debug-Meldung ab. Der Core macht es in `mod_quiz` genauso:
+NOT NULL ohne Default, gefuellt vom Code.
+
+Seitdem sind die CI-Schritte lokal nachstellbar. Wichtig dabei: sie muessen
+gegen den **Spiegel** laufen, nicht gegen die Quelle. Der Sniff
+`moodle.Files.LangFilesOrdering` greift nur innerhalb eines Moodle-Baums - ein
+phpcs-Lauf im Quellverzeichnis meldet die Sprachdateien nie.
+
+| Schritt | Stand |
+|---|---|
+| `phplint` | Exit 0 |
+| `phpcs --max-warnings 0 --exclude=PSR1.Classes.ClassDeclaration` | Exit 0 |
+| `phpdoc --max-warnings 0` | Exit 0 |
+| `mustache` | Exit 0 |
+| `phpunit --fail-on-warning` | 171 Tests / 500 Assertionen, PHP 8.3 und 8.4 |
+| `grunt` | lokal nicht pruefbar (npm-Abhaengigkeiten des Moodle-Baums fehlen) |
+| `behat` | lokal nicht pruefbar (Browsertreiber), non-blocking |
+
+Zwei bewusste Ausnahmen im Workflow:
+
+- **`PSR1.Classes.ClassDeclaration` ausgenommen.** `mod_adaptivequiz_csv_renderer`
+  ist ein Renderer-Subtyp und muss laut `renderer_factory` in `renderer.php`
+  stehen. Auslagern wuerde das Laden brechen.
+- **PHP 8.5 non-blocking.** Moodles `phpunit.xml` setzt `failOnDeprecation="true"`.
+  Unter 8.5 melden sechs Kernstellen Deprecations, aus dem Plugin keine einzige.
+  Der Lauf endet deshalb mit Exit 1, unabhaengig von `--fail-on-warning`.
+
 ## Offene Punkte, die aus der Baseline folgen
 
 **Code-Style.** Der Upstream-Stand erzeugt unter dem Moodle-Standard

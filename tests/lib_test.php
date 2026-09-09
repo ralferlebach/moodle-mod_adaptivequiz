@@ -38,7 +38,7 @@ use stdClass;
 #[CoversFunction('adaptivequiz_delete_instance')]
 #[CoversFunction('adaptivequiz_print_recent_mod_activity')]
 #[CoversFunction('adaptivequiz_update_item_administration_params')]
-class lib_test extends advanced_testcase {
+final class lib_test extends advanced_testcase {
     /**
      * This functions loads data via the tests/fixtures/mod_adaptivequiz.xml file
      * @return void
@@ -73,7 +73,7 @@ class lib_test extends advanced_testcase {
     /**
      * This function tests the removal of an activity instance and all related data.
      */
-    public function test_adaptivequiz_delete_instance() {
+    public function test_adaptivequiz_delete_instance(): void {
         global $DB;
 
         $this->resetAfterTest();
@@ -98,7 +98,7 @@ class lib_test extends advanced_testcase {
     /**
      * This function tests the output from adaptivequiz_print_recent_mod_activity().
      */
-    public function test_adaptivequiz_print_recent_mod_activity_details_true() {
+    public function test_adaptivequiz_print_recent_mod_activity_details_true(): void {
         $this->resetAfterTest(true);
 
         $dummy = new stdClass();
@@ -135,7 +135,7 @@ class lib_test extends advanced_testcase {
     /**
      * This function tests the output from adaptivequiz_print_recent_mod_activity().
      */
-    public function test_adaptivequiz_print_recent_mod_activity_details_false() {
+    public function test_adaptivequiz_print_recent_mod_activity_details_false(): void {
         $this->resetAfterTest(true);
 
         $dummy = new stdClass();

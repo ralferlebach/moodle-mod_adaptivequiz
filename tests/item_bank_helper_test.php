@@ -29,7 +29,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 #[CoversClass(\mod_adaptivequiz\item_bank_helper::class)]
-class item_bank_helper_test extends advanced_testcase {
+final class item_bank_helper_test extends advanced_testcase {
     public function test_it_counts_questions_with_the_given_difficulty_level_for_an_adaptivequiz_instance(): void {
         $this->resetAfterTest();
 

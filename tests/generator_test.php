@@ -32,7 +32,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
  */
 #[CoversClass(\mod_adaptivequiz_generator::class)]
 final class generator_test extends advanced_testcase {
-    public function test_generator() {
+    public function test_generator(): void {
         global $DB, $SITE;
 
         $this->resetAfterTest();

@@ -88,7 +88,7 @@ final class attempt_test extends advanced_testcase {
     /**
      * This function tests retrieving an adaptivequiz attempt record.
      */
-    public function test_get_attempt() {
+    public function test_get_attempt(): void {
         $this->resetAfterTest();
 
         $coregenerator = $this->getDataGenerator();
@@ -178,7 +178,7 @@ final class attempt_test extends advanced_testcase {
     /**
      * This function tests the accessor methods for question_usage_by_activity ($quba) property
      */
-    public function test_set_get_quba() {
+    public function test_set_get_quba(): void {
         $this->resetAfterTest(true);
         $this->setup_generator_data();
 
@@ -363,7 +363,7 @@ final class attempt_test extends advanced_testcase {
     /**
      * This function test that one value is returned or an empty array is returned
      */
-    public function test_return_random_question() {
+    public function test_return_random_question(): void {
         $this->resetAfterTest(true);
 
         $dummy = new stdClass();
@@ -385,7 +385,7 @@ final class attempt_test extends advanced_testcase {
     /**
      * This function tests the creation of a question_usage_by_activity object for an attempt
      */
-    public function test_initialize_quba() {
+    public function test_initialize_quba(): void {
         $this->resetAfterTest(true);
         $this->setup_generator_data();
 
@@ -563,7 +563,7 @@ final class attempt_test extends advanced_testcase {
     /**
      * This function tests retrieving the last question viewed by the student for a given attempt, but using failing data
      */
-    public function test_find_last_umarked_question_using_bad_data() {
+    public function test_find_last_umarked_question_using_bad_data(): void {
         $this->resetAfterTest(true);
 
         $dummy = new stdClass();
@@ -589,7 +589,7 @@ final class attempt_test extends advanced_testcase {
     /**
      * This function tests whether the user submitted an answer to the question
      */
-    public function test_was_answer_submitted_to_question_with_graded_right() {
+    public function test_was_answer_submitted_to_question_with_graded_right(): void {
         $this->resetAfterTest(true);
         $dummy = new stdClass();
         $adaptiveattempt = new attempt($dummy, 1);
@@ -615,7 +615,7 @@ final class attempt_test extends advanced_testcase {
     /**
      * This function tests whether the user submitted an answer to the question
      */
-    public function test_was_answer_submitted_to_question_with_graded_wrong() {
+    public function test_was_answer_submitted_to_question_with_graded_wrong(): void {
         $this->resetAfterTest(true);
         $dummy = new stdClass();
         $adaptiveattempt = new attempt($dummy, 1);
@@ -641,7 +641,7 @@ final class attempt_test extends advanced_testcase {
     /**
      * This function tests whether the user submitted an answer to the question
      */
-    public function test_was_answer_submitted_to_question_with_graded_partial() {
+    public function test_was_answer_submitted_to_question_with_graded_partial(): void {
         $this->resetAfterTest(true);
         $dummy = new stdClass();
         $adaptiveattempt = new attempt($dummy, 1);
@@ -667,7 +667,7 @@ final class attempt_test extends advanced_testcase {
     /**
      * This function tests whether the user submitted an answer to the question
      */
-    public function test_was_answer_submitted_to_question_with_graded_gaveup() {
+    public function test_was_answer_submitted_to_question_with_graded_gaveup(): void {
         $this->resetAfterTest(true);
         $dummy = new stdClass();
         $adaptiveattempt = new attempt($dummy, 1);
@@ -693,7 +693,7 @@ final class attempt_test extends advanced_testcase {
     /**
      * This function tests whether the user submitted an answer to the question
      */
-    public function test_was_answer_submitted_to_question_with_graded_todo() {
+    public function test_was_answer_submitted_to_question_with_graded_todo(): void {
         $this->resetAfterTest(true);
         $dummy = new stdClass();
         $adaptiveattempt = new attempt($dummy, 1);
@@ -720,7 +720,7 @@ final class attempt_test extends advanced_testcase {
     /**
      * This function tests the accessor method for $slot
      */
-    public function test_set_get_question_slot_number() {
+    public function test_set_get_question_slot_number(): void {
         $this->resetAfterTest(true);
 
         $dummy = new stdClass();
@@ -736,7 +736,7 @@ final class attempt_test extends advanced_testcase {
     /**
      * This function tests the accessor method for $slot
      */
-    public function test_set_get_question_level() {
+    public function test_set_get_question_level(): void {
         $this->resetAfterTest(true);
 
         $dummy = new stdClass();
@@ -752,7 +752,7 @@ final class attempt_test extends advanced_testcase {
     /**
      * This function tests results returned from get_question_mark()
      */
-    public function test_get_question_mark_with_quba_return_float() {
+    public function test_get_question_mark_with_quba_return_float(): void {
         $this->resetAfterTest(true);
 
         // Test quba returning a mark of 1.0.
@@ -772,7 +772,7 @@ final class attempt_test extends advanced_testcase {
     /**
      * This function tests results returned from get_question_mark()
      */
-    public function test_get_question_mark_with_quba_return_non_float() {
+    public function test_get_question_mark_with_quba_return_non_float(): void {
         $this->resetAfterTest(true);
 
         // Test quba returning a non float value.
@@ -792,7 +792,7 @@ final class attempt_test extends advanced_testcase {
     /**
      * This function tests results returned from get_question_mark()
      */
-    public function test_get_question_mark_with_quba_return_non_null() {
+    public function test_get_question_mark_with_quba_return_non_null(): void {
         $this->resetAfterTest(true);
 
         // Test quba returning null.
@@ -812,7 +812,7 @@ final class attempt_test extends advanced_testcase {
     /**
      * This function tests what happens when the maximum number of questions have been answered
      */
-    public function test_start_attempt_max_num_of_quest_answered() {
+    public function test_start_attempt_max_num_of_quest_answered(): void {
         $this->resetAfterTest(true);
 
         $attempt = $this->createPartialMock(
@@ -830,7 +830,7 @@ final class attempt_test extends advanced_testcase {
      * This function tests what happens when a question slot number is not found, but the number of submitted answers is greater
      * than zero.
      */
-    public function test_start_attempt_quest_slot_empty_quest_submit_greater_than_one() {
+    public function test_start_attempt_quest_slot_empty_quest_submit_greater_than_one(): void {
         $dummyadaptivequiz = new stdClass();
         $dummyadaptivequiz->lowestlevel = 1;
         $dummyadaptivequiz->highestlevel = 100;
@@ -870,7 +870,7 @@ final class attempt_test extends advanced_testcase {
     /**
      * This function tests the return values for level_in_bounds()
      */
-    public function test_level_in_bounds() {
+    public function test_level_in_bounds(): void {
         $this->resetAfterTest(true);
 
         $dummy = new stdClass();

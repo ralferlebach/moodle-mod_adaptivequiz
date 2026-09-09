@@ -12,7 +12,7 @@
         <FIELD NAME="intro" TYPE="text" NOTNULL="true" SEQUENCE="false" COMMENT="Description of activity"/>
         <FIELD NAME="introformat" TYPE="int" LENGTH="4" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="activity intro text format"/>
         <FIELD NAME="attempts" TYPE="int" LENGTH="2" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Number of allowed attempts"/>
-        <FIELD NAME="password" TYPE="char" LENGTH="255" NOTNULL="true" DEFAULT="" SEQUENCE="false" COMMENT="A password that the student must enter before starting or continuing an adaptive quiz attempt."/>
+        <FIELD NAME="password" TYPE="char" LENGTH="255" NOTNULL="true" SEQUENCE="false" COMMENT="A password that the student must enter before starting or continuing an adaptive quiz attempt."/>
         <FIELD NAME="browsersecurity" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Restriciton on the browser the student must use. E.g. securewindow."/>
         <FIELD NAME="attemptfeedback" TYPE="text" NOTNULL="true" SEQUENCE="false" COMMENT="Feedback given to students when their attempt has been completed."/>
         <FIELD NAME="attemptfeedbackformat" TYPE="int" LENGTH="2" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Format of attempt feedback"/>

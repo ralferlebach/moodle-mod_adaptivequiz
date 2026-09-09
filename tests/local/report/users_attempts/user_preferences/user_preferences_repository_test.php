@@ -27,7 +27,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 #[CoversClass(\mod_adaptivequiz\local\report\users_attempts\user_preferences\user_preferences_repository::class)]
-class user_preferences_repository_test extends advanced_testcase {
+final class user_preferences_repository_test extends advanced_testcase {
     public function test_it_stores_and_fetches_preferences(): void {
         $this->resetAfterTest();
 

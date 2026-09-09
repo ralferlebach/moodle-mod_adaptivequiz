@@ -18,6 +18,13 @@
     @template mod_adaptivequiz/question_bank
 
     Renders an assigned question bank item.
+    Example context (json):
+    {
+        "url": "http://example.org/mod/qbank/view.php?id=5",
+        "name": "Shared question bank",
+        "label": "This course",
+        "actions": []
+    }
 }}
 <div class="pb-2">
     <a href="{{{url}}}">{{{name}}}</a>
