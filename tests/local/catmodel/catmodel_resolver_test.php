@@ -28,6 +28,7 @@ use mod_adaptivequiz\local\catmodel\form\mod_form_extension;
 use mod_adaptivequiz\local\catmodel\instance\catmodel_add_instance_handler;
 use mod_adaptivequiz\local\catmodel\instance\catmodel_delete_instance_handler;
 use mod_adaptivequiz\local\catmodel\instance\catmodel_update_instance_handler;
+use mod_adaptivequiz\local\itemadministration\default_item_administration_factory;
 use mod_adaptivequiz\local\itemadministration\item_administration_evaluation;
 use mod_adaptivequiz\local\itemadministration\item_administration_factory;
 use mod_adaptivequiz\local\itemadministration\next_item;
@@ -282,6 +283,39 @@ final class catmodel_resolver_test extends advanced_testcase {
 
         $cmwithout = get_coursemodule_from_instance('adaptivequiz', $without->id, 0, false, MUST_EXIST);
         $this->assertNull(attempts_number::when_custom_catmodel_in_use($without, $cmwithout)->reporturl);
+    }
+
+    /**
+     * Without a CAT model the host uses the built-in item administration.
+     */
+    public function test_default_item_administration_answers_for_a_plain_activity(): void {
+        $this->resetAfterTest();
+
+        $plain = $this->getDataGenerator()->create_module('adaptivequiz', [
+            'course' => $this->getDataGenerator()->create_course()->id,
+        ]);
+
+        $this->assertInstanceOf(
+            default_item_administration_factory::class,
+            \mod_adaptivequiz\cat_session::item_administration_factory_for($plain)
+        );
+    }
+
+    /**
+     * With a CAT model the host uses that one instead.
+     */
+    public function test_catmodel_item_administration_replaces_the_default(): void {
+        $this->resetAfterTest();
+
+        $withcatmodel = $this->getDataGenerator()->create_module('adaptivequiz', [
+            'course' => $this->getDataGenerator()->create_course()->id,
+            'catmodel' => 'testcatmodel',
+        ]);
+
+        $factory = \mod_adaptivequiz\cat_session::item_administration_factory_for($withcatmodel);
+
+        $this->assertNotInstanceOf(default_item_administration_factory::class, $factory);
+        $this->assertInstanceOf(item_administration_factory::class, $factory);
     }
 
     /**

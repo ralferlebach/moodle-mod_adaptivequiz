@@ -27,6 +27,7 @@ require_once($CFG->dirroot . '/mod/adaptivequiz/locallib.php');
 require_once($CFG->dirroot . '/tag/lib.php');
 
 use mod_adaptivequiz\local\attempt;
+use mod_adaptivequiz\cat_session;
 use mod_adaptivequiz\local\catalgo;
 use mod_adaptivequiz\local\fetchquestion;
 use mod_adaptivequiz\output\attempt_debug_info;
@@ -213,12 +214,26 @@ if (isset($difflevel) && !is_null($difflevel)) {
     $adaptiveattempt->set_last_difficulty_level($difflevel);
 }
 
-$attemptstatus = $adaptiveattempt->start_attempt();
+// Ask for the next item. Which implementation answers depends on the activity: the built-in
+// algorithm, or the CAT model configured for this instance. The host does not know the difference.
+$adaptiveattempt->get_attempt();
+$adaptiveattempt->initialize_quba();
 
-// Check if attempt status is set to ready.
-if (empty($attemptstatus)) {
-    // Retrieve the most recent status message for the attempt.
-    $message = $adaptiveattempt->get_status();
+$itemadministrationfactory = cat_session::item_administration_factory_for($adaptivequiz);
+
+$itemadministration = $itemadministrationfactory->item_administration_implementation(
+    $adaptiveattempt->get_quba(),
+    $adaptiveattempt,
+    $adaptivequiz
+);
+
+$slots = $adaptiveattempt->get_quba()->get_slots();
+$evaluation = $itemadministration->evaluate_ability_to_administer_next_item(
+    !empty($slots) ? end($slots) : null
+);
+
+if ($evaluation->item_administration_is_to_stop()) {
+    $message = $evaluation->stoppage_reason();
 
     // Set the attempt to complete, update the standard error and attempt message, then redirect the user to the attempt-finished
     // page.
@@ -244,8 +259,26 @@ if (empty($attemptstatus)) {
     redirect($url);
 }
 
-// Retrieve the question slot id.
-$slot = $adaptiveattempt->get_question_slot_number();
+// Retrieve the question slot id. The built-in algorithm has already put the question into the
+// usage and answers with its slot. A CAT model answers with a question id instead, and the host
+// puts that question into the usage here - it is the host that owns the question usage.
+$slot = $evaluation->next_item()->quba_slot();
+
+if ($slot === null) {
+    $quba = $adaptiveattempt->get_quba();
+    $slot = $quba->add_question(question_bank::load_question($evaluation->next_item()->question_id()));
+
+    if (!$quba->get_question_state($slot)->is_active()) {
+        $quba->start_question($slot);
+        question_engine::save_questions_usage_by_activity($quba);
+
+        if (count($quba->get_slots()) == 1) {
+            $adaptiveattempt->set_quba_id($quba->get_id());
+        }
+    }
+
+    $adaptiveattempt->set_question_slot_number($slot);
+}
 // Retrieve the question_usage_by_activity object.
 $quba = $adaptiveattempt->get_quba();
 // If $nextdiff is null then this is either a new attempt or a continuation of an previous attempt.  Calculate the current

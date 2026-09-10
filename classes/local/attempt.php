@@ -643,6 +643,20 @@ class attempt {
     }
 
     /**
+     * Records the question usage of the attempt.
+     *
+     * The built-in algorithm puts the question into the usage itself and records the id on the way.
+     * A CAT model only names the next question - the host puts it into the usage and then has to
+     * record the id from outside, which is what this method is for.
+     *
+     * @param int $qubaid Id of the question usage.
+     */
+    public function set_quba_id(int $qubaid): void {
+        $this->quba = question_engine::load_questions_usage_by_activity($qubaid);
+        $this->set_attempt_uniqueid();
+    }
+
+    /**
      * This function updates the current attempt with the question_usage_by_activity id.
      */
     protected function set_attempt_uniqueid(): void {
