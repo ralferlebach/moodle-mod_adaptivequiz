@@ -81,7 +81,8 @@ class user_attempts_overview extends table_sql {
         $this->set_column_css_classes();
         $this->set_content_alignment_in_columns();
         $this->define_baseurl($baseurl);
-        $this->set_sql('a.id, a.attemptstate AS state, a.timemodified AS timefinished, a.measure, q.highestlevel, ' .
+        $this->set_sql('a.id, a.attemptstate AS state, COALESCE(a.timefinished, a.timemodified) AS timefinished, '
+            . 'a.measure, q.highestlevel, ' .
             'q.lowestlevel', '{adaptivequiz_attempt} a, {adaptivequiz} q', 'a.instance = q.id AND q.id = ? ' .
             'AND userid = ?', [$adaptivequiz->id, $userid]);
     }

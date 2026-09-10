@@ -61,7 +61,7 @@ class user_attempt_summary implements renderable, templatable {
         $return = [
             'attemptstate' => get_string('recent' . $this->attempt->attemptstate, 'adaptivequiz'),
             'attemptstateraw' => $this->attempt->attemptstate,
-            'attempttimefinished' => $this->attempt->timemodified,
+            'attempttimefinished' => $this->attempt->timefinished ?? $this->attempt->timemodified,
             'abilitymeasure' => null,
             'adaptivequizhighestlevel' => null,
             'adaptivequizlowestlevel' => null,

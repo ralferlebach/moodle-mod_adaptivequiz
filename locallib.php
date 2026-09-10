@@ -34,6 +34,7 @@ use core_question\local\bank\question_edit_contexts;
 use mod_adaptivequiz\event\attempt_completed;
 use mod_adaptivequiz\local\attempt\attempt_state;
 use mod_adaptivequiz\local\catalgo;
+use mod_adaptivequiz\local\catmodel\catmodel_resolver;
 use qbank_managecategories\helper as qbank_managecategories_helper;
 
 // Default tagging used.
@@ -258,11 +259,32 @@ function adaptivequiz_complete_attempt(
     // Need to keep the record as it is before triggering the event below.
     $attemptrecordsnapshot = clone $attempt;
 
+    $now = time();
     $attempt->attemptstate = attempt_state::COMPLETED;
     $attempt->attemptstopcriteria = $statusmessage;
-    $attempt->timemodified = time();
+
+    // The completion time is set exactly once, at the transition to completed, and never touched
+    // again. The reports used to show timemodified instead, which drifts with every later change
+    // to the attempt - a regrade, a comment - so a finished attempt appeared to move in time.
+    if (empty($attempt->timefinished)) {
+        $attempt->timefinished = $now;
+    }
+
+    $attempt->timemodified = $now;
     $attempt->standarderror = $standarderror;
     $DB->update_record('adaptivequiz_attempt', $attempt);
+
+    // Hand the completed attempt to the CAT model. It runs from the status change, not from the
+    // attempt-finished page: whether that page is ever reached is up to the participant, but the
+    // CAT model has to be able to persist its result either way.
+    catmodel_resolver::callback(
+        $adaptivequiz->catmodel ?? null,
+        'post_complete_attempt_callback',
+        $adaptivequiz,
+        $context,
+        $userid,
+        $attempt
+    );
 
     adaptivequiz_update_grades($adaptivequiz, $userid);
 

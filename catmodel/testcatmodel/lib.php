@@ -32,3 +32,36 @@
 function adaptivequizcatmodel_testcatmodel_attempts_report_url(stdClass $adaptivequiz, stdClass $cm): moodle_url {
     return new moodle_url('/mod/adaptivequiz/view.php', ['id' => $cm->id, 'testcatmodelreport' => 1]);
 }
+
+/**
+ * Records that the host told this CAT model about a completed attempt.
+ *
+ * @param stdClass $adaptivequiz The activity instance record.
+ * @param context_module $context The context of that activity.
+ * @param int $userid The user the attempt belongs to.
+ * @param stdClass $attempt The completed attempt record.
+ */
+function adaptivequizcatmodel_testcatmodel_post_complete_attempt_callback(
+    stdClass $adaptivequiz,
+    context_module $context,
+    int $userid,
+    stdClass $attempt
+): void {
+    $GLOBALS['adaptivequizcatmodel_testcatmodel_completions'][] = (int) $attempt->uniqueid;
+}
+
+/**
+ * Forgets the completions recorded so far.
+ */
+function adaptivequizcatmodel_testcatmodel_reset_completions(): void {
+    $GLOBALS['adaptivequizcatmodel_testcatmodel_completions'] = [];
+}
+
+/**
+ * Returns the question usage ids of the completions recorded so far.
+ *
+ * @return int[]
+ */
+function adaptivequizcatmodel_testcatmodel_completed_attempts(): array {
+    return $GLOBALS['adaptivequizcatmodel_testcatmodel_completions'] ?? [];
+}

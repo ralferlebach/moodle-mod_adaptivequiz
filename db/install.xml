@@ -83,6 +83,7 @@
         <FIELD NAME="measure" TYPE="number" LENGTH="10" NOTNULL="true" DEFAULT="0.0" SEQUENCE="false" DECIMALS="5" COMMENT="The attempt ability measure in logits"/>
         <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Time created timestamp"/>
         <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Time modified timestamp"/>
+        <FIELD NAME="timefinished" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="The time the attempt was completed, set once and never changed again."/>
       </FIELDS>
       <KEYS>
         <KEY NAME="primary" TYPE="primary" FIELDS="id" NEXT="instance_foreign"/>

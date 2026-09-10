@@ -145,6 +145,7 @@ final class attempt_test extends advanced_testcase {
         unset($data->id);
         unset($data->timecreated);
         unset($data->timemodified);
+        unset($data->timefinished);
 
         // Cast the float values to eliminate the data representation issues.
         $data->difficultysum = (float) $data->difficultysum;

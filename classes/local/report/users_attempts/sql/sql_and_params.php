@@ -257,7 +257,7 @@ final class sql_and_params {
         return 'aa.id AS attemptid,
             aa.measure,
             aa.standarderror AS stderror,
-            aa.timemodified AS attempttimefinished,
+            COALESCE(aa.timefinished, aa.timemodified) AS attempttimefinished,
             (
                 SELECT COUNT(*)
                 FROM {adaptivequiz_attempt} caa
