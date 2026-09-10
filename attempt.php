@@ -219,18 +219,13 @@ if (isset($difflevel) && !is_null($difflevel)) {
 $adaptiveattempt->get_attempt();
 $adaptiveattempt->initialize_quba();
 
-$itemadministrationfactory = cat_session::item_administration_factory_for($adaptivequiz);
+$evaluation = cat_session::administer_next_item($adaptivequiz, $adaptiveattempt);
 
-$itemadministration = $itemadministrationfactory->item_administration_implementation(
-    $adaptiveattempt->get_quba(),
-    $adaptiveattempt,
-    $adaptivequiz
-);
-
-$slots = $adaptiveattempt->get_quba()->get_slots();
-$evaluation = $itemadministration->evaluate_ability_to_administer_next_item(
-    !empty($slots) ? end($slots) : null
-);
+if ($evaluation === null) {
+    // A concurrent request is already administering an item for this attempt. Send the user back to
+    // the activity rather than risk a second slot for the same item.
+    redirect(new moodle_url('/mod/adaptivequiz/view.php', ['id' => $cm->id]));
+}
 
 if ($evaluation->item_administration_is_to_stop()) {
     $message = $evaluation->stoppage_reason();
@@ -259,26 +254,8 @@ if ($evaluation->item_administration_is_to_stop()) {
     redirect($url);
 }
 
-// Retrieve the question slot id. The built-in algorithm has already put the question into the
-// usage and answers with its slot. A CAT model answers with a question id instead, and the host
-// puts that question into the usage here - it is the host that owns the question usage.
-$slot = $evaluation->next_item()->quba_slot();
-
-if ($slot === null) {
-    $quba = $adaptiveattempt->get_quba();
-    $slot = $quba->add_question(question_bank::load_question($evaluation->next_item()->question_id()));
-
-    if (!$quba->get_question_state($slot)->is_active()) {
-        $quba->start_question($slot);
-        question_engine::save_questions_usage_by_activity($quba);
-
-        if (count($quba->get_slots()) == 1) {
-            $adaptiveattempt->set_quba_id($quba->get_id());
-        }
-    }
-
-    $adaptiveattempt->set_question_slot_number($slot);
-}
+// The slot was resolved and written back by cat_session::administer_next_item().
+$slot = $adaptiveattempt->get_question_slot_number();
 // Retrieve the question_usage_by_activity object.
 $quba = $adaptiveattempt->get_quba();
 // If $nextdiff is null then this is either a new attempt or a continuation of an previous attempt.  Calculate the current

@@ -43,6 +43,13 @@ class item_administration_factory implements host_factory {
         attempt $attempt,
         stdClass $adaptivequiz
     ): item_administration {
+        if (
+            serve_fixed_question_administration::$questionid !== null
+            || serve_fixed_question_administration::$slot !== null
+        ) {
+            return new serve_fixed_question_administration();
+        }
+
         return new stop_immediately_administration();
     }
 }
