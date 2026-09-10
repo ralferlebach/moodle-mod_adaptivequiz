@@ -169,7 +169,7 @@ mich je einen CI-Lauf gekostet:
 | `phpdoc --max-warnings 0` | Exit 0 - **nur gegen eine vollstaendig installierte Site aussagekraeftig** |
 | `mustache` | Exit 0 |
 | `phpunit --fail-on-warning` | 171 Tests / 500 Assertionen, PHP 8.3 und 8.4 |
-| `grunt` | lokal nicht pruefbar (npm-Abhaengigkeiten des Moodle-Baums fehlen) |
+| `grunt` | Exit 0 - nach `npm install` im Moodle-Baum auch lokal pruefbar |
 | `behat` | lokal nicht pruefbar (Browsertreiber); in der CI **gruen**, 33 Szenarien / 1569 Schritte, deshalb scharf |
 
 ### Was die drei CI-Laeufe nacheinander zutage gefoerdert haben
@@ -205,6 +205,23 @@ Zwei Fehler im ersten Workflow, beide im zweiten Lauf sichtbar geworden:
   statischen Schritte liefern weiterhin ein echtes Ergebnis.
 
 Zwei bewusste Ausnahmen im Workflow:
+
+Lauf 6 - Grunt kam erstmals zum Zuge und meldete drei Dinge:
+
+- **7x `space-before-function-paren`** in den AMD-Quellen. Reine Formatierung.
+- **`promise/no-callback-in-promise`** in `question_banks_datasource.js`: der
+  Callback der Autovervollstaendigung wurde direkt in `.then()` gereicht. Die
+  Funktion ist jetzt `async` und ruft den Callback nach dem `await` auf, mit
+  `try/catch` statt `.catch()`.
+- **`declaration-no-important`** in `styles.css`. Moodles stylelint-Konfiguration
+  verbietet `!important`. Die Klasse haengt an einem `<table>`, deshalb genuegt
+  `table.usersattemptstable` - der Elementselektor schlaegt Bootstraps `.table`
+  ueber die Spezifitaet, ohne `!important`.
+
+Wer AMD-Quellen aendert, muss den Build nachziehen: `npx grunt amd
+--root=public/mod/adaptivequiz` im Moodle-Baum, danach `amd/` in die Quelle
+zurueckspiegeln. Sonst meldet der Grunt-Schritt geaenderte Build-Dateien.
+`ci_check` faehrt den Schritt jetzt mit.
 
 Lauf 5 - `$PLUGIN_DIR` ist im Workflow leer:
 

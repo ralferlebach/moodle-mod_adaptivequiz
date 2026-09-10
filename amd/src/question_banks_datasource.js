@@ -33,7 +33,7 @@ export default {
      * @param {String} query The query string.
      * @param {Function} callback A callback function receiving an array of results.
      */
-    transport: function(selector, query, callback) {
+    transport: async function(selector, query, callback) {
         const element = document.querySelector(selector);
         const contextId = element.dataset.contextid;
         const inCourseId = element.dataset.incourseid;
@@ -43,17 +43,19 @@ export default {
             throw new Error('The attribute data-contextid is required on ' + selector);
         }
 
-        fetchMany([{
-            methodname: 'mod_adaptivequiz_search_question_banks',
-            args: {
-                contextid: contextId,
-                incourseid: inCourseId,
-                notincourseid: notInCourseId,
-                search: query,
-            },
-        }])[0]
-            .then(callback)
-            .catch(Notification.exception);
+        try {
+            callback(await fetchMany([{
+                methodname: 'mod_adaptivequiz_search_question_banks',
+                args: {
+                    contextid: contextId,
+                    incourseid: inCourseId,
+                    notincourseid: notInCourseId,
+                    search: query,
+                },
+            }])[0]);
+        } catch (error) {
+            Notification.exception(error);
+        }
     },
 
     /**
