@@ -170,7 +170,7 @@ mich je einen CI-Lauf gekostet:
 | `mustache` | Exit 0 |
 | `phpunit --fail-on-warning` | 171 Tests / 500 Assertionen, PHP 8.3 und 8.4 |
 | `grunt` | lokal nicht pruefbar (npm-Abhaengigkeiten des Moodle-Baums fehlen) |
-| `behat` | lokal nicht pruefbar (Browsertreiber), non-blocking |
+| `behat` | lokal nicht pruefbar (Browsertreiber); in der CI **gruen**, 33 Szenarien / 1569 Schritte, deshalb scharf |
 
 ### Was die drei CI-Laeufe nacheinander zutage gefoerdert haben
 
@@ -205,6 +205,21 @@ Zwei Fehler im ersten Workflow, beide im zweiten Lauf sichtbar geworden:
   statischen Schritte liefern weiterhin ein echtes Ergebnis.
 
 Zwei bewusste Ausnahmen im Workflow:
+
+Lauf 4 - ein Fehler, den nur MariaDB zeigt:
+
+`provider_test::test_delete_removes_the_question_usage` fiel auf MariaDB, auf
+PostgreSQL nicht. Ursache liegt im Kern: `delete_questions_usage_by_activities()`
+nimmt auf MySQL und MariaDB einen eigenen Weg und loescht ueber
+`DELETE qu, qa, qas, qasd FROM {question_usages} qu JOIN {question_attempts} qa`.
+Der Join ist ein INNER JOIN - eine Fragennutzung **ohne** Fragen trifft er nicht,
+und die Zeile in `question_usages` bleibt stehen. Auf PostgreSQL raeumt ein
+separates `delete_records_select` sie mit weg.
+
+Meine Vorrichtung hatte eine leere Fragennutzung angelegt. Sie enthaelt jetzt
+eine echte Frage - so sieht ein Versuch im Betrieb aus, und der Kern-Sonderweg
+greift dann korrekt. Personenbezogene Daten gehen dabei nicht verloren: eine
+leere Nutzung traegt nur Kontext und Komponente.
 
 - **`PSR1.Classes.ClassDeclaration` ausgenommen.** `mod_adaptivequiz_csv_renderer`
   ist ein Renderer-Subtyp und muss laut `renderer_factory` in `renderer.php`

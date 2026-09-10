@@ -45,6 +45,9 @@ final class provider_test extends provider_testcase {
     /** @var stdClass Another user with an attempt in the same activity. */
     private stdClass $other;
 
+    /** @var int A question the attempts can administer. */
+    private int $questionid;
+
     /**
      * Builds one activity with an attempt for each of two users.
      */
@@ -57,6 +60,18 @@ final class provider_test extends provider_testcase {
         $course = $generator->create_course();
         $this->adaptivequiz = $generator->create_module('adaptivequiz', ['course' => $course->id]);
         $this->context = context_module::instance($this->adaptivequiz->cmid);
+
+        /** @var \mod_qbank_generator $qbankgenerator */
+        $qbankgenerator = $generator->get_plugin_generator('mod_qbank');
+        /** @var \core_question_generator $questiongenerator */
+        $questiongenerator = $generator->get_plugin_generator('core_question');
+
+        $qbank = $qbankgenerator->create_instance(['course' => $course->id]);
+        $qbankcm = get_coursemodule_from_instance('qbank', $qbank->id, 0, false, MUST_EXIST);
+        $qcat = question_get_default_category(context_module::instance($qbankcm->id)->id);
+        $this->questionid = (int) $questiongenerator->create_question('truefalse', null, [
+            'category' => $qcat->id,
+        ])->id;
 
         $this->owner = $generator->create_user();
         $this->other = $generator->create_user();
@@ -74,9 +89,14 @@ final class provider_test extends provider_testcase {
     private function create_attempt(int $userid): int {
         global $DB;
 
-        // A real, if empty, question usage: the provider hands it to the question subsystem.
+        // A question usage with a question in it. It has to carry one: on MySQL and MariaDB the
+        // question engine deletes usages through a join over question_attempts, so an empty usage
+        // survives the deletion there. A real attempt always holds at least one question, so the
+        // fixture models the real case rather than the core quirk.
         $quba = \question_engine::make_questions_usage_by_activity('mod_adaptivequiz', $this->context);
         $quba->set_preferred_behaviour('deferredfeedback');
+        $quba->add_question(\question_bank::load_question($this->questionid));
+        $quba->start_all_questions();
         \question_engine::save_questions_usage_by_activity($quba);
 
         return $DB->insert_record('adaptivequiz_attempt', (object) [
