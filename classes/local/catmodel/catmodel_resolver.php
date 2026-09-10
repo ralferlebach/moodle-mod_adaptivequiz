@@ -79,6 +79,34 @@ final class catmodel_resolver {
     }
 
     /**
+     * Returns what a CAT model reports through a plugin callback function, if it offers one.
+     *
+     * Some extension points are a single value rather than a behaviour - the URL of the CAT
+     * model's own attempts report, for instance. Moodle's own mechanism for that is a callback
+     * function, and the CAT models use it. Routing the lookup through here keeps the rule intact
+     * that the host reaches a subplugin in exactly one place.
+     *
+     * @param string|null $catmodel Name of the CAT model subplugin, without the frankenstyle prefix.
+     * @param string $callback Name of the callback, without the component prefix.
+     * @param mixed ...$arguments Arguments passed on to the callback.
+     * @return mixed The return value of the callback, or null when the CAT model offers none.
+     */
+    public static function callback(?string $catmodel, string $callback, ...$arguments) {
+        if (!self::is_configured($catmodel)) {
+            return null;
+        }
+
+        $component = 'adaptivequizcatmodel_' . $catmodel;
+        $functions = get_plugin_list_with_function('adaptivequizcatmodel', $callback);
+
+        if (!array_key_exists($component, $functions)) {
+            return null;
+        }
+
+        return $functions[$component](...$arguments);
+    }
+
+    /**
      * Returns the class names a subplugin offers below its catmodel namespace.
      *
      * @param string $component Frankenstyle name of the CAT model subplugin.

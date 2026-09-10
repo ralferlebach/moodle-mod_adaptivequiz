@@ -31,6 +31,7 @@ use mod_adaptivequiz\local\catmodel\instance\catmodel_update_instance_handler;
 use mod_adaptivequiz\local\itemadministration\item_administration_evaluation;
 use mod_adaptivequiz\local\itemadministration\item_administration_factory;
 use mod_adaptivequiz\local\itemadministration\next_item;
+use mod_adaptivequiz\output\attempts_number;
 
 /**
  * Tests the generic CAT model subplugin contract.
@@ -234,6 +235,53 @@ final class catmodel_resolver_test extends advanced_testcase {
 
         $this->expectException(coding_exception::class);
         next_item::from_question_id(0);
+    }
+
+    /**
+     * A CAT model can also answer through a plugin callback, and the resolver routes that too.
+     */
+    public function test_plugin_callback_is_routed_through_the_resolver(): void {
+        global $CFG;
+        require_once($CFG->dirroot . '/mod/adaptivequiz/lib.php');
+
+        $this->resetAfterTest();
+
+        $course = $this->getDataGenerator()->create_course();
+        $withcatmodel = $this->getDataGenerator()->create_module('adaptivequiz', [
+            'course' => $course->id,
+            'catmodel' => 'testcatmodel',
+        ]);
+        $cm = get_coursemodule_from_instance('adaptivequiz', $withcatmodel->id, 0, false, MUST_EXIST);
+
+        $url = catmodel_resolver::callback('testcatmodel', 'attempts_report_url', $withcatmodel, $cm);
+        $this->assertInstanceOf(\moodle_url::class, $url);
+
+        // Without a CAT model, and for a callback nobody offers, the resolver stays silent.
+        $this->assertNull(catmodel_resolver::callback(null, 'attempts_report_url', $withcatmodel, $cm));
+        $this->assertNull(catmodel_resolver::callback('testcatmodel', 'there_is_no_such_callback'));
+    }
+
+    /**
+     * The number of attempts links to the report of the CAT model, and stands alone without one.
+     */
+    public function test_attempts_number_links_to_the_catmodel_report(): void {
+        $this->resetAfterTest();
+
+        $course = $this->getDataGenerator()->create_course();
+        $withcatmodel = $this->getDataGenerator()->create_module('adaptivequiz', [
+            'course' => $course->id,
+            'catmodel' => 'testcatmodel',
+        ]);
+        $without = $this->getDataGenerator()->create_module('adaptivequiz', ['course' => $course->id]);
+
+        $cm = get_coursemodule_from_instance('adaptivequiz', $withcatmodel->id, 0, false, MUST_EXIST);
+        $number = attempts_number::when_custom_catmodel_in_use($withcatmodel, $cm);
+
+        $this->assertSame(0, $number->number);
+        $this->assertInstanceOf(\moodle_url::class, $number->reporturl);
+
+        $cmwithout = get_coursemodule_from_instance('adaptivequiz', $without->id, 0, false, MUST_EXIST);
+        $this->assertNull(attempts_number::when_custom_catmodel_in_use($without, $cmwithout)->reporturl);
     }
 
     /**

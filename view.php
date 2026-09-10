@@ -31,6 +31,7 @@ use core\output\notification;
 use core_question\local\bank\question_bank_helper;
 use mod_adaptivequiz\item_administration_params_helper;
 use mod_adaptivequiz\item_bank;
+use mod_adaptivequiz\local\catmodel\catmodel_resolver;
 use mod_adaptivequiz\local\report\questions_difficulty_range;
 use mod_adaptivequiz\local\report\users_attempts\filter\filter;
 use mod_adaptivequiz\local\report\users_attempts\filter\filter_form;
@@ -71,7 +72,13 @@ $PAGE->add_body_class('limitedwidth');
 $renderer = $PAGE->get_renderer('mod_adaptivequiz');
 
 $canviewattemptsreport = has_capability('mod/adaptivequiz:viewreport', $context);
-if ($canviewattemptsreport) {
+
+// An activity driven by a CAT model does not show the built-in attempts report: its numbers come
+// from the built-in algorithm and would not match. It shows the number of attempts instead, linked
+// to the report of the CAT model when there is one.
+$customcatmodelinuse = catmodel_resolver::is_configured($adaptivequiz->catmodel ?? null);
+
+if ($canviewattemptsreport && !$customcatmodelinuse) {
     $reportuserprefs = user_preferences_repository::get();
 
     $reportuserprefsform = new user_preferences_form($PAGE->url->out());
@@ -248,7 +255,13 @@ if (has_capability('mod/adaptivequiz:attempt', $context)) {
     }
 }
 
-if ($canviewattemptsreport) {
+if ($canviewattemptsreport && $customcatmodelinuse) {
+    echo $renderer->container_start('text-center');
+    echo $renderer->attempts_number($adaptivequiz, $cm);
+    echo $renderer->container_end();
+}
+
+if ($canviewattemptsreport && !$customcatmodelinuse) {
     echo $renderer->heading(get_string('activityreports', 'adaptivequiz'), '3', 'text-center');
 
     groups_print_activity_menu($cm, new moodle_url('/mod/adaptivequiz/view.php', ['id' => $cm->id]));

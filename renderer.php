@@ -34,6 +34,7 @@ use mod_adaptivequiz\output\ability_measure;
 use mod_adaptivequiz\output\attempt_debug_info;
 use mod_adaptivequiz\output\attempt_finished_page;
 use mod_adaptivequiz\output\attempt_progress;
+use mod_adaptivequiz\output\attempts_number;
 use mod_adaptivequiz\output\item_administration_params;
 use mod_adaptivequiz\output\item_bank_notification;
 use mod_adaptivequiz\output\item_bank_page;
@@ -261,6 +262,37 @@ class mod_adaptivequiz_renderer extends plugin_renderer_base {
         $output .= $this->box_end();
         $output .= $this->footer();
         return $output;
+    }
+
+    /**
+     * Renders the number of attempts of an activity that is driven by a CAT model.
+     *
+     * @param stdClass $adaptivequiz The activity instance record.
+     * @param stdClass $cm The course module record of that activity.
+     * @return string
+     */
+    public function attempts_number(stdClass $adaptivequiz, stdClass $cm): string {
+        return $this->render_attempts_number(attempts_number::when_custom_catmodel_in_use($adaptivequiz, $cm));
+    }
+
+    /**
+     * Renders the number of attempts, as a link when the CAT model offers a report.
+     *
+     * @param attempts_number $attemptsnumber The number and, possibly, the report to link to.
+     * @return string
+     */
+    protected function render_attempts_number(attempts_number $attemptsnumber): string {
+        $text = get_string('attemptsnumber', 'adaptivequiz', $attemptsnumber->number);
+
+        if ($attemptsnumber->reporturl === null) {
+            return $text;
+        }
+
+        return html_writer::link(
+            $attemptsnumber->reporturl,
+            $text,
+            ['title' => get_string('attemptsnumberlinktitle', 'adaptivequiz')]
+        );
     }
 
     /**

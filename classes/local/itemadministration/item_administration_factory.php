@@ -16,7 +16,7 @@
 
 namespace mod_adaptivequiz\local\itemadministration;
 
-use mod_adaptivequiz\attempt;
+use mod_adaptivequiz\local\attempt;
 use question_usage_by_activity;
 use stdClass;
 

@@ -49,6 +49,13 @@ $context = context_module::instance($cm->id);
 require_capability('mod/adaptivequiz:viewreport', $context);
 
 $adaptivequiz  = $DB->get_record('adaptivequiz', ['id' => $cm->instance], '*');
+
+// The analysis reports on the built-in algorithm. An activity driven by a CAT model produces its
+// numbers elsewhere, so the page would show figures that do not belong to it.
+if (!empty($adaptivequiz->catmodel)) {
+    throw new moodle_exception('reportpageunavailableforcustomcatmodel', 'adaptivequiz');
+}
+
 $PAGE->set_url('/mod/adaptivequiz/questionanalysis/overview.php', ['cmid' => $cm->id]);
 
 $title = get_string('reportquestionanalysispageheading', 'adaptivequiz', format_string($adaptivequiz->name));

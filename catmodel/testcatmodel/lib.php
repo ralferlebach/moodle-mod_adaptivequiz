@@ -15,20 +15,20 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Plugin basic info.
+ * Callbacks of the neutral CAT model used to test the subplugin contract.
  *
- * @package    mod_adaptivequiz
- * @copyright  2013 Remote-Learner {@link http://www.remote-learner.ca/}
- * @copyright  2022 onwards Vitaly Potenko <potenkov@gmail.com>
+ * @package    adaptivequizcatmodel_testcatmodel
+ * @copyright  2026 onwards Ralf Erlebach
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-defined('MOODLE_INTERNAL') || die();
-
-$plugin->version = 2026090918;
-$plugin->release = '3.0.0-rebase.1';
-$plugin->maturity = MATURITY_ALPHA;
-$plugin->requires = 2025100600;
-$plugin->supported = [501, 503];
-$plugin->cron = 0;
-$plugin->component = 'mod_adaptivequiz';
+/**
+ * Returns the URL of the attempts report this CAT model offers.
+ *
+ * @param stdClass $adaptivequiz The activity instance record.
+ * @param stdClass $cm The course module record of that activity.
+ * @return moodle_url
+ */
+function adaptivequizcatmodel_testcatmodel_attempts_report_url(stdClass $adaptivequiz, stdClass $cm): moodle_url {
+    return new moodle_url('/mod/adaptivequiz/view.php', ['id' => $cm->id, 'testcatmodelreport' => 1]);
+}

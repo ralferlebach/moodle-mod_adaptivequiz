@@ -16,7 +16,7 @@
 
 namespace adaptivequizcatmodel_testcatmodel\local\itemadministration;
 
-use mod_adaptivequiz\attempt;
+use mod_adaptivequiz\local\attempt;
 use mod_adaptivequiz\local\itemadministration\item_administration;
 use mod_adaptivequiz\local\itemadministration\item_administration_factory as host_factory;
 use question_usage_by_activity;
