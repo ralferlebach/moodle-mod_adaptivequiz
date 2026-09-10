@@ -89,9 +89,12 @@ jobs:
           sudo locale-gen en_AU.UTF-8
           echo "NVM_DIR=$HOME/.nvm" >> $GITHUB_ENV
 
-      # Der Installer legt das Plugin im Moodle-Baum ab und exportiert den Zielpfad als
-      # PLUGIN_DIR. Alle Pruefschritte muessen diesen Pfad verwenden, nicht den Checkout:
-      # der Mustache-Pruefer und Grunt arbeiten ausschliesslich innerhalb des Moodle-Baums.
+      # Der Installer legt das Plugin im Moodle-Baum ab und schreibt den Zielpfad als
+      # PLUGIN_DIR in ci/.env - nicht nach $GITHUB_ENV. Im Shell-Kontext des Workflows ist
+      # die Variable also leer; moodle-plugin-ci liest sie beim Start selbst und setzt sie
+      # als Vorgabe des Pluginarguments ein. Deshalb bekommen die Pruefschritte gar kein
+      # Argument: nur so treffen sie den installierten Pfad, den der Mustache-Pruefer und
+      # Grunt zwingend brauchen.
       - name: Moodle installieren
         run: moodle-plugin-ci install --plugin ./plugin --db-host=127.0.0.1
         env:
@@ -100,35 +103,35 @@ jobs:
 
       - name: PHP-Syntax
         if: ${{ always() }}
-        run: moodle-plugin-ci phplint "$PLUGIN_DIR"
+        run: moodle-plugin-ci phplint
 
       # PSR1.Classes.ClassDeclaration ist ausgenommen: mod_adaptivequiz_csv_renderer ist ein
       # Renderer-Subtyp und muss laut Moodles renderer_factory in renderer.php stehen.
       - name: Code-Style
         if: ${{ always() }}
-        run: moodle-plugin-ci phpcs --max-warnings 0 --exclude=PSR1.Classes.ClassDeclaration "$PLUGIN_DIR"
+        run: moodle-plugin-ci phpcs --max-warnings 0 --exclude=PSR1.Classes.ClassDeclaration
 
       - name: PHPDoc
         if: ${{ always() }}
-        run: moodle-plugin-ci phpdoc --max-warnings 0 "$PLUGIN_DIR"
+        run: moodle-plugin-ci phpdoc --max-warnings 0
 
       - name: Mustache-Templates
         if: ${{ always() }}
-        run: moodle-plugin-ci mustache "$PLUGIN_DIR"
+        run: moodle-plugin-ci mustache
 
       - name: Grunt
         if: ${{ always() }}
-        run: moodle-plugin-ci grunt --max-lint-warnings 0 "$PLUGIN_DIR"
+        run: moodle-plugin-ci grunt --max-lint-warnings 0
 
       - name: PHPUnit
         if: ${{ always() }}
-        run: moodle-plugin-ci phpunit --fail-on-warning "$PLUGIN_DIR"
+        run: moodle-plugin-ci phpunit --fail-on-warning
 
       # Behat ist scharf: der Lauf vom 9. September war auf allen Zweigen und beiden
       # Datenbanken gruen, 33 Szenarien mit 1569 Schritten.
       - name: Behat
         if: ${{ always() }}
-        run: moodle-plugin-ci behat --profile chrome "$PLUGIN_DIR"
+        run: moodle-plugin-ci behat --profile chrome
 
   php85:
     name: PHP 8.5 · Syntax und Code-Style

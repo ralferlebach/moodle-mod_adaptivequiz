@@ -206,6 +206,22 @@ Zwei Fehler im ersten Workflow, beide im zweiten Lauf sichtbar geworden:
 
 Zwei bewusste Ausnahmen im Workflow:
 
+Lauf 5 - `$PLUGIN_DIR` ist im Workflow leer:
+
+`moodle-plugin-ci install` schreibt `PLUGIN_DIR` und `MOODLE_DIR` nach `ci/.env`,
+**nicht** nach `$GITHUB_ENV`. Im Shell-Kontext der Schritte ist die Variable also
+leer, und `"$PLUGIN_DIR"` uebergibt ein leeres Argument - alle sieben Schritte
+fielen auf *Failed to find '.../version.php'*.
+
+Richtig ist, den Schritten **gar kein** Argument zu geben: moodle-plugin-ci
+liest `.env` beim Start selbst und setzt `PLUGIN_DIR` als Vorgabe des
+Pluginarguments ein (`AbstractPluginCommand::configure()`). Damit treffen auch
+Mustache und Grunt den installierten Pfad. Der PHP-8.5-Job hat keinen
+Installationsschritt und damit keine `.env`; dort bleibt `./plugin` stehen.
+
+Lokal steht dafuer `ci_check` in `env.sh` bereit - es schreibt dieselbe `.env`
+und faehrt die statischen Schritte ohne Argument.
+
 Lauf 4 - ein Fehler, den nur MariaDB zeigt:
 
 `provider_test::test_delete_removes_the_question_usage` fiel auf MariaDB, auf
