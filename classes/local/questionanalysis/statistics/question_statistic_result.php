@@ -38,7 +38,6 @@ interface question_statistic_result {
     /**
      * A printable version of the result.
      *
-     * @param numeric $result
      * @return mixed string or numeric
      */
     public function printable();

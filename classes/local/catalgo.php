@@ -58,7 +58,7 @@ class catalgo {
 
     /**
      * @var float $levelogit the logit value of the difficulty level represented as a percentage of the minimum and maximum
-     *      difficulty @see compute_next_difficulty()
+     *      difficulty {@see compute_next_difficulty}
      */
     protected $levellogit = 0.0;
 
@@ -210,7 +210,7 @@ class catalgo {
     }
 
     /**
-     * Refactored code from adaptiveattempt.class.php @see find_last_quest_used_by_attempt()
+     * Refactored code from adaptiveattempt.class.php {@see find_last_quest_used_by_attempt}
      * This function retrieves the last question that was used in the attempt
      * @return int question slot or 0 if no unmarked question could be found
      */
@@ -236,9 +236,9 @@ class catalgo {
     }
 
     /**
-     * Refactored code from adaptiveattempt.class.php @see was_answer_submitted_to_question()
+     * Refactored code from adaptiveattempt.class.php {@see was_answer_submitted_to_question}
      * This function determines if the user submitted an answer to the question
-     * @param int $slot question slot id
+     * @param mixed $slotid Slotid.
      * @return bool true if an answer to the question was submitted, otherwise false
      */
     protected function was_answer_submitted_to_question($slotid) {
@@ -597,7 +597,7 @@ class catalgo {
      * This function is a helper method to compute the current difficult level the attempt is at
      * @throws coding_exception if any of the parameters contain invalid data
      * @param question_usage_by_activity $quba a question usage by activity set to an attempt id
-     * @param int $startinglevel the starting level of difficulty for the attempt
+     * @param mixed $level Level.
      * @param stdClass $attemptobj an object with the following properties: lowestlevel and highestlevel
      * @return int the current level of difficulty
      */
@@ -687,7 +687,7 @@ class catalgo {
      * @param int $level the difficulty level of the last question attempted
      * @param int $questattempted the sum of questions attempted
      * @param bool $correct true of the user got the previous question correct, otherwise false
-     * @param stdClass $attempt a data record returned from @see retrieve_attempt_record()
+     * @param stdClass $attempt a data record returned from {@see retrieve_attempt_record}
      * @return int the next difficult level
      */
     public function compute_next_difficulty($level, $questattempted, $correct, $attempt) {

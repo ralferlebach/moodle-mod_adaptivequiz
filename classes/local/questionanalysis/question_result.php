@@ -55,7 +55,7 @@ class question_result {
     /**
      * Magic method to provide read-only access to our parameters
      *
-     * @param $key
+     * @param mixed $key Key.
      * @return mixed
      */
     public function __get($key) {

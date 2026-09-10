@@ -455,6 +455,7 @@ class mod_adaptivequiz_renderer extends plugin_renderer_base {
 
     /**
      * Initialize secure browsing mode.
+     * @param mixed $disablejsfeatures Disablejsfeatures.
      */
     public function init_browser_security($disablejsfeatures = true) {
         $this->page->set_popup_notification_allowed(false); // Prevent message notifications.
@@ -512,9 +513,9 @@ class mod_adaptivequiz_renderer extends plugin_renderer_base {
 
     /**
      * This function formats the ability measure into a user friendly format
-     * @param stdClass an object with the following properties: measure, highestlevel, lowestlevel and stderror.  The values must
      *      come from the activty instance and the user's
      * attempt record
+     * @param mixed $record Record.
      * @return string a user friendly format of the ability measure.  Ability measure is rounded to the nearest decimal.
      */
     public function format_measure($record) {
@@ -526,9 +527,9 @@ class mod_adaptivequiz_renderer extends plugin_renderer_base {
 
     /**
      * This function formats the standard error into a user friendly format
-     * @param stdClass an object with the following properties: measure, highestlevel, lowestlevel and stderror.  The values must
      *      come from the activty instance and the user's
      * attempt record
+     * @param mixed $record Record.
      * @return string a user friendly format of the standard error. Standard error is
      * rounded to the nearest one hundredth then multiplied by 100
      */
@@ -542,9 +543,9 @@ class mod_adaptivequiz_renderer extends plugin_renderer_base {
 
     /**
      * This function formats the standard error and ability measure into a user friendly format
-     * @param stdClass an object with the following properties: measure, highestlevel, lowestlevel and stderror.  The values must
      *      come from the activty instance and the user's
      * attempt record
+     * @param mixed $record Record.
      * @return string a user friendly format of the ability measure and standard error.  Ability measure is rounded to the nearest
      *      decimal.  Standard error is rounded to the
      * nearest one hundredth then multiplied by 100
@@ -562,8 +563,8 @@ class mod_adaptivequiz_renderer extends plugin_renderer_base {
     /**
      * Answer the summery information about an attempt
      *
-     * @param stdClass $adaptivequiz See {@link mod_adaptivequiz_renderer::attempt_report_page_by_tab()}.
-     * @param stdClass $attempt See {@link mod_adaptivequiz_renderer::attempt_report_page_by_tab()}.
+     * @param stdClass $adaptivequiz See {@see mod_adaptivequiz_renderer::attempt_report_page_by_tab}.
+     * @param stdClass $attempt See {@see mod_adaptivequiz_renderer::attempt_report_page_by_tab}.
      * @param stdClass $user The user who took the quiz that created the attempt.
      * @return string
      * @throws coding_exception
@@ -750,6 +751,8 @@ class mod_adaptivequiz_renderer extends plugin_renderer_base {
 
     /**
      * A wrapper method to call rendering of attempt progress, accepts minimum parameters to base rendering on.
+     * @param string $questionsanswered Questionsanswered.
+     * @param string $maximumquestions Maximumquestions.
      */
     public function attempt_progress(string $questionsanswered, string $maximumquestions): string {
         return $this->render_attempt_progress(attempt_progress::with_defaults($questionsanswered, $maximumquestions));
@@ -769,6 +772,7 @@ class mod_adaptivequiz_renderer extends plugin_renderer_base {
 
     /**
      * Renders an attempt progress object, to be overridden by a theme if required.
+     * @param attempt_progress $progress Progress.
      */
     protected function render_attempt_progress(attempt_progress $progress): string {
         $progress = $progress->with_help_icon_content($this->help_icon('attemptquestionsprogress', 'adaptivequiz'));
@@ -848,6 +852,7 @@ class mod_adaptivequiz_renderer extends plugin_renderer_base {
     /**
      * Renders debugging info for an attempt.
      *
+     * @param attempt_debug_info $info Info.
      * @return string
      */
     protected function render_attempt_debug_info(attempt_debug_info $info): string {
@@ -915,10 +920,10 @@ class mod_adaptivequiz_renderer extends plugin_renderer_base {
 
     /**
      * This function returns HTML markup of questions and student's responses.
-     * See {@link mod_adaptivequiz_renderer::attempt_report_page_by_tab} for partial parameters description.
+     * See {@see mod_adaptivequiz_renderer::attempt_report_page_by_tab} for partial parameters description.
      *
-     * @param moodle_url $pageurl
-     * @param question_usage_by_activity $quba
+     * @param question_usage_by_activity $quba Quba.
+     * @param moodle_url $pageurl Pageurl.
      * @param int $offset An offset used to determine which question to start processing from.
      * @return string
      * @throws coding_exception
@@ -981,9 +986,12 @@ class mod_adaptivequiz_renderer extends plugin_renderer_base {
 
     /**
      * This function prints a paging link for the attempt review page.
-     * See {@link mod_adaptivequiz_renderer::attempt_questions_review()} for parameters description.
+     * See {@see mod_adaptivequiz_renderer::attempt_questions_review} for parameters description.
      *
      * @throws moodle_exception
+     * @param question_usage_by_activity $quba Quba.
+     * @param moodle_url $pageurl Pageurl.
+     * @param int $page Page.
      */
     protected function attempt_questions_review_pager(
         question_usage_by_activity $quba,
@@ -1209,9 +1217,9 @@ class mod_adaptivequiz_csv_renderer extends mod_adaptivequiz_renderer {
 
     /**
      * This function formats the ability measure into a user friendly format
-     * @param stdClass an object with the following properties: measure, highestlevel, lowestlevel and stderror.  The values must
      *      come from the activty instance and the user's
      * attempt record
+     * @param mixed $record Record.
      * @return string a user friendly format of the ability measure.  Ability measure is rounded to the nearest decimal.
      */
     public function format_measure($record) {
@@ -1223,9 +1231,9 @@ class mod_adaptivequiz_csv_renderer extends mod_adaptivequiz_renderer {
 
     /**
      * This function formats the standard error into a user friendly format
-     * @param stdClass an object with the following properties: measure, highestlevel, lowestlevel and stderror.  The values must
      *      come from the activty instance and the user's
      * attempt record
+     * @param mixed $record Record.
      * @return string a user friendly format of the standard error. Standard error is
      * rounded to the nearest one hundredth then multiplied by 100
      */

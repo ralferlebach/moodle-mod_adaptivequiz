@@ -3,8 +3,11 @@ name: CI
 # Zielversion ist Moodle 5.3 (LTS). 5.1 und 5.2 laufen als Absicherung mit,
 # 5.3 bis zur Verzweigung von MOODLE_503_STABLE gegen main.
 #
-# PHP: 8.3 ist die von Moodle 5.3 geforderte Mindestversion, 8.5 die derzeit
-# aktuelle. Beide Enden der Spanne werden gefahren, 8.4 nur auf der Zielversion.
+# PHP: 8.3 ist die von Moodle 5.3 geforderte Mindestversion, 8.4 laeuft auf allen
+# Zweigen mit. PHP 8.5 laesst sich derzeit nicht fahren - Moodles composer.lock
+# haelt ezyang/htmlpurifier auf einer Fassung, die nur bis PHP 8.4 zugelassen ist,
+# `composer install` bricht deshalb im Moodle-Baum ab. Bis der Kern nachzieht,
+# prueft der Job "PHP 8.5" nur Syntax und Code-Style unseres eigenen Codes.
 #
 # Datenbanken: Moodle 5.3 verlangt PostgreSQL >= 17 bzw. MariaDB >= 11.4.
 
@@ -19,14 +22,6 @@ jobs:
   test:
     name: ${{ matrix.moodle-branch }} · PHP ${{ matrix.php }} · ${{ matrix.database }}
     runs-on: ubuntu-latest
-    # PHP 8.5 laeuft mit, blockiert aber nicht. Moodle 5.x ist unter 8.5 noch nicht sauber:
-    # der Kern meldet Deprecations aus lib/classes/xml_parser.php, lib/dml/pgsql_native_*,
-    # lib/pear/HTML/QuickForm.php, lib/classes/plugininfo/base.php, user/profile/lib.php und
-    # weiteren Stellen. moodle-plugin-ci bricht bei jeder PHP-Meldung ab, und Moodles
-    # phpunit.xml setzt failOnDeprecation="true". Aus dem Plugin selbst kommt keine einzige
-    # Meldung. Auf 8.5 laufen deshalb nur die statischen Schritte; scharf schalten, sobald
-    # der Kern nachzieht.
-    continue-on-error: ${{ matrix.php == '8.5' }}
 
     services:
       postgres:
@@ -57,10 +52,17 @@ jobs:
       fail-fast: false
       matrix:
         moodle-branch: ['MOODLE_501_STABLE', 'MOODLE_502_STABLE', 'main']
-        php: ['8.3', '8.5']
+        php: ['8.3']
         database: ['pgsql', 'mariadb']
         include:
-          # PHP 8.4 nur auf der Zielversion, damit die Matrix nicht ausufert.
+          # PHP 8.4 auf jedem Zweig, aber nur gegen PostgreSQL - die zweite Engine
+          # deckt 8.3 bereits ab.
+          - moodle-branch: 'MOODLE_501_STABLE'
+            php: '8.4'
+            database: 'pgsql'
+          - moodle-branch: 'MOODLE_502_STABLE'
+            php: '8.4'
+            database: 'pgsql'
           - moodle-branch: 'main'
             php: '8.4'
             database: 'pgsql'
@@ -87,51 +89,80 @@ jobs:
           sudo locale-gen en_AU.UTF-8
           echo "NVM_DIR=$HOME/.nvm" >> $GITHUB_ENV
 
-      # --no-init auf PHP 8.5: der Installer laesst Behat und PHPUnit initialisieren, und
-      # admin/tool/behat/cli/util_single_run.php meldet unter 8.5 Dutzende Deprecations aus dem
-      # Moodle-Kern (xml_parser_free, nicht-kanonische Casts, case mit Semikolon, backtick).
-      # moodle-plugin-ci bricht bei jeder PHP-Meldung ab. Ohne die Initialisierung laufen
-      # wenigstens die statischen Schritte durch und liefern auf 8.5 ein echtes Ergebnis.
+      # Der Installer legt das Plugin im Moodle-Baum ab und exportiert den Zielpfad als
+      # PLUGIN_DIR. Alle Pruefschritte muessen diesen Pfad verwenden, nicht den Checkout:
+      # der Mustache-Pruefer und Grunt arbeiten ausschliesslich innerhalb des Moodle-Baums.
       - name: Moodle installieren
-        run: moodle-plugin-ci install --plugin ./plugin --db-host=127.0.0.1 ${{ matrix.php == '8.5' && '--no-init' || '' }}
+        run: moodle-plugin-ci install --plugin ./plugin --db-host=127.0.0.1
         env:
           DB: ${{ matrix.database }}
           MOODLE_BRANCH: ${{ matrix.moodle-branch }}
 
       - name: PHP-Syntax
         if: ${{ always() }}
-        run: moodle-plugin-ci phplint ./plugin
+        run: moodle-plugin-ci phplint "$PLUGIN_DIR"
 
       # PSR1.Classes.ClassDeclaration ist ausgenommen: mod_adaptivequiz_csv_renderer ist ein
       # Renderer-Subtyp und muss laut Moodles renderer_factory in renderer.php stehen.
       - name: Code-Style
         if: ${{ always() }}
-        run: moodle-plugin-ci phpcs --max-warnings 0 --exclude=PSR1.Classes.ClassDeclaration ./plugin
+        run: moodle-plugin-ci phpcs --max-warnings 0 --exclude=PSR1.Classes.ClassDeclaration "$PLUGIN_DIR"
 
       - name: PHPDoc
         if: ${{ always() }}
-        run: moodle-plugin-ci phpdoc --max-warnings 0 ./plugin
+        run: moodle-plugin-ci phpdoc --max-warnings 0 "$PLUGIN_DIR"
 
       - name: Mustache-Templates
         if: ${{ always() }}
-        run: moodle-plugin-ci mustache ./plugin
+        run: moodle-plugin-ci mustache "$PLUGIN_DIR"
 
       - name: Grunt
-        if: ${{ always() && matrix.php != '8.5' }}
-        run: moodle-plugin-ci grunt --max-lint-warnings 0 ./plugin
+        if: ${{ always() }}
+        run: moodle-plugin-ci grunt --max-lint-warnings 0 "$PLUGIN_DIR"
 
-      # Auf PHP 8.5 gibt es keine initialisierte Testumgebung (siehe Installationsschritt), und
-      # Moodles phpunit.xml setzt failOnDeprecation="true" - der Lauf waere ohnehin rot.
       - name: PHPUnit
-        if: ${{ always() && matrix.php != '8.5' }}
-        run: moodle-plugin-ci phpunit --fail-on-warning ./plugin
+        if: ${{ always() }}
+        run: moodle-plugin-ci phpunit --fail-on-warning "$PLUGIN_DIR"
 
       # Behat laeuft vorerst non-blocking: es braucht einen Browsertreiber und ist damit
       # ausserhalb der CI nicht nachstellbar. Scharf schalten, sobald ein Lauf gruen war.
       - name: Behat
-        if: ${{ always() && matrix.php != '8.5' }}
+        if: ${{ always() }}
         continue-on-error: true
-        run: moodle-plugin-ci behat --profile chrome ./plugin
+        run: moodle-plugin-ci behat --profile chrome "$PLUGIN_DIR"
+
+  php85:
+    name: PHP 8.5 · Syntax und Code-Style
+    runs-on: ubuntu-latest
+
+    # Moodle 5.x laesst sich unter PHP 8.5 nicht installieren: composer.lock haelt
+    # ezyang/htmlpurifier auf einer Fassung, die nur bis 8.4 zugelassen ist. Was sich
+    # ohne Moodle-Baum pruefen laesst, wird hier trotzdem gegen 8.5 gefahren - damit
+    # unser eigener Code nicht unbemerkt auf 8.5 zerfaellt.
+    steps:
+      - name: Plugin auschecken
+        uses: actions/checkout@v4
+        with:
+          path: plugin
+
+      - name: PHP einrichten
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          ini-values: max_input_vars=5000
+          coverage: none
+
+      - name: moodle-plugin-ci installieren
+        run: |
+          composer create-project -n --no-dev --prefer-dist moodlehq/moodle-plugin-ci ci ^4
+          echo $(cd ci/bin; pwd) >> $GITHUB_PATH
+          echo $(cd ci/vendor/bin; pwd) >> $GITHUB_PATH
+
+      - name: PHP-Syntax
+        run: moodle-plugin-ci phplint ./plugin
+
+      - name: Code-Style
+        run: moodle-plugin-ci phpcs --max-warnings 0 --exclude=PSR1.Classes.ClassDeclaration ./plugin
 
   architecture:
     name: Architekturgrenze zu local_catquiz

@@ -31,6 +31,10 @@ use templatable;
 class item_bank_page implements renderable, templatable {
     /**
      * The constructor.
+     * @param item_bank_notification $notification Notification.
+     * @param item_bank_qbanks $qbanks Qbanks.
+     * @param item_bank_qcategories $qcategories Qcategories.
+     * @param item_administration_params $params Params.
      */
     public function __construct(
         /** @var item_bank_notification $notification Notification about the state of the item bank. */

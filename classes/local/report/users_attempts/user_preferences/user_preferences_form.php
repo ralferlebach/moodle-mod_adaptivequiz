@@ -36,6 +36,8 @@ class user_preferences_form extends moodleform {
     /**
      * Overrides the parent method to remove mandatory closing of fieldset before the submit button.
      * Ignores the arguments, as it contains its own logic to display the button.
+     * @param mixed $cancel Cancel.
+     * @param mixed $submitlabel Submitlabel.
      */
     public function add_action_buttons($cancel = true, $submitlabel = null) {
         $form =& $this->_form;

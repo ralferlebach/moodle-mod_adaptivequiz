@@ -231,6 +231,12 @@ function adaptivequiz_update_attempt_data($uniqueid, $instance, $userid, $level,
  *
  * @throws dml_exception
  * @throws coding_exception
+ * @param int $uniqueid Uniqueid.
+ * @param stdClass $adaptivequiz Adaptivequiz.
+ * @param context_module $context Context.
+ * @param int $userid Userid.
+ * @param string $standarderror Standarderror.
+ * @param string $statusmessage Statusmessage.
  */
 function adaptivequiz_complete_attempt(
     int $uniqueid,

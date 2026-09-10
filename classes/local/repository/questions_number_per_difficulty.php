@@ -16,7 +16,7 @@
 
 /**
  * The class represents questions number per each difficulty, this is what
- * {@link questions_repository::count_questions_number_per_difficulty()} returns.
+ * {@see questions_repository::count_questions_number_per_difficulty} returns.
  * The purpose of this class is keeping the related pieces of data together, as the client code normally requires both
  * difficulty level and number of questions for this difficulty set to perform its task.
  *

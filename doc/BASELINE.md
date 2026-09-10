@@ -150,20 +150,47 @@ text-Spalten ab und meldet das per `debugging()`; `moodle-plugin-ci install`
 bricht bei jeder Debug-Meldung ab. Der Core macht es in `mod_quiz` genauso:
 NOT NULL ohne Default, gefuellt vom Code.
 
-Seitdem sind die CI-Schritte lokal nachstellbar. Wichtig dabei: sie muessen
-gegen den **Spiegel** laufen, nicht gegen die Quelle. Der Sniff
-`moodle.Files.LangFilesOrdering` greift nur innerhalb eines Moodle-Baums - ein
-phpcs-Lauf im Quellverzeichnis meldet die Sprachdateien nie.
+Seitdem sind die CI-Schritte lokal nachstellbar. Zwei Fallen dabei, beide haben
+mich je einen CI-Lauf gekostet:
+
+- Sie muessen gegen den **Spiegel** laufen, nicht gegen die Quelle. Der Sniff
+  `moodle.Files.LangFilesOrdering` greift nur innerhalb eines Moodle-Baums - ein
+  phpcs-Lauf im Quellverzeichnis meldet die Sprachdateien nie.
+- Der PHPDoc-Checker braucht eine **normal installierte** Site, nicht nur die
+  PHPUnit-Testdatenbank. Ohne sie stirbt er mit *Invalid component specified in
+  renderer request* - und gibt trotzdem Exit 0 zurueck. Ein gruenes phpdoc ohne
+  installierte Site sagt nichts aus. Einmal
+  `php admin/cli/install_database.php` im Moodle-Baum genuegt.
 
 | Schritt | Stand |
 |---|---|
 | `phplint` | Exit 0 |
 | `phpcs --max-warnings 0 --exclude=PSR1.Classes.ClassDeclaration` | Exit 0 |
-| `phpdoc --max-warnings 0` | Exit 0 |
+| `phpdoc --max-warnings 0` | Exit 0 - **nur gegen eine vollstaendig installierte Site aussagekraeftig** |
 | `mustache` | Exit 0 |
 | `phpunit --fail-on-warning` | 171 Tests / 500 Assertionen, PHP 8.3 und 8.4 |
 | `grunt` | lokal nicht pruefbar (npm-Abhaengigkeiten des Moodle-Baums fehlen) |
 | `behat` | lokal nicht pruefbar (Browsertreiber), non-blocking |
+
+### Was die drei CI-Laeufe nacheinander zutage gefoerdert haben
+
+Lauf 3 - die Pruefschritte muessen den **installierten** Pfad bekommen:
+
+- `moodle-plugin-ci install` exportiert `PLUGIN_DIR`, den Zielpfad im Moodle-Baum.
+  Mit dem Checkout-Pfad `./plugin` laufen phplint, phpcs und phpdoc zwar, der
+  Mustache-Pruefer und Grunt aber nicht: beide arbeiten ausschliesslich innerhalb
+  des Moodle-Baums (*File path passed ... is not within basename ... /moodle/public*,
+  *Unable to find Gruntfile*). Alle Schritte verwenden jetzt `$PLUGIN_DIR`.
+- **PHP 8.5 faellt vorerst aus der Matrix.** Moodles `composer.lock` haelt
+  `ezyang/htmlpurifier` auf einer Fassung, die nur bis PHP 8.4 zugelassen ist;
+  `composer install` im Moodle-Baum bricht deshalb ab, bevor irgendein Schritt
+  laeuft. Ein eigener Job faehrt auf 8.5 weiterhin `phplint` und `phpcs` gegen
+  den Plugincode - das geht ohne Moodle-Baum und faengt Syntax, die auf 8.5
+  zerfaellt. PHP 8.4 laeuft dafuer auf allen drei Zweigen mit.
+- **73 PHPDoc-Verstoesse** im Upstream-Code behoben. Der Checker vergleicht Typ
+  und Name jedes Parameters positionsgenau mit der Signatur; halb reparierte
+  Listen bestehen ihn nicht. `tools/phpdoc_params.py` baut die `@param`-Liste
+  deshalb vollstaendig aus der Signatur neu auf, inklusive `?`-Nullable-Typen.
 
 Zwei Fehler im ersten Workflow, beide im zweiten Lauf sichtbar geworden:
 

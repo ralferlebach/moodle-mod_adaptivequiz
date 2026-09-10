@@ -38,6 +38,7 @@ class editor_placeholders implements renderable, templatable {
 
     /**
      * The constructor.
+     * @param editor_placeholders_definition $definition Definition.
      */
     public function __construct(editor_placeholders_definition $definition) {
         $this->definition = $definition;

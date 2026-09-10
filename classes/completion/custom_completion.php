@@ -32,6 +32,7 @@ use mod_adaptivequiz\local\attempt;
 class custom_completion extends activity_custom_completion {
     /**
      * Returns state.
+     * @param string $rule Rule.
      */
     public function get_state(string $rule): int {
         $this->validate_rule($rule);

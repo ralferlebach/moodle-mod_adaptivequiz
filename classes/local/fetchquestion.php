@@ -164,7 +164,7 @@ class fetchquestion {
     /**
      * Reset the maximum question level to search for to a new value
      *
-     * @param int $maximumlevel
+     * @param mixed $minimumlevel Minimumlevel.
      * @return void
      * @throws coding_exception if the minimum level is less than maximum level
      */
@@ -177,7 +177,7 @@ class fetchquestion {
 
     /**
      * This functions adds a message to the debugging array
-     * @param string $message: details of the debugging message
+     * @param string $message details of the debugging message
      * @return void
      */
     protected function print_debug($message = '') {
@@ -214,7 +214,7 @@ class fetchquestion {
 
     /**
      * This functions sets the $tagquestsum class property
-     * @param array an array whose keys are difficulty levels and values are the sum of questions associated with the difficulty
+     * @param mixed $tagquestsum Tagquestsum.
      */
     public function set_tagquestsum($tagquestsum) {
         $this->tagquestsum = $tagquestsum;

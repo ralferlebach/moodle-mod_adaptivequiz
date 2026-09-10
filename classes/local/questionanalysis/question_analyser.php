@@ -67,6 +67,8 @@ class question_analyser {
      * @param object $context
      * @param question_definition $definition
      * @param float $level The level (0-1) of the question.
+     * @param mixed $lowestlevel Lowestlevel.
+     * @param mixed $highestlevel Highestlevel.
      * @return void
      */
     public function __construct($context, question_definition $definition, $level, $lowestlevel, $highestlevel) {
@@ -80,9 +82,11 @@ class question_analyser {
     /**
      * Add an usage result for this question.
      *
+     * @param mixed $attemptid Attemptid.
+     * @param mixed $user User.
      * @param attempt_score $score The user's score on this attempt.
      * @param boolean $correct True if the user answered correctly.
-     * @param string $answer
+     * @param string $answer Answer.
      * @return void
      */
     public function add_result($attemptid, $user, attempt_score $score, $correct, $answer) {
@@ -171,7 +175,7 @@ class question_analyser {
     /**
      * Utility function to map a logit value to this question's scale
      *
-     * @param $logit
+     * @param mixed $logit Logit.
      * @return float Scaled value
      */
     public function map_logit_to_scale($logit) {

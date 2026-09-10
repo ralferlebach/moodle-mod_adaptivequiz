@@ -42,6 +42,7 @@ final class attempt_slot_uniqueness_test extends advanced_testcase {
 
     /**
      * Builds an activity with one question per difficulty level, so the fetching never runs dry.
+     * @param int $maximumquestions Maximumquestions.
      */
     private function set_up_activity(int $maximumquestions = 10): void {
         $coregenerator = $this->getDataGenerator();

@@ -175,8 +175,6 @@ class answers_statistic implements question_statistic {
     /**
      * Print out an empty user-result row.
      *
-     * @param question_analyser $analyser
-     * @param stdClass $result
      * @return void
      */
     public function print_empty_user_result() {

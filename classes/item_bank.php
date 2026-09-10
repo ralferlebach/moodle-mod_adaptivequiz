@@ -171,6 +171,10 @@ class item_bank {
     /**
      * Provides information about single question categories linked to the given adaptive quiz activity.
      *
+     * @param int $adaptivequizid Adaptivequizid.
+     * @param string $fields Fields.
+     * @param ?int $incourseid Incourseid.
+     * @param ?int $notincourseid Notincourseid.
      * @return stdClass[] Each item is a record from {question_categories} + 'cmid' and 'qbankname' fields.
      */
     public static function get_question_categories_assigned_to_adaptivequiz(

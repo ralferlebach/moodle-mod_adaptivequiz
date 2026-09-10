@@ -71,8 +71,10 @@ class renderer extends plugin_renderer_base {
 
     /**
      * This function generates the HTML required to display the initial reports table
+     * @param mixed $headers Headers.
      * @param array $records attempt records from adaptivequiz_attempt table
      * @param stdClass $cm course module object set to the instance of the activity
+     * @param mixed $baseurl Baseurl.
      * @param string $sort the column the the table is to be sorted by
      * @param string $sortdir the direction of the sort
      * @return string HTML markup
@@ -91,9 +93,9 @@ class renderer extends plugin_renderer_base {
     /**
      * This function creates the table header links that will be used to allow instructor to sort the data.
      *
-     * @param array $headers
+     * @param array $headers Headers.
      * @param stdClass $cm a course module object set to the instance of the activity.
-     * @param $baseurl
+     * @param mixed $baseurl Baseurl.
      * @param string $sort the column the the table is to be sorted by.
      * @param string $sortdir the direction of the sort.
      * @return array An array of column headers (firstname / lastname, number of attempts, standard error).
@@ -129,6 +131,10 @@ class renderer extends plugin_renderer_base {
      * @param int $totalrecords the total number of records returned
      * @param int $page the current page the user is on
      * @param int $perpage the number of records displayed on one page
+     * @param mixed $cm Cm.
+     * @param mixed $baseurl Baseurl.
+     * @param mixed $sort Sort.
+     * @param mixed $sortdir Sortdir.
      * @return string HTML markup
      */
     public function print_paging_bar($totalrecords, $page, $perpage, $cm, $baseurl, $sort, $sortdir) {
@@ -164,7 +170,8 @@ class renderer extends plugin_renderer_base {
     /**
      * Generate an HTML view of a single question.
      *
-     * @param  $analyzer
+     * @param question_analyser $analyzer Analyzer.
+     * @param mixed $context Context.
      * @return string HTML markup
      */
     public function get_question_details(question_analyser $analyzer, $context) {

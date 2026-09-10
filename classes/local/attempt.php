@@ -424,7 +424,7 @@ class attempt {
     /**
      * This function determines if the user submitted an answer to the question
      * @param question_usage_by_activity $quba an object loaded with the unique id of the attempt
-     * @param int $slot question slot id
+     * @param mixed $slotid Slotid.
      * @return bool true if an answer to the question was submitted, otherwise false
      */
     public function was_answer_submitted_to_question($quba, $slotid) {
@@ -541,6 +541,7 @@ class attempt {
     /**
      * This functions returns an array of all question ids that have been used in this attempt
      *
+     * @param mixed $uniqueid Uniqueid.
      * @return array an array of question ids
      */
     public function get_all_questions_in_attempt($uniqueid) {
@@ -555,6 +556,8 @@ class attempt {
      * User has completed on quiz.
      *
      * @throws dml_exception
+     * @param int $adaptivequizid Adaptivequizid.
+     * @param int $userid Userid.
      */
     public static function user_has_completed_on_quiz(int $adaptivequizid, int $userid): bool {
         global $DB;

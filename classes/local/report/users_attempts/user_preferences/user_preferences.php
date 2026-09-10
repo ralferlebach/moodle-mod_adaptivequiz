@@ -67,7 +67,7 @@ final class user_preferences {
      * @param int $perpage Perpage.
      * @param int $showinitialsbar Showinitialsbar.
      * @param int $persistentfilter Persistentfilter.
-     * @param filter_user_preferences $filter Filter.
+     * @param ?filter_user_preferences $filter Filter.
      */
     private function __construct(
         int $perpage,

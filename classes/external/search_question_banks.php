@@ -80,9 +80,9 @@ class search_question_banks extends external_api {
      * Main.
      *
      * @param int $contextid Context ID of the adaptive quiz module.
+     * @param ?int $incourseid Specific course ID to get banks from.
+     * @param ?int $notincourseid Course ID to exclude.
      * @param string $search String to filter results by question bank name.
-     * @param int|null $incourseid Specific course ID to get banks from.
-     * @param int|null $notincourseid Course ID to exclude.
      */
     public static function execute(
         int $contextid,

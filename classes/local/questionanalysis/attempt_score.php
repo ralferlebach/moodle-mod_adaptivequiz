@@ -45,6 +45,10 @@ class attempt_score {
     /**
      * Constructor
      *
+     * @param mixed $measuredabilitylogits Measuredabilitylogits.
+     * @param mixed $standarderrorlogits Standarderrorlogits.
+     * @param mixed $lowestlevel Lowestlevel.
+     * @param mixed $highestlevel Highestlevel.
      * @return void
      */
     public function __construct($measuredabilitylogits, $standarderrorlogits, $lowestlevel, $highestlevel) {

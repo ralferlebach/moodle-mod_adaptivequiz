@@ -52,7 +52,7 @@ define('ADAPTIVEQUIZ_ATTEMPTLAST', '4');
  * Returns the information on whether the module supports a feature
  *
  * @see plugin_supports() in lib/moodlelib.php
- * @param string $feature: FEATURE_xx constant for requested feature
+ * @param string $feature FEATURE_xx constant for requested feature
  * @return mixed true if the feature is supported, null if unknown
  */
 function adaptivequiz_supports($feature) {
@@ -280,7 +280,7 @@ function adaptivequiz_update_instance(stdClass $adaptivequiz, ?mod_adaptivequiz_
  * this function will permanently delete the instance
  * and any data that depends on it.
  *
- * @param int $id: Id of the module instance
+ * @param int $id Id of the module instance
  * @return boolean Success/Failure
  */
 function adaptivequiz_delete_instance($id) {
@@ -329,6 +329,10 @@ function adaptivequiz_delete_instance($id) {
  * $return->time = the time they did it
  * $return->info = a short text description
  *
+ * @param mixed $course Course.
+ * @param mixed $user User.
+ * @param mixed $mod Mod.
+ * @param mixed $adaptivequiz Adaptivequiz.
  * @return stdClass|null
  */
 function adaptivequiz_user_outline($course, $user, $mod, $adaptivequiz) {
@@ -342,10 +346,10 @@ function adaptivequiz_user_outline($course, $user, $mod, $adaptivequiz) {
  * Prints a detailed representation of what a user has done with
  * a given particular instance of this module, for user activity reports.
  *
- * @param stdClass $course: the current course record
- * @param stdClass $user: the record of the user we are generating report for
- * @param cm_info $mod: course module info
- * @param stdClass $adaptivequiz: the module instance record
+ * @param stdClass $course the current course record
+ * @param stdClass $user the record of the user we are generating report for
+ * @param cm_info $mod course module info
+ * @param stdClass $adaptivequiz the module instance record
  * @return void, is supposed to echp directly
  */
 function adaptivequiz_user_complete($course, $user, $mod, $adaptivequiz) {
@@ -356,6 +360,9 @@ function adaptivequiz_user_complete($course, $user, $mod, $adaptivequiz) {
  * that has occurred in adaptivequiz activities and print it out.
  * Return true if there was output, or false is there was none.
  *
+ * @param mixed $course Course.
+ * @param mixed $viewfullnames Viewfullnames.
+ * @param mixed $timestart Timestart.
  * @return boolean
  */
 function adaptivequiz_print_recent_activity($course, $viewfullnames, $timestart) {
@@ -367,15 +374,15 @@ function adaptivequiz_print_recent_activity($course, $viewfullnames, $timestart)
  *
  * This callback function is supposed to populate the passed array with
  * custom activity records. These records are then rendered into HTML via
- * {@link adaptivequiz_print_recent_mod_activity()}.
+ * {@see adaptivequiz_print_recent_mod_activity}.
  *
- * @param array $activities: sequentially indexed array of objects with the 'cmid' property
- * @param int $index: the index in the $activities to use for the next record
- * @param int $timestart: append activity since this time
- * @param int $courseid: the id of the course we produce the report for
- * @param int $cmid: course module id
- * @param int $userid: check for a particular user's activity only, defaults to 0 (all users)
- * @param int $groupid: check for a particular group's activity only, defaults to 0 (all groups)
+ * @param array $activities sequentially indexed array of objects with the 'cmid' property
+ * @param int $index the index in the $activities to use for the next record
+ * @param int $timestart append activity since this time
+ * @param int $courseid the id of the course we produce the report for
+ * @param int $cmid course module id
+ * @param int $userid check for a particular user's activity only, defaults to 0 (all users)
+ * @param int $groupid check for a particular group's activity only, defaults to 0 (all groups)
  * @return void adds items into $activities and increases $index
  */
 function adaptivequiz_get_recent_mod_activity(&$activities, &$index, $timestart, $courseid, $cmid, $userid = 0, $groupid = 0) {
@@ -598,9 +605,9 @@ function adaptivequiz_get_extra_capabilities() {
  * This can be called by an AJAX request so do not rely on $PAGE as it might not be set up properly.
  *
  * @param navigation_node $navref An object representing the navigation tree node of the adaptivequiz module instance
- * @param stdClass $course
- * @param stdClass $module
- * @param cm_info $cm
+ * @param stdclass $course Course.
+ * @param stdclass $module Module.
+ * @param cm_info $cm Cm.
  */
 function adaptivequiz_extend_navigation(navigation_node $navref, stdclass $course, stdclass $module, cm_info $cm) {
 }
@@ -652,7 +659,7 @@ function adaptivequiz_extend_settings_navigation(settings_navigation $settingsna
  * Delete the grade item for given quiz
  *
  * @category grade
- * @param object $adaptivequiz object
+ * @param stdClass $adaptivequiz object
  * @return int 0 if ok, error code otherwise
  */
 function adaptivequiz_grade_item_delete(stdClass $adaptivequiz) {
@@ -729,6 +736,7 @@ function adaptivequiz_update_grades(stdClass $adaptivequiz, $userid = 0, $nullif
 
 /**
  * Called by course/reset.php
+ * @param mixed $mform Mform.
  */
 function adaptivequiz_reset_course_form_definition(&$mform) {
     $mform->addElement('header', 'apaptivequizheader', get_string('modulenameplural', 'adaptivequiz'));
@@ -737,6 +745,7 @@ function adaptivequiz_reset_course_form_definition(&$mform) {
 
 /**
  * Course reset form defaults.
+ * @param mixed $course Course.
  */
 function adaptivequiz_reset_course_form_defaults($course) {
     return ['reset_adaptivequiz_all' => 0];
@@ -746,7 +755,7 @@ function adaptivequiz_reset_course_form_defaults($course) {
  * This function is used by the reset_course_userdata function in moodlelib.
  * This function will remove all attempts from the specified adaptivequiz
  * and clean up any related data.
- * @param $data the data submitted from the reset course.
+ * @param mixed $data Data.
  * @return array status array
  */
 function adaptivequiz_reset_userdata($data) {
