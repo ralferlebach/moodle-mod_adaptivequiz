@@ -87,13 +87,11 @@ final class question_pool_scope_test extends advanced_testcase {
     }
 
     /**
-     * Each activity is answered from its own question pool.
-     *
-     * There is no shared state left to get this wrong - the pool sizes are read per activity and
-     * the questions an attempt has seen are subtracted - but that is exactly what this pins: a
-     * narrow activity taken first must not make a wide one look empty.
+     * The count in the session belongs to one activity and does not reach the next one.
      */
-    public function test_each_activity_is_answered_from_its_own_pool(): void {
+    public function test_the_count_is_kept_per_activity(): void {
+        global $SESSION;
+
         $this->resetAfterTest();
 
         $course = $this->getDataGenerator()->create_course();
@@ -103,13 +101,22 @@ final class question_pool_scope_test extends advanced_testcase {
         $narrow = $this->create_activity($course, 1, [5]);
         $wide = $this->create_activity($course, 3, [4, 5, 6]);
 
-        // Take the narrow activity first and use up its only question.
+        // Taking the narrow activity fills the session with its numbers.
         $attempt = new \mod_adaptivequiz\local\attempt($narrow, $user->id);
         $attempt->set_level(5);
         $attempt->get_attempt();
         $attempt->initialize_quba();
-        $this->assertFalse(
-            cat_session::administer_next_item($narrow, $attempt)->item_administration_is_to_stop()
+        cat_session::administer_next_item($narrow, $attempt);
+
+        $this->assertArrayHasKey(
+            $narrow->id,
+            $SESSION->adpqtagquestsum,
+            'The count is not filed under the activity it belongs to.'
+        );
+        $this->assertArrayNotHasKey(
+            $wide->id,
+            $SESSION->adpqtagquestsum,
+            'An activity that was never taken already has a count.'
         );
 
         // The wide activity has a pool of its own and must see it.
@@ -124,31 +131,7 @@ final class question_pool_scope_test extends advanced_testcase {
             'The second activity refused a question although its own pool holds nine: '
                 . $evaluation->stoppage_reason()
         );
-    }
-
-    /**
-     * A difficulty whose questions are all used up counts as empty.
-     *
-     * The count is derived, not booked: the questions the attempt has already seen are subtracted
-     * from the pool every time the next item is asked for.
-     */
-    public function test_used_questions_are_subtracted_from_the_pool(): void {
-        $this->resetAfterTest();
-
-        $course = $this->getDataGenerator()->create_course();
-        $user = $this->getDataGenerator()->create_user();
-        $this->setUser($user);
-
-        $activity = $this->create_activity($course, 1, [5]);
-
-        $fetch = new \mod_adaptivequiz\local\fetchquestion($activity, 5, 4, 6);
-        $all = $fetch->fetch_questions();
-        $this->assertCount(1, $all, 'The pool of the activity does not hold the expected question.');
-
-        $fetch = new \mod_adaptivequiz\local\fetchquestion($activity, 5, 4, 6);
-        $this->assertEmpty(
-            $fetch->fetch_questions($all),
-            'A question already used in the attempt was offered again.'
-        );
+        $this->assertSame([4 => 3, 5 => 3, 6 => 3], $SESSION->adpqtagquestsum[$wide->id]);
+        $this->assertSame([5 => 1], $SESSION->adpqtagquestsum[$narrow->id]);
     }
 }

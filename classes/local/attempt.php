@@ -604,6 +604,10 @@ class attempt {
         // Fetch questions for display.
         $questionids = $fetchquestion->fetch_questions($exclude);
 
+        // The count of questions left per difficulty is final for this request once the question
+        // has been fetched.
+        $fetchquestion->store_tagquestsum_in_session();
+
         if (empty($questionids)) {
             $this->print_debug('get_question_ready() - Unable to fetch a question $questionsids:' . $this->vardump($questionids));
 

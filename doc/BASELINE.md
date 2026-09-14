@@ -327,15 +327,7 @@ Danach galt jede Stufe als leer. Die Konstruktor-Protokolle waren in beiden
 Fassungen identisch, weil der Fehler erst danach passierte - deshalb war es so
 schwer zu sehen.
 
-**Der Sitzungszaehler ist inzwischen ganz entfallen.** Statt einen laufenden
-Zaehler fortzuschreiben, bestimmt `fetchquestion::fetch_questions()` bei jedem
-Aufruf die Poolgroessen aus der Datenbank und zieht die Fragen ab, die dieser
-Versuch schon gesehen hat - dieselbe Liste, die die Suche ohnehin als
-Ausschluss bekommt. Beide Seiten sind abgeleitet; es gibt keinen Zustand mehr,
-der aus dem Tritt geraten koennte, weder zwischen Aktivitaeten noch wenn sich
-der Fragenbestand waehrend eines laufenden Versuchs aendert.
-
-Damit erledigt sich auch der zweite Punkt, und sie betreffen den Betrieb, nicht
+**Offen bleibt der zweite Punkt**, und sie betreffen den Betrieb, nicht
 die Tests: der Zaehler ist weiterhin pro Nutzersitzung statt pro Aktivitaet oder
 Versuch geschluesselt, und er wird nur neu aufgebaut, wenn er leer ist. Der
 saubere Zuschnitt waere:

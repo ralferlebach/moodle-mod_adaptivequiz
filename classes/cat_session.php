@@ -21,6 +21,7 @@ use core\lock\lock_config;
 use core_tag_tag;
 use mod_adaptivequiz\local\attempt;
 use mod_adaptivequiz\local\catalgo;
+use mod_adaptivequiz\local\fetchquestion;
 use moodle_exception;
 use mod_adaptivequiz\local\catmodel\catmodel_resolver;
 use mod_adaptivequiz\local\itemadministration\default_item_administration_factory;
@@ -271,9 +272,19 @@ final class cat_session {
             return $result;
         }
 
-        // Nothing to book here: how many questions of a difficulty are left is derived from the
-        // pool and the questions this attempt has already seen, both read when the next item is
-        // asked for. There is no running count that could fall out of step.
+        // One question of that difficulty has been used up.
+        $fetchquestion = new fetchquestion(
+            $adaptivequiz,
+            $result->answereddifficulty,
+            (int) $adaptivequiz->lowestlevel,
+            (int) $adaptivequiz->highestlevel
+        );
+        $tagquestcount = $fetchquestion->decrement_question_sum_from_difficulty(
+            $fetchquestion->get_tagquestsum(),
+            $result->answereddifficulty
+        );
+        $fetchquestion->set_tagquestsum($tagquestcount);
+        $fetchquestion->store_tagquestsum_in_session();
 
         return $result;
     }

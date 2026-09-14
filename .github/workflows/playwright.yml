@@ -79,7 +79,7 @@ jobs:
       - name: CATquiz-Plugins holen
         if: ${{ inputs.scope != 'standalone' }}
         run: |
-          git clone --depth 1 https://github.com/Wunderbyte-GmbH/moodle-local_catquiz.git catquiz
+          git clone --depth 1 --branch migration-zu-moodle-5.x https://github.com/ralferlebach/moodle-local_catquiz.git catquiz
           git clone --depth 1 --branch main \
             https://github.com/Wunderbyte-GmbH/moodle-local_wunderbyte_table.git wunderbyte_table
 
