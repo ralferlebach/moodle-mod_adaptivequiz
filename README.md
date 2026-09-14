@@ -202,3 +202,113 @@ ability measure would fall close to 5.5.
 
 Remember that the ability measure does have error associated with it. Be sure to take the standard error amount into account
 when acting on the score.
+
+# Custom CAT models
+
+## What a CAT model subplugin is
+
+Besides the built-in algorithm described above, the activity can hand the whole assessment over to
+a subplugin: which question comes next, how an answer is judged, what a finished attempt means.
+Such subplugins live under `/mod/adaptivequiz/catmodel` and have the frankenstyle name
+`adaptivequizcatmodel_<name>`. An activity names the one it uses in `adaptivequiz.catmodel`; an
+empty value means the built-in algorithm.
+
+The host offers extension points, it holds no CAT model logic of its own - and it must stay usable
+with no CAT model installed at all. Its test suite runs without one.
+
+## How the host reaches a subplugin
+
+Through exactly one class: `mod_adaptivequiz\local\catmodel\catmodel_resolver`. Everything else in
+the host asks it, nothing looks up a subplugin on its own.
+
+    catmodel_resolver::handler(?string $catmodel, string $interface): ?object
+    catmodel_resolver::callback(?string $catmodel, string $callback, ...$arguments)
+
+`handler()` answers with an object implementing the given interface, `callback()` with the return
+value of a plugin callback function. Both have the same three outcomes:
+
+* no CAT model configured - `null`, the host default applies;
+* CAT model configured but this extension point not offered - `null`, same;
+* CAT model configured but not installed - `coding_exception`, never a PHP fatal.
+
+Handlers are looked up below the subplugin namespace, in both layouts in use:
+`…\local\catmodel\{form,instance,itemadministration}` and `…\local\itemadministration`.
+
+## Extension points
+
+### The activity form
+
+Interfaces under `mod_adaptivequiz\local\catmodel\form`:
+
+| Interface | Called for |
+|---|---|
+| `catmodel_mod_form_modifier` | adding the CAT model's own fields, returned elements are placed at the marker |
+| `catmodel_mod_form_validator` | validating those fields |
+| `catmodel_mod_form_data_preprocessor` | filling them when the form opens |
+
+The form shows a CAT model selector as soon as at least one subplugin is installed. Choosing one
+reloads the form through a no-submit button - no JavaScript is involved, so the form also works
+without it. When a CAT model is selected, the settings of the built-in algorithm disappear: they do
+not apply to an activity the subplugin drives.
+
+`mod_adaptivequiz\local\catmodel\form\mod_form_extension` applies all three. The form class itself
+only forwards, because a form cannot be instantiated in a test.
+
+### The activity lifecycle
+
+Interfaces under `mod_adaptivequiz\local\catmodel\instance`, called from `lib.php`:
+
+| Interface | Called from |
+|---|---|
+| `catmodel_add_instance_handler` | `adaptivequiz_add_instance()` |
+| `catmodel_update_instance_handler` | `adaptivequiz_update_instance()` |
+| `catmodel_delete_instance_handler` | `adaptivequiz_delete_instance()`, before the host clears its own data |
+
+### Administering items
+
+`mod_adaptivequiz\local\itemadministration\item_administration_factory` hands out an
+`item_administration`, asked once per request by `cat_session::item_administration_factory_for()`.
+Without a CAT model the host uses `default_item_administration`, which is the built-in algorithm
+behind the same contract.
+
+`evaluate_ability_to_administer_next_item(?int $previousquestionslot)` answers with an
+`item_administration_evaluation`: either a `next_item` or a reason to stop.
+
+A `next_item` names **either** a question id **or** a slot of the question usage. Naming a question
+id is the normal case for a CAT model: the question usage belongs to the host, so the host puts the
+question in and records the slot. A CAT model never writes to the usage itself.
+
+The whole step runs under a lock keyed on activity and user, in
+`cat_session::administer_next_item()`. Two requests - a double click, a concurrent AJAX call -
+must not each create a slot for the same item. If a slot is already active and unanswered it is
+reused, even when the CAT model names a different question in the meantime: an attempt has exactly
+one open item, and appending would make the visible question number grow with every reload.
+
+## Callbacks in the subplugin's `lib.php`
+
+Named `adaptivequizcatmodel_<name>_<callback>` and resolved through `catmodel_resolver::callback()`:
+
+| Callback | Called when |
+|---|---|
+| `post_create_attempt_callback($adaptivequiz, $attempt)` | an attempt has just been created, before the first item is administered - the CAT model sets up its own record and starts its clock |
+| `post_process_item_result_callback($quba, $adaptivequiz, $attempt)` | an answer has been recorded; the host keeps no estimate of its own for such an activity |
+| `post_complete_attempt_callback($adaptivequiz, $context, $userid, $attempt)` | the attempt changes to completed - not on the result page, which a participant may never reach |
+| `post_delete_attempt_callback($adaptivequiz, $attempt)` | an attempt is deleted; the CAT model may hold results of its own |
+| `attempts_report_url($adaptivequiz, $cm)` | the activity shows the number of attempts and links it here; without it a teacher reaches no attempts overview at all |
+| `attempt_finished_feedback($adaptivequiz, $cm, $attempt)` | the result page asks for the feedback text; what the CAT model returns replaces the one configured on the activity |
+
+An activity driven by a CAT model does not show the built-in attempts report or the question
+analysis: their numbers come from the built-in algorithm and would not match.
+
+## The completion rule 'valid result'
+
+Besides 'attempt completed' the activity offers 'valid CAT result'. It reads
+`adaptivequiz_attempt.resultvalid`, which the host never writes itself - a CAT model does, together
+with `resultstatus`. The host owns the schema, the backup and the rule; the judgement is the CAT
+model's.
+
+## Writing one
+
+`catmodel/testcatmodel` is a neutral CAT model used by the host's own contract tests. It holds no
+CAT logic - it records which extension points were reached - and it is the shortest complete
+example of the contract. It is excluded from the released package by `.gitattributes`.

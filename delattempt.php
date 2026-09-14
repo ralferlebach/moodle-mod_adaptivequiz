@@ -23,9 +23,11 @@
  */
 
 require_once(__DIR__ . '/../../config.php');
+require_once(__DIR__ . '/locallib.php');
 
 $attemptid = required_param('attempt', PARAM_INT);
 $confirm = optional_param('confirm', 0, PARAM_INT);
+$returnurl = optional_param('return', '', PARAM_LOCALURL);
 
 $attempt = $DB->get_record('adaptivequiz_attempt', ['id' => $attemptid], '*', MUST_EXIST);
 $adaptivequiz = $DB->get_record('adaptivequiz', ['id' => $attempt->instance], '*', MUST_EXIST);
@@ -45,17 +47,23 @@ $PAGE->set_title(format_string($adaptivequiz->name));
 $PAGE->set_heading(format_string($course->fullname));
 $PAGE->set_context($context);
 
-$returnurl = new moodle_url('/mod/adaptivequiz/viewattemptreport.php', ['cmid' => $cm->id, 'userid' => $user->id]);
+// An activity driven by a CAT model has no built-in attempts report to return to, so the caller
+// says where to go back to. Without that the page would send the user to a report that refuses to
+// show anything for such an activity.
+if (empty($adaptivequiz->catmodel)) {
+    $returnurl = new moodle_url('/mod/adaptivequiz/viewattemptreport.php', ['cmid' => $cm->id, 'userid' => $user->id]);
+} else if ($returnurl === '') {
+    $returnurl = new moodle_url('/mod/adaptivequiz/view.php', ['id' => $cm->id]);
+} else {
+    $returnurl = new moodle_url($returnurl);
+}
 
 $a = new stdClass();
 $a->name = fullname($user);
-$a->timecompleted = userdate($attempt->timemodified);
+$a->timecompleted = userdate($attempt->timefinished ?? $attempt->timemodified);
 
 if ($confirm) {
-    question_engine::delete_questions_usage_by_activity($attempt->uniqueid);
-    $DB->delete_records('adaptivequiz_attempt', ['id' => $attempt->id]);
-
-    adaptivequiz_update_grades($adaptivequiz, $user->id);
+    adaptivequiz_delete_attempt($adaptivequiz, $attempt);
 
     $message = get_string('attemptdeleted', 'adaptivequiz', $a);
     redirect($returnurl, $message, 4);
@@ -63,7 +71,10 @@ if ($confirm) {
 
 $message = get_string('confirmdeleteattempt', 'adaptivequiz', $a);
 
-$confirm = new moodle_url('/mod/adaptivequiz/delattempt.php', ['attempt' => $attempt->id, 'confirm' => 1]);
+$confirm = new moodle_url(
+    '/mod/adaptivequiz/delattempt.php',
+    ['attempt' => $attempt->id, 'confirm' => 1, 'return' => $returnurl->out_as_local_url(false)]
+);
 echo $OUTPUT->header();
 echo $OUTPUT->confirm($message, $confirm, $returnurl);
 echo $OUTPUT->footer();

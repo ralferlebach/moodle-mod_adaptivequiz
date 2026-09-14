@@ -4,6 +4,7 @@
 /catmodel/testcatmodel   export-ignore
 /tests/local/catmodel    export-ignore
 /tests/cat_session_test.php export-ignore
+/tests/playwright export-ignore
 /tools           export-ignore
 /doc            export-ignore
 /.github        export-ignore

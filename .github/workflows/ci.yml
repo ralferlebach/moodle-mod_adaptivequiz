@@ -129,9 +129,24 @@ jobs:
 
       # Behat ist scharf: der Lauf vom 9. September war auf allen Zweigen und beiden
       # Datenbanken gruen, 33 Szenarien mit 1569 Schritten.
+      # Screenshots landen im faildump-Verzeichnis - bei Fehlschlaegen automatisch, im
+      # Erfolgsfall an den Stellen, die ein Szenario ueber "I save a screenshot named" selbst
+      # markiert. Beides wird hochgeladen: ein gruener Lauf ohne Bild zeigt niemandem, was das
+      # Feature tatsaechlich erzeugt hat.
       - name: Behat
         if: ${{ always() }}
         run: moodle-plugin-ci behat --profile chrome
+
+      - name: Behat-Screenshots sichern
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: behat-screenshots-${{ matrix.moodle-branch }}-php${{ matrix.php }}-${{ matrix.database }}
+          path: |
+            moodledata_behat_faildump/**
+            moodledata/behat_faildump/**
+          if-no-files-found: ignore
+          retention-days: 14
 
   php85:
     name: PHP 8.5 · Syntax und Code-Style

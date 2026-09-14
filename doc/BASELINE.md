@@ -275,13 +275,82 @@ Loeschung moeglich, und ein DSGVO-konformer Produktivbetrieb scheidet aus.
 | Note im Gradebook | als Subsystem `core_grades` deklariert |
 | Berichtseinstellungen | zwei Nutzereinstellungen deklariert |
 
-Was **nicht** abgedeckt ist und offen bleibt: Catmodel-Subplugins koennen eigene
-personenbezogene Daten halten - `local_catquiz` tut das mit den geschaetzten
-Faehigkeiten je Skala. Der Host muesste dafuer die Subplugin-Delegation der
-Privacy API implementieren, so wie `mod_quiz` es fuer `quizaccess` tut, und
-jedes Catmodel einen eigenen Provider mitbringen. Das ist ein eigener
-Arbeitsschritt; bis dahin ist die Auskunft fuer eine Installation mit Catmodel
-unvollstaendig.
+**Die Subplugin-Delegation steht.** `mod_adaptivequiz\privacy\adaptivequizcatmodel_provider`
+ist der Vertrag, den ein Catmodel implementiert, das eigene personenbezogene
+Daten haelt - `local_catquiz` tut das mit den geschaetzten Faehigkeiten je
+Skala. Der Host reicht Export, Loeschung je Nutzer, je Kontext und je
+Nutzerliste sowie die Nutzerermittlung an jedes installierte Catmodel weiter,
+das den Vertrag erfuellt; eines ohne eigene Daten implementiert ihn nicht und
+wird nicht gefragt.
+
+Offen bleibt die Gegenseite: `adaptivequizcatmodel_catquiz` bringt noch keinen
+Provider mit. Bis dahin ist die Auskunft fuer eine Installation mit CATquiz
+unvollstaendig - jetzt aber aus einem Grund, der im Adapter liegt und dort
+behoben werden kann, nicht aus einem fehlenden Vertrag im Host.
+
+## Befund: der Sitzungszaehler der Fragen je Schwierigkeit
+
+Beim Portieren des Referenztests (`tests/calculation_steps_test.php`) fiel auf,
+dass die nachgespielten Versuche zwar an **jedem** Schritt die aufgezeichneten
+Werte treffen - 610 Assertionen ueber neun Versuche -, dass aber fuenf von ihnen
+aus einem anderen Grund enden als aufgezeichnet, und dass sich das Ergebnis
+aendert, je nachdem welche Datensaetze zusammen laufen.
+
+Die Ursache liegt in `local\fetchquestion` und ist nicht auf Tests beschraenkt:
+
+- Der Zaehler der noch verfuegbaren Fragen je Schwierigkeit liegt in
+  `$SESSION->adpqtagquestsum` - **einem flachen Array pro Nutzersitzung**, ohne
+  Bezug zu Aktivitaet oder Versuch. Zwei adaptive Tests im selben Kurs teilen
+  ihn sich.
+- Neu aus der Datenbank aufgebaut wird er nur, wenn er leer ist
+  (`initalize_tags_with_quest_count`, Parameter `$rebuild`). Andernfalls gilt der
+  Sitzungswert - auch wenn er von einer anderen Aktivitaet mit einem ganz anderen
+  Fragenbestand stammt.
+- Geschrieben wird er im **Destruktor** von `fetchquestion`. Wann der laeuft, ist
+  ausserhalb eines Requests offen; im Test kann er in die Sitzung des naechsten
+  Falls schreiben.
+
+**Behoben ist der dritte Punkt.** `store_tagquestsum_in_session()` schreibt den
+Zaehler jetzt dann, wenn der Aufrufer ihn fuer endgueltig haelt; der Destruktor
+ist weg. Damit laeuft der Referenztest deterministisch - und alle neun
+aufgezeichneten Versuche treffen ihren aufgezeichneten Abbruchgrund, 962
+Assertionen. Der Zeitpunkt des Schreibens war die ganze Ursache; die
+aufgezeichneten Werte stimmten von Anfang an.
+
+**Behoben ist auch der erste Punkt:** der Zaehler liegt jetzt unter
+`$SESSION->adpqtagquestsum[<aktivitaets-id>]`. Zwei Anlaeufe waren vorher
+gescheitert, beide an derselben Stelle: `fetchquestion` liest den Zaehler an
+**zwei** Stellen - im Konstruktor und noch einmal in
+`initalize_tags_with_quest_count()` (Zeile 284). Die zweite blieb flach, bekam
+die verschachtelte Abbildung und las die Aktivitaets-Id als Schwierigkeitsgrad.
+Danach galt jede Stufe als leer. Die Konstruktor-Protokolle waren in beiden
+Fassungen identisch, weil der Fehler erst danach passierte - deshalb war es so
+schwer zu sehen.
+
+**Der Sitzungszaehler ist inzwischen ganz entfallen.** Statt einen laufenden
+Zaehler fortzuschreiben, bestimmt `fetchquestion::fetch_questions()` bei jedem
+Aufruf die Poolgroessen aus der Datenbank und zieht die Fragen ab, die dieser
+Versuch schon gesehen hat - dieselbe Liste, die die Suche ohnehin als
+Ausschluss bekommt. Beide Seiten sind abgeleitet; es gibt keinen Zustand mehr,
+der aus dem Tritt geraten koennte, weder zwischen Aktivitaeten noch wenn sich
+der Fragenbestand waehrend eines laufenden Versuchs aendert.
+
+Damit erledigt sich auch der zweite Punkt, und sie betreffen den Betrieb, nicht
+die Tests: der Zaehler ist weiterhin pro Nutzersitzung statt pro Aktivitaet oder
+Versuch geschluesselt, und er wird nur neu aufgebaut, wenn er leer ist. Der
+saubere Zuschnitt waere:
+
+- **Poolgroessen je Aktivitaet** als reiner Lesecache (MUC), Schluessel aus
+  Aktivitaet und verknuepften Fragensammlungen - kein Zustand, nur ein Cache.
+- **Verbrauch je Versuch** gar nicht speichern, sondern aus der Fragennutzung
+  ableiten. Die Liste existiert bereits: `attempt::get_question_ready()` holt sie
+  ueber `get_all_questions_in_attempt()` und reicht sie als Ausschlussliste
+  weiter. Der dekrementierte Zaehler bildet dieselbe Information ein zweites Mal
+  ab, ohne je gegen die Wirklichkeit abgeglichen zu werden.
+
+Damit entfaellt der Sitzungszaehler vollstaendig. Der Umbau greift in die
+Fragenauswahl ein und braucht deshalb den Referenztest als Waechter - der steht
+jetzt zur Verfuegung.
 
 ## Offene Punkte, die aus der Baseline folgen
 

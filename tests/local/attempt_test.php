@@ -146,6 +146,8 @@ final class attempt_test extends advanced_testcase {
         unset($data->timecreated);
         unset($data->timemodified);
         unset($data->timefinished);
+        unset($data->resultstatus);
+        unset($data->resultvalid);
 
         // Cast the float values to eliminate the data representation issues.
         $data->difficultysum = (float) $data->difficultysum;
@@ -162,6 +164,37 @@ final class attempt_test extends advanced_testcase {
             'difficultysum' => '0.0000000',
             'measure' => '0.00000',
         ], $data);
+    }
+
+    /**
+     * The question usage of an attempt is set once and cannot be replaced.
+     *
+     * Ported from the fork. It guards attempt::set_quba_id(), which the host needs when a CAT
+     * model names the next question: the host puts it into the usage and records the id. Replacing
+     * an existing usage would orphan every answer given so far.
+     */
+    public function test_quba_id_cannot_be_set_if_set_previously(): void {
+        $this->resetAfterTest();
+
+        $course = $this->getDataGenerator()->create_course();
+        $adaptivequiz = $this->getDataGenerator()->create_module('adaptivequiz', ['course' => $course->id]);
+        $user = $this->getDataGenerator()->create_user();
+
+        $quba = \question_engine::make_questions_usage_by_activity(
+            'mod_adaptivequiz',
+            context_module::instance($adaptivequiz->cmid)
+        );
+        $quba->set_preferred_behaviour('deferredfeedback');
+        \question_engine::save_questions_usage_by_activity($quba);
+
+        $attempt = new attempt($adaptivequiz, $user->id);
+        $attempt->get_attempt();
+        $attempt->set_quba_id($quba->get_id());
+
+        $this->expectException(\coding_exception::class);
+        $this->expectExceptionMessageMatches('/already set/');
+
+        $attempt->set_quba_id($quba->get_id());
     }
 
     public function test_it_fails_to_set_quba_for_an_attempt_with_an_invalid_argument(): void {

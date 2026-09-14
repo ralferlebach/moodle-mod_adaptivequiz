@@ -77,7 +77,10 @@ final class completion_rules_test extends advanced_testcase {
 
         $form = $this->build_form($instance, '_adaptivequiz');
 
-        $this->assertSame(['completionattemptcompleted_adaptivequiz'], $form->add_completion_rules());
+        $this->assertSame(
+            ['completionattemptcompleted_adaptivequiz', 'completionvalidresult_adaptivequiz'],
+            $form->add_completion_rules()
+        );
     }
 
     /**
@@ -97,6 +100,10 @@ final class completion_rules_test extends advanced_testcase {
 
         // The unsuffixed name belongs to a different form and must not be picked up.
         $this->assertFalse($form->completion_rule_enabled(['completionattemptcompleted' => 1]));
+
+        // Either rule on its own switches completion on.
+        $this->assertTrue($form->completion_rule_enabled(['completionvalidresult_adaptivequiz' => 1]));
+        $this->assertFalse($form->completion_rule_enabled(['completionvalidresult_adaptivequiz' => 0]));
     }
 
     /**

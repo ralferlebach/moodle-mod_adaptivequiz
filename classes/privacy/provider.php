@@ -70,6 +70,9 @@ class provider implements
         // The grade of an attempt is written to the gradebook.
         $collection->add_subsystem_link('core_grades', [], 'privacy:metadata:core_grades');
 
+        // CAT model subplugins keep results of their own for an attempt.
+        $collection->add_plugintype_link('adaptivequizcatmodel', [], 'privacy:metadata:adaptivequizcatmodel');
+
         // Report settings a teacher chose for themselves.
         $collection->add_user_preference(
             'adaptivequiz_users_attempts_report',
@@ -139,6 +142,10 @@ class provider implements
             'cmid' => $context->instanceid,
         ]);
 
+        foreach (self::catmodel_providers() as $catmodelprovider) {
+            $catmodelprovider::add_catmodel_users_to_userlist($userlist);
+        }
+
         // Users related to a question usage of an attempt in this activity, for instance a manual marker.
         \core_question\privacy\provider::get_users_in_context_from_sql(
             $userlist,
@@ -190,6 +197,10 @@ class provider implements
             writer::with_context($context)->export_data([], helper::get_context_data($context, $user));
             helper::export_context_files($context, $user);
 
+            foreach (self::catmodel_providers() as $catmodelprovider) {
+                $catmodelprovider::export_catmodel_user_data((int) $user->id, $context, []);
+            }
+
             $index = 0;
             foreach ($attempts as $attempt) {
                 $index++;
@@ -238,6 +249,10 @@ class provider implements
         self::delete_question_usages($usages);
 
         $DB->delete_records('adaptivequiz_attempt', ['instance' => $cm->instance]);
+
+        foreach (self::catmodel_providers() as $catmodelprovider) {
+            $catmodelprovider::delete_catmodel_data_for_all_users_in_context($context);
+        }
     }
 
     /**
@@ -270,6 +285,10 @@ class provider implements
             self::delete_question_usages($usages);
 
             $DB->delete_records('adaptivequiz_attempt', $conditions);
+
+            foreach (self::catmodel_providers() as $catmodelprovider) {
+                $catmodelprovider::delete_catmodel_data_for_user($userid, $context);
+            }
         }
     }
 
@@ -308,6 +327,31 @@ class provider implements
         self::delete_question_usages($usages);
 
         $DB->delete_records_select('adaptivequiz_attempt', "instance = :instance AND userid $insql", $params);
+
+        foreach (self::catmodel_providers() as $catmodelprovider) {
+            $catmodelprovider::delete_catmodel_data_for_users($userlist);
+        }
+    }
+
+    /**
+     * Returns the privacy providers of the installed CAT model subplugins.
+     *
+     * A CAT model that stores no personal data implements nothing and is not asked.
+     *
+     * @return string[] Class names implementing adaptivequizcatmodel_provider.
+     */
+    private static function catmodel_providers(): array {
+        $providers = [];
+
+        foreach (array_keys(\core_component::get_plugin_list('adaptivequizcatmodel')) as $catmodel) {
+            $classname = 'adaptivequizcatmodel_' . $catmodel . '\\privacy\\provider';
+
+            if (class_exists($classname) && is_subclass_of($classname, adaptivequizcatmodel_provider::class)) {
+                $providers[] = $classname;
+            }
+        }
+
+        return $providers;
     }
 
     /**

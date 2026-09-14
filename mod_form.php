@@ -248,8 +248,14 @@ class mod_adaptivequiz_mod_form extends moodleform_mod {
             ' ',
             get_string('completionattemptcompletedform', 'adaptivequiz')
         );
+        $this->_form->addElement(
+            'checkbox',
+            'completionvalidresult' . $suffix,
+            ' ',
+            get_string('completionvalidresultform', 'adaptivequiz')
+        );
 
-        return ['completionattemptcompleted' . $suffix];
+        return ['completionattemptcompleted' . $suffix, 'completionvalidresult' . $suffix];
     }
 
     /**
@@ -262,9 +268,15 @@ class mod_adaptivequiz_mod_form extends moodleform_mod {
      * @return bool Whether the custom rule is switched on.
      */
     public function completion_rule_enabled($data): bool {
-        $key = 'completionattemptcompleted' . $this->get_suffix();
+        $suffix = $this->get_suffix();
 
-        return !empty($data[$key]) && $data[$key] != 0;
+        foreach (['completionattemptcompleted', 'completionvalidresult'] as $rule) {
+            if (!empty($data[$rule . $suffix]) && $data[$rule . $suffix] != 0) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

@@ -947,6 +947,7 @@ function adaptivequiz_get_coursemodule_info(stdClass $coursemodule) {
 
     if ($coursemodule->completion == COMPLETION_TRACKING_AUTOMATIC) {
         $result->customdata['customcompletionrules']['completionattemptcompleted'] = $adaptivequiz->completionattemptcompleted;
+        $result->customdata['customcompletionrules']['completionvalidresult'] = $adaptivequiz->completionvalidresult;
     }
 
     return $result;

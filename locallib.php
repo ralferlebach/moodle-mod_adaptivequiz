@@ -228,6 +228,31 @@ function adaptivequiz_update_attempt_data($uniqueid, $instance, $userid, $level,
 }
 
 /**
+ * Deletes an attempt, its answers and its grade, and tells the CAT model about it.
+ *
+ * Kept out of delattempt.php on purpose: a script cannot be exercised in a test, and the CAT model
+ * has to learn about the deletion reliably - it may hold results of its own for this attempt.
+ *
+ * @param stdClass $adaptivequiz The activity instance record.
+ * @param stdClass $attempt The attempt to delete.
+ */
+function adaptivequiz_delete_attempt(stdClass $adaptivequiz, stdClass $attempt): void {
+    global $DB;
+
+    question_engine::delete_questions_usage_by_activity($attempt->uniqueid);
+    $DB->delete_records('adaptivequiz_attempt', ['id' => $attempt->id]);
+
+    catmodel_resolver::callback(
+        $adaptivequiz->catmodel ?? null,
+        'post_delete_attempt_callback',
+        $adaptivequiz,
+        $attempt
+    );
+
+    adaptivequiz_update_grades($adaptivequiz, $attempt->userid);
+}
+
+/**
  * This function sets the complete status for an attempt.
  *
  * @throws dml_exception

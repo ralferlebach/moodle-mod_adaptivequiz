@@ -16,7 +16,7 @@
 
 namespace mod_adaptivequiz;
 
-use adaptivequizcatmodel_testcatmodel\local\itemadministration\serve_fixed_question_administration;
+use adaptivequizcatmodel_testcatmodel\local\catmodel\itemadministration\serve_fixed_question_administration;
 use advanced_testcase;
 use context_module;
 use mod_adaptivequiz\local\attempt;
@@ -212,6 +212,120 @@ final class cat_session_test extends advanced_testcase {
         cat_session::administer_next_item($this->adaptivequiz, $second);
 
         $this->assertSame(1, $second->get_question_slot_number());
+    }
+
+    /**
+     * Answers the question in the given slot of the attempt.
+     *
+     * @param attempt $attempt The running attempt.
+     * @param bool $correct Whether to answer correctly.
+     * @return callable The helper cat_session applies to the question usage.
+     */
+    private function answer_helper(attempt $attempt, bool $correct): callable {
+        $slot = $attempt->get_question_slot_number();
+
+        return function (\question_usage_by_activity $quba) use ($slot, $correct): void {
+            $time = time();
+            $quba->process_all_actions($time, $quba->prepare_simulated_post_data([
+                $slot => ['answer' => $correct],
+            ]));
+            $quba->finish_all_questions($time);
+        };
+    }
+
+    /**
+     * Processing an answer recalculates the ability estimate of the attempt.
+     */
+    public function test_answer_is_processed_by_the_built_in_algorithm(): void {
+        global $DB;
+
+        $this->resetAfterTest();
+        $this->set_up_activity();
+
+        $attempt = $this->new_request();
+        cat_session::administer_next_item($this->adaptivequiz, $attempt);
+
+        $before = $DB->get_record('adaptivequiz_attempt', ['uniqueid' => $attempt->get_quba()->get_id()]);
+
+        $result = cat_session::process_administered_item_result(
+            (int) $attempt->get_quba()->get_id(),
+            $this->adaptivequiz,
+            $attempt,
+            $this->answer_helper($attempt, true)
+        );
+
+        $after = $DB->get_record('adaptivequiz_attempt', ['uniqueid' => $attempt->get_quba()->get_id()]);
+
+        $this->assertSame(5, $result->answereddifficulty, 'The difficulty was not read from the question tag.');
+        $this->assertEquals(
+            $before->questionsattempted + 1,
+            $after->questionsattempted,
+            'The answered question was not counted.'
+        );
+        $this->assertNotEquals(
+            $before->difficultysum,
+            $after->difficultysum,
+            'The answered difficulty was not added to the running sum.'
+        );
+        $this->assertNotEquals('', (string) $result->standarderror);
+    }
+
+    /**
+     * With a CAT model the host records the answer but leaves the estimate to the subplugin.
+     */
+    public function test_answer_of_a_catmodel_instance_is_handed_over(): void {
+        global $DB;
+
+        $this->resetAfterTest();
+        $this->set_up_activity('testcatmodel');
+        serve_fixed_question_administration::$questionid = $this->questionids[0];
+
+        $attempt = $this->new_request();
+        cat_session::administer_next_item($this->adaptivequiz, $attempt);
+
+        adaptivequizcatmodel_testcatmodel_reset_processed_items();
+
+        $result = cat_session::process_administered_item_result(
+            (int) $attempt->get_quba()->get_id(),
+            $this->adaptivequiz,
+            $attempt,
+            $this->answer_helper($attempt, true)
+        );
+
+        $this->assertNull($result->answereddifficulty, 'The host judged the answer although a CAT model is in use.');
+        $this->assertFalse($result->attempt_is_to_stop());
+        $this->assertSame(
+            1,
+            adaptivequizcatmodel_testcatmodel_processed_items(),
+            'The CAT model was not told about the answered item.'
+        );
+
+        $after = $DB->get_record('adaptivequiz_attempt', ['uniqueid' => $attempt->get_quba()->get_id()]);
+        $this->assertEquals(1, $after->questionsattempted);
+    }
+
+    /**
+     * A CAT model learns about a new attempt exactly once, before the first item.
+     */
+    public function test_catmodel_is_told_about_a_new_attempt_once(): void {
+        $this->resetAfterTest();
+        $this->set_up_activity('testcatmodel');
+        serve_fixed_question_administration::$questionid = $this->questionids[0];
+
+        adaptivequizcatmodel_testcatmodel_reset_created();
+
+        $first = $this->new_request();
+        cat_session::administer_next_item($this->adaptivequiz, $first);
+        $this->assertSame(1, adaptivequizcatmodel_testcatmodel_created_attempts());
+
+        // A second request continues the same attempt and must not announce it again.
+        $second = $this->new_request();
+        cat_session::administer_next_item($this->adaptivequiz, $second);
+        $this->assertSame(
+            1,
+            adaptivequizcatmodel_testcatmodel_created_attempts(),
+            'A continued attempt was announced as a new one.'
+        );
     }
 
     /**

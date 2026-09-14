@@ -17,7 +17,7 @@
 namespace mod_adaptivequiz\local\catmodel;
 
 use adaptivequizcatmodel_testcatmodel\local\catmodel\form\mod_form_handler;
-use adaptivequizcatmodel_testcatmodel\local\itemadministration\stop_immediately_administration;
+use adaptivequizcatmodel_testcatmodel\local\catmodel\itemadministration\stop_immediately_administration;
 use adaptivequizcatmodel_testcatmodel\local\catmodel\instance\instance_handler;
 use MoodleQuickForm;
 use advanced_testcase;
@@ -316,6 +316,50 @@ final class catmodel_resolver_test extends advanced_testcase {
 
         $this->assertNotInstanceOf(default_item_administration_factory::class, $factory);
         $this->assertInstanceOf(item_administration_factory::class, $factory);
+    }
+
+    /**
+     * The feedback of the CAT model replaces the one configured on the activity.
+     *
+     * The activity cannot describe a result it did not compute, so the subplugin's text wins.
+     */
+    public function test_catmodel_feedback_replaces_the_activity_feedback(): void {
+        $this->resetAfterTest();
+
+        $course = $this->getDataGenerator()->create_course();
+        $withcatmodel = $this->getDataGenerator()->create_module('adaptivequiz', [
+            'course' => $course->id,
+            'catmodel' => 'testcatmodel',
+            'attemptfeedbackenable' => 1,
+            'attemptfeedbackeditor' => ['text' => 'Configured on the activity.', 'format' => FORMAT_HTML],
+        ]);
+        $without = $this->getDataGenerator()->create_module('adaptivequiz', [
+            'course' => $course->id,
+            'attemptfeedbackenable' => 1,
+            'attemptfeedbackeditor' => ['text' => 'Configured on the activity.', 'format' => FORMAT_HTML],
+        ]);
+
+        global $PAGE;
+        $renderer = $PAGE->get_renderer('mod_adaptivequiz');
+
+        foreach ([[$withcatmodel, true], [$without, false]] as [$instance, $expectcatmodeltext]) {
+            $cm = get_coursemodule_from_instance('adaptivequiz', $instance->id, 0, false, MUST_EXIST);
+            $attempt = (object) [
+                'id' => 1,
+                'measure' => 0.5,
+                'standarderror' => 0.4,
+                'questionsattempted' => 3,
+            ];
+
+            $exported = \mod_adaptivequiz\output\attempt_feedback::create($instance, $cm, $attempt)
+                ->export_for_template($renderer);
+
+            if ($expectcatmodeltext) {
+                $this->assertSame('Feedback from the test CAT model.', $exported['feedbacktext']);
+            } else {
+                $this->assertStringContainsString('Configured on the activity.', $exported['feedbacktext']);
+            }
+        }
     }
 
     /**

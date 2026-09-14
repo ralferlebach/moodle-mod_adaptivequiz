@@ -19,6 +19,7 @@ namespace mod_adaptivequiz\output;
 use context_module;
 use mod_adaptivequiz\attempt_feedback_placeholders_helper;
 use mod_adaptivequiz\external\ability_measure_exporter;
+use mod_adaptivequiz\local\catmodel\catmodel_resolver;
 use renderable;
 use renderer_base;
 use stdClass;
@@ -65,7 +66,21 @@ class attempt_feedback implements renderable, templatable {
      * @return \stdClass|array
      */
     public function export_for_template(renderer_base $output) {
-        $feedbacktext = call_user_func(function (stdClass $adaptivequiz, stdClass $cm): string {
+        // A CAT model may provide the feedback itself. Its text always wins over the one configured
+        // on the activity: the activity cannot describe a result it did not compute.
+        $catmodelfeedback = catmodel_resolver::callback(
+            $this->adaptivequiz->catmodel ?? null,
+            'attempt_finished_feedback',
+            $this->adaptivequiz,
+            $this->cm,
+            $this->attempt
+        );
+
+        $feedbacktext = call_user_func(function (stdClass $adaptivequiz, stdClass $cm) use ($catmodelfeedback): string {
+            if ($catmodelfeedback !== null) {
+                return (string) $catmodelfeedback;
+            }
+
             if ($adaptivequiz->attemptfeedbackenable == -1) {
                 // A value of -1 means the feedback text was inherited from the previous version of the
                 // plugin and hasn't yet been reviewed

@@ -16,8 +16,12 @@
 
 namespace mod_adaptivequiz;
 
+use coding_exception;
 use core\lock\lock_config;
+use core_tag_tag;
 use mod_adaptivequiz\local\attempt;
+use mod_adaptivequiz\local\catalgo;
+use moodle_exception;
 use mod_adaptivequiz\local\catmodel\catmodel_resolver;
 use mod_adaptivequiz\local\itemadministration\default_item_administration_factory;
 use mod_adaptivequiz\local\itemadministration\item_administration_evaluation;
@@ -93,6 +97,18 @@ final class cat_session {
         stdClass $adaptivequiz,
         attempt $attempt
     ): item_administration_evaluation {
+        // A CAT model sets up its own record for the attempt and starts its clock. It has to learn
+        // about a new attempt before the first item is administered - afterwards its estimate would
+        // already be expected to exist.
+        if ($attempt->was_just_created()) {
+            catmodel_resolver::callback(
+                $adaptivequiz->catmodel ?? null,
+                'post_create_attempt_callback',
+                $adaptivequiz,
+                $attempt
+            );
+        }
+
         $quba = $attempt->get_quba();
         $slots = $quba->get_slots();
 
@@ -179,5 +195,114 @@ final class cat_session {
         }
 
         return null;
+    }
+
+    /**
+     * Processes the answer to the item that was administered last.
+     *
+     * The host runs the question engine and then hands over: to the CAT model of the activity if
+     * there is one, otherwise to the built-in algorithm, which recalculates the ability estimate
+     * and decides whether the attempt goes on.
+     *
+     * @param int $uniqueid Id of the question usage of the attempt.
+     * @param stdClass $adaptivequiz The activity instance record.
+     * @param attempt $attempt The running attempt.
+     * @param callable $qubahelper Applies the submitted actions to the question usage.
+     * @return item_result_processing
+     */
+    public static function process_administered_item_result(
+        int $uniqueid,
+        stdClass $adaptivequiz,
+        attempt $attempt,
+        callable $qubahelper
+    ): item_result_processing {
+        global $USER;
+
+        $attemptrecord = $attempt->get_attempt();
+
+        if (!adaptivequiz_uniqueid_part_of_attempt($uniqueid, (int) $adaptivequiz->id, (int) $USER->id)) {
+            throw new moodle_exception('uniquenotpartofattempt', 'adaptivequiz');
+        }
+
+        $quba = question_engine::load_questions_usage_by_activity($uniqueid);
+        $qubahelper($quba);
+        question_engine::save_questions_usage_by_activity($quba);
+
+        $result = new item_result_processing();
+
+        if (!empty($adaptivequiz->catmodel)) {
+            // The CAT model keeps its own estimate; the host only records that a question was answered.
+            catmodel_resolver::callback(
+                $adaptivequiz->catmodel,
+                'post_process_item_result_callback',
+                $quba,
+                $adaptivequiz,
+                $attempt
+            );
+            adaptivequiz_update_attempt_data($uniqueid, $adaptivequiz->id, $USER->id, 0, 0, 0);
+
+            return $result;
+        }
+
+        $result->answereddifficulty = self::difficulty_of_last_administered_item($quba);
+
+        $minattemptreached = adaptivequiz_min_attempts_reached($uniqueid, $adaptivequiz->id, $USER->id);
+        $algorithm = new catalgo($quba, (int) $attemptrecord->id, $minattemptreached, $result->answereddifficulty);
+
+        $result->nextdifficulty = $algorithm->perform_calculation_steps();
+        $result->standarderror = (float) $algorithm->get_standarderror();
+
+        $updated = adaptivequiz_update_attempt_data(
+            $uniqueid,
+            $adaptivequiz->id,
+            $USER->id,
+            $algorithm->get_levellogit(),
+            $result->standarderror,
+            $algorithm->get_measure()
+        );
+
+        if (!$updated) {
+            throw new moodle_exception('unableupdatediffsum', 'adaptivequiz');
+        }
+
+        $result->stoppagereason = (string) $algorithm->get_status();
+
+        if ($result->attempt_is_to_stop()) {
+            return $result;
+        }
+
+        // Nothing to book here: how many questions of a difficulty are left is derived from the
+        // pool and the questions this attempt has already seen, both read when the next item is
+        // asked for. There is no running count that could fall out of step.
+
+        return $result;
+    }
+
+    /**
+     * Returns the difficulty level of the question in the last slot of the usage.
+     *
+     * Read from the tag of the question, not from the request: the level decides the whole
+     * recalculation, and a posted value can say anything.
+     *
+     * @param question_usage_by_activity $quba The question usage of the attempt.
+     * @return int
+     */
+    private static function difficulty_of_last_administered_item(question_usage_by_activity $quba): int {
+        $slots = $quba->get_slots();
+
+        if (empty($slots)) {
+            throw new coding_exception('The question usage holds no administered item.');
+        }
+
+        $question = $quba->get_question(end($slots));
+        $tags = core_tag_tag::get_item_tags('core_question', 'question', $question->id);
+
+        foreach ($tags as $tag) {
+            if (str_starts_with($tag->name, ADAPTIVEQUIZ_QUESTION_TAG)) {
+                return (int) substr($tag->name, strlen(ADAPTIVEQUIZ_QUESTION_TAG));
+            }
+        }
+
+        throw new coding_exception('The administered question carries no difficulty tag.');
     }
 }

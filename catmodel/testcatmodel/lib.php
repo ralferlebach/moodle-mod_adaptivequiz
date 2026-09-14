@@ -65,3 +65,110 @@ function adaptivequizcatmodel_testcatmodel_reset_completions(): void {
 function adaptivequizcatmodel_testcatmodel_completed_attempts(): array {
     return $GLOBALS['adaptivequizcatmodel_testcatmodel_completions'] ?? [];
 }
+
+/**
+ * Records that the host told this CAT model about a deleted attempt.
+ *
+ * @param stdClass $adaptivequiz The activity instance record.
+ * @param stdClass $attempt The attempt that was deleted.
+ */
+function adaptivequizcatmodel_testcatmodel_post_delete_attempt_callback(
+    stdClass $adaptivequiz,
+    stdClass $attempt
+): void {
+    $GLOBALS['adaptivequizcatmodel_testcatmodel_deletions'][] = (int) $attempt->uniqueid;
+}
+
+/**
+ * Forgets the deletions recorded so far.
+ */
+function adaptivequizcatmodel_testcatmodel_reset_deletions(): void {
+    $GLOBALS['adaptivequizcatmodel_testcatmodel_deletions'] = [];
+}
+
+/**
+ * Returns the question usage ids of the deletions recorded so far.
+ *
+ * @return int[]
+ */
+function adaptivequizcatmodel_testcatmodel_deleted_attempts(): array {
+    return $GLOBALS['adaptivequizcatmodel_testcatmodel_deletions'] ?? [];
+}
+
+/**
+ * Records that the host handed an answered item to this CAT model.
+ *
+ * @param question_usage_by_activity $quba The question usage of the attempt.
+ * @param stdClass $adaptivequiz The activity instance record.
+ * @param \mod_adaptivequiz\local\attempt $attempt The running attempt.
+ */
+function adaptivequizcatmodel_testcatmodel_post_process_item_result_callback(
+    question_usage_by_activity $quba,
+    stdClass $adaptivequiz,
+    \mod_adaptivequiz\local\attempt $attempt
+): void {
+    $GLOBALS['adaptivequizcatmodel_testcatmodel_processeditems'] =
+        ($GLOBALS['adaptivequizcatmodel_testcatmodel_processeditems'] ?? 0) + 1;
+}
+
+/**
+ * Forgets the answered items recorded so far.
+ */
+function adaptivequizcatmodel_testcatmodel_reset_processed_items(): void {
+    $GLOBALS['adaptivequizcatmodel_testcatmodel_processeditems'] = 0;
+}
+
+/**
+ * Returns how many answered items were handed over so far.
+ *
+ * @return int
+ */
+function adaptivequizcatmodel_testcatmodel_processed_items(): int {
+    return $GLOBALS['adaptivequizcatmodel_testcatmodel_processeditems'] ?? 0;
+}
+
+/**
+ * Returns the feedback this CAT model shows instead of the one configured on the activity.
+ *
+ * @param stdClass $adaptivequiz The activity instance record.
+ * @param stdClass $cm The course module record of that activity.
+ * @param stdClass $attemptrecord The finished attempt.
+ * @return string
+ */
+function adaptivequizcatmodel_testcatmodel_attempt_finished_feedback(
+    stdClass $adaptivequiz,
+    stdClass $cm,
+    stdClass $attemptrecord
+): string {
+    return 'Feedback from the test CAT model.';
+}
+
+/**
+ * Records that the host told this CAT model about a newly created attempt.
+ *
+ * @param stdClass $adaptivequiz The activity instance record.
+ * @param \mod_adaptivequiz\local\attempt $attempt The attempt that was created.
+ */
+function adaptivequizcatmodel_testcatmodel_post_create_attempt_callback(
+    stdClass $adaptivequiz,
+    \mod_adaptivequiz\local\attempt $attempt
+): void {
+    $GLOBALS['adaptivequizcatmodel_testcatmodel_created'] =
+        ($GLOBALS['adaptivequizcatmodel_testcatmodel_created'] ?? 0) + 1;
+}
+
+/**
+ * Forgets the created attempts recorded so far.
+ */
+function adaptivequizcatmodel_testcatmodel_reset_created(): void {
+    $GLOBALS['adaptivequizcatmodel_testcatmodel_created'] = 0;
+}
+
+/**
+ * Returns how many newly created attempts were announced so far.
+ *
+ * @return int
+ */
+function adaptivequizcatmodel_testcatmodel_created_attempts(): int {
+    return $GLOBALS['adaptivequizcatmodel_testcatmodel_created'] ?? 0;
+}

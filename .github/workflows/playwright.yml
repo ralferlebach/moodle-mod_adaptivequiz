@@ -1,0 +1,147 @@
+# Manuelle User-Story-Laeufe mit Playwright.
+#
+# Bewusst nicht automatisch: diese Laeufe bauen eine vollstaendige Moodle-Installation mit allen
+# drei Plugins auf und spielen ganze Arbeitsablaeufe durch. Sie beantworten eine andere Frage als
+# die automatische Pipeline - nicht "ist der Code korrekt", sondern "haelt das Produkt zusammen,
+# und wie sieht es dabei aus". Die Aufzeichnung ist das Ergebnis, nicht ein Nebenprodukt: Video,
+# Screenshots und Trace werden auch im Erfolgsfall hochgeladen.
+name: User Stories (Playwright)
+
+on:
+  workflow_dispatch:
+    inputs:
+      moodle-branch:
+        description: Moodle-Zweig
+        required: true
+        default: MOODLE_501_STABLE
+        type: choice
+        options:
+          - MOODLE_501_STABLE
+          - MOODLE_502_STABLE
+          - main
+      scope:
+        description: Welche Geschichten
+        required: true
+        default: standalone
+        type: choice
+        options:
+          - standalone
+          - catquiz
+          - alle
+
+permissions:
+  contents: read
+
+jobs:
+  stories:
+    name: ${{ inputs.scope }} auf ${{ inputs.moodle-branch }}
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready" --health-interval=10s --health-timeout=5s --health-retries=3
+
+    env:
+      DB: pgsql
+      MOODLE_BRANCH: ${{ inputs.moodle-branch }}
+      MOODLE_WWWROOT: http://localhost:8000
+      STORY_PASSWORD: Story123!
+      STORY_COURSE: PWC1
+
+    steps:
+      - name: Plugin auschecken
+        uses: actions/checkout@v4
+        with:
+          path: plugin
+
+      - name: PHP einrichten
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pgsql, zip, gd, soap, intl
+          ini-values: max_input_vars=5000
+          coverage: none
+
+      - name: moodle-plugin-ci installieren
+        run: |
+          composer create-project -n --no-dev --prefer-dist moodlehq/moodle-plugin-ci ci ^4
+          echo $(cd ci/bin; pwd) >> $GITHUB_PATH
+          echo $(cd ci/vendor/bin; pwd) >> $GITHUB_PATH
+
+      # Die beiden anderen Plugins nur holen, wenn die kombinierten Geschichten laufen sollen.
+      - name: CATquiz-Plugins holen
+        if: ${{ inputs.scope != 'standalone' }}
+        run: |
+          git clone --depth 1 https://github.com/Wunderbyte-GmbH/moodle-local_catquiz.git catquiz
+          git clone --depth 1 --branch main \
+            https://github.com/Wunderbyte-GmbH/moodle-local_wunderbyte_table.git wunderbyte_table
+
+      - name: Moodle installieren
+        run: |
+          if [ "${{ inputs.scope }}" = "standalone" ]; then
+            moodle-plugin-ci install --plugin ./plugin --db-host=127.0.0.1
+          else
+            moodle-plugin-ci install --plugin ./plugin --db-host=127.0.0.1 \
+              --extra-plugins $(pwd)/catquiz --extra-plugins $(pwd)/wunderbyte_table
+          fi
+
+      # Die Geschichten brauchen eine bespielbare Site: Kurs, Lehrkraft, Studierende, Fragen und
+      # je eine Aktivitaet. Das Skript ist Teil des Plugins, damit ein Lauf reproduzierbar ist.
+      - name: Ausgangslage herstellen
+        run: |
+          php plugin/tests/playwright/seed_site.php \
+            --moodle="$(cd moodle; pwd)" --scope="${{ inputs.scope }}" | tee /tmp/seed.env
+          cat /tmp/seed.env >> $GITHUB_ENV
+
+      - name: Webserver starten
+        run: |
+          cd moodle
+          ROOT=$( [ -d public ] && echo public || echo . )
+          php -S localhost:8000 -t "$ROOT" > /tmp/webserver.log 2>&1 &
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:8000/login/index.php > /dev/null && break
+            sleep 1
+          done
+
+      - name: Playwright einrichten
+        run: |
+          cd plugin/tests/playwright
+          npm init -y > /dev/null
+          npm install --no-audit --no-fund @playwright/test
+          npx playwright install --with-deps chromium
+
+      - name: Geschichten spielen
+        run: |
+          cd plugin/tests/playwright
+          case "${{ inputs.scope }}" in
+            standalone) npx playwright test stories/adaptivequiz-standalone.spec.js ;;
+            catquiz)    npx playwright test stories/catquiz-combined.spec.js ;;
+            *)          npx playwright test ;;
+          esac
+
+      # Immer hochladen, auch bei gruenem Lauf: die Aufzeichnung ist der Zweck des Laufs.
+      - name: Aufzeichnungen sichern
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: user-stories-${{ inputs.scope }}-${{ inputs.moodle-branch }}
+          path: |
+            plugin/playwright-report/**
+            plugin/playwright-artifacts/**
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Webserver-Protokoll sichern
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: webserver-log-${{ inputs.scope }}-${{ inputs.moodle-branch }}
+          path: /tmp/webserver.log
+          if-no-files-found: ignore

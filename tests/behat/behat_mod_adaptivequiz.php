@@ -112,4 +112,38 @@ class behat_mod_adaptivequiz extends behat_base {
             [ "//div[contains(text(), '{$stopcriteria}')]", 'xpath_element', '#attemptdebuginfo', 'css_element']
         );
     }
+
+    /**
+     * Saves a screenshot of the current page, whatever the outcome of the scenario.
+     *
+     * Moodle itself only captures a screenshot when a step fails. A passing run leaves no trace at
+     * all, so nobody can see what the feature actually produced - which is exactly what a reviewer
+     * wants. This step lets a scenario record its own milestones.
+     *
+     * @Given /^I save a screenshot named "(?P<name_string>(?:[^"]|\\")*)"$/
+     * @param string $name File name to save under, without extension.
+     */
+    public function i_save_a_screenshot_named(string $name): void {
+        global $CFG;
+
+        if (!$this->running_javascript()) {
+            // Without a real browser there is nothing to capture.
+            return;
+        }
+
+        $dir = $CFG->behat_faildump_path ?? null;
+        if (empty($dir)) {
+            throw new ExpectationException(
+                'No $CFG->behat_faildump_path is configured, so screenshots cannot be saved.',
+                $this->getSession()
+            );
+        }
+
+        $dir = rtrim($dir, '/') . '/screenshots';
+        if (!is_dir($dir)) {
+            make_writable_directory($dir);
+        }
+
+        $this->saveScreenshot(clean_param($name, PARAM_FILE) . '.png', $dir);
+    }
 }

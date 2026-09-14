@@ -1,8 +1,10 @@
 # PORTING_MATRIX – mod_adaptivequiz (Issue #10, Phase 1)
 
-> **Status: VORLAGE, maschinell vorbefüllt.** Die Spalten *Zweck* und
-> *Entscheidung* sind Vorschläge und zeilenweise zu bestätigen oder zu
-> korrigieren; erst danach gilt die Matrix als Phase-1-Ergebnis nach #10.
+> **Status: entschieden.** Alle 281 Pfade sind einer Kategorie zugeordnet,
+> Kategorie F ist leer. Die Entscheidungen sind im Abschnitt
+> „Entscheidungen nach Gruppen" festgehalten; die Blocktabellen darunter
+> tragen weiterhin die maschinelle Vorbefüllung und dienen als Nachweis,
+> welche Datei welcher Gruppe zugefallen ist.
 
 Erzeugt am 2026-09-09. Reproduzierbar über `tools/porting_matrix.py`.
 
@@ -531,20 +533,47 @@ Kategorie **A**, keine Aktion, nur zur Vollständigkeit der Inventur.
 
 ---
 
-## Offene Fragen an die Fachseite
+## Entscheidungen nach Gruppen
 
-1. **Basis-Entscheidung zuerst:** Weg 1, 2 oder 3 aus dem 4.5-Abschnitt. Davon
-   hängt ab, ob Block 3c Kategorie A oder gar keine Rolle spielt – und ob die
-   Portierung ein- oder zweimal grün gehalten werden muss.
-2. Die vier grössten fork-eigenen Divergenzen im Produktivcode gegen `MOODLE_404`:
-   `mod_form.php` (±307), `lib.php` (±255), `classes/local/attempt.php` (±207),
-   `attempt.php` (±153). Sie bestimmen den Aufwand von Phase 4.
-3. Der Fork hat die Upstream-Namensräume `classes/local/attempt/*`,
-   `classes/local/catalgorithm/*` und `classes/local/question/*` flachgezogen
-   (`classes/local/attempt.php`, `classes/local/catalgo.php`). Bewusste
-   ALiSe-Entscheidung oder Altstand aus `alise_adaptivequiz`?
-4. `db/install.xml` und `db/upgrade.php` (±77 gegen 404): Welche Fork-Felder sind
-   fachlich noch nötig? #10 §7 verbietet zeilenweises Zusammenkopieren.
-5. Die Vorarbeiten zu #9, #8 und #4 liegen in `attemptfinished.php` (±70),
-   `mod_form.php` und `db/install.xml`. Die Heuristik stuft sie als **F** ein;
-   sie müssen auf **B** gesetzt werden, sonst gehen sie beim Rebase verloren.
+Die 37 fork-eigenen Divergenzen und die drei vom Fork entfernten
+Upstream-Dateien wurden thematisch gruppiert und gemeinsam entschieden. Der
+Umsetzungsstand bezieht sich auf den Integrationsbranch.
+
+| Gruppe | Inhalt | Entscheidung | Stand |
+|---|---|---|---|
+| 1 | Catmodel-Verdrahtung: 13 Dateien von `attempt.php` bis `backup` | **B** – portieren | umgesetzt (1a–1e) |
+| 2 | `completionvalidresult`: 7 Dateien | **B** – portieren | umgesetzt |
+| 3 | Attempt-Feedback: 5 Dateien | **A** – Upstream hat die neuere Fassung | nichts zu tun; `attempts_number` als **B** herausgelöst und portiert |
+| 4 | Fähigkeitsanzeige: 3 Dateien | **A** – Upstream trennt feiner (`…feedback`/`…summary`) | nichts zu tun |
+| 5 | Testbestand: 6 Dateien | **A** für die Dateien, Inhalte des Forks übernehmen | Referenztest und Setter-Invariante portiert |
+| 6 | Rechenkern: `catalgo.php` **A**, `fetchquestion.php` **B** | | `store_tagquestsum_in_session()` übernommen |
+| 7 | Kleinteiliges: 5 Dateien | **A** | nichts zu tun |
+| 8 | `README.md` | **B** – übernehmen, an die hiesige Umsetzung anpassen | umgesetzt |
+| – | 3 vom Fork entfernte Upstream-Dateien | **A** – bleiben | nichts zu tun |
+
+Damit: **A 162 · B 32 · C 10 · D 0 · E 55 · F 0.**
+
+Zwei Punkte, die bei der Gruppierung ausdrücklich geprüft wurden:
+
+* `attemptfeedbackdefaulttext` ist kein CATquiz-Textblock, sondern der generische
+  Rückfalltext, und steht bereits im Upstream (`classes/output/attempt_feedback.php`).
+* `attempts_number` wird gebraucht: ohne den Rückruf `attempts_report_url` erreicht
+  eine Lehrkraft bei einer Catmodel-Instanz überhaupt keine Versuchsübersicht und
+  damit auch nicht „Versuch schliessen".
+
+## Erledigte Fragen an die Fachseite
+
+1. **Basis-Entscheidung:** Weg 3 – keine 4.x-Unterstützung. Zielversion Moodle 5.3
+   (LTS), abgesichert gegen 5.1 und 5.2. Block 3c ist damit Kategorie A.
+2. **Die vier grössten fork-eigenen Divergenzen** (`mod_form.php`, `lib.php`,
+   `classes/local/attempt.php`, `attempt.php`) fielen sämtlich in Gruppe 1 und sind
+   portiert.
+3. **Die flachgezogenen Namensräume:** Upstream gewinnt, beide Klassen bleiben.
+   `mod_adaptivequiz\attempt` ist der Datensatz, `mod_adaptivequiz\local\attempt`
+   der laufende Versuch – sie sind verschieden, nicht redundant. Der CATquiz-Adapter
+   implementiert gegen die `local`-Klasse.
+4. **`db/install.xml` und `db/upgrade.php`:** übernommen wurden `catmodel`,
+   `timefinished`, `resultvalid`, `resultstatus` und `completionvalidresult`, jeweils
+   mit eigenem Upgradeschritt. Nicht zeilenweise kopiert, sondern je Feld begründet.
+5. **Die Vorarbeiten zu #9, #8 und #4** sind als **B** behandelt und mit eigenen
+   Tests portiert – sie sind beim Rebase nicht verlorengegangen.

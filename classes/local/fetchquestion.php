@@ -92,7 +92,6 @@ class fetchquestion {
      * @throws coding_exception
      */
     public function __construct($adaptivequiz, $level, $minimumlevel, $maximumlevel, $tags = []) {
-        global $SESSION;
 
         $this->adaptivequiz = $adaptivequiz;
         $this->tags = $tags;
@@ -112,14 +111,6 @@ class fetchquestion {
         }
 
         $this->level = $level;
-
-        // Initialize $tagquestsum property.
-        if (!isset($SESSION->adpqtagquestsum)) {
-            $SESSION->adpqtagquestsum = [];
-            $this->tagquestsum = $SESSION->adpqtagquestsum;
-        } else {
-            $this->tagquestsum = $SESSION->adpqtagquestsum;
-        }
 
         if (debugging('', DEBUG_DEVELOPER)) {
             $this->debugenabled = true;
@@ -205,6 +196,66 @@ class fetchquestion {
     }
 
     /**
+     * Subtracts the questions an attempt has already seen from the pool sizes.
+     *
+     * The question ids come from the attempt itself - they are the same ones the search is told to
+     * exclude. Without the subtraction a difficulty would still count as available while every
+     * question in it has been used, and the algorithm would keep asking for a level that can no
+     * longer deliver.
+     *
+     * @param array $tagquestsum Pool sizes per difficulty.
+     * @param array $excquestids Ids of the questions already used in this attempt.
+     * @return array
+     */
+    private function subtract_used_questions(array $tagquestsum, array $excquestids): array {
+        global $DB;
+
+        // Callers hand this list on in different shapes - ids as values, ids as keys, or whole
+        // question records. Only the ids matter here.
+        $ids = [];
+        foreach ($excquestids as $key => $value) {
+            if (is_object($value)) {
+                $ids[] = (int) $value->id;
+            } else if (is_numeric($value)) {
+                $ids[] = (int) $value;
+            } else if (is_numeric($key)) {
+                $ids[] = (int) $key;
+            }
+        }
+        $ids = array_values(array_unique(array_filter($ids)));
+
+        if (empty($ids) || empty($tagquestsum)) {
+            return $tagquestsum;
+        }
+
+        [$insql, $inparams] = $DB->get_in_or_equal($ids, SQL_PARAMS_NAMED);
+
+        $used = $DB->get_records_sql(
+            "SELECT t.rawname, COUNT(ti.id) AS used
+               FROM {tag_instance} ti
+               JOIN {tag} t ON t.id = ti.tagid
+              WHERE ti.itemtype = 'question'
+                AND ti.component = 'core_question'
+                AND ti.itemid $insql
+           GROUP BY t.rawname",
+            $inparams
+        );
+
+        foreach ($used as $row) {
+            if (!preg_match('/^' . ADAPTIVEQUIZ_QUESTION_TAG . '(\\d+)$/', $row->rawname, $matches)) {
+                continue;
+            }
+
+            $difficulty = (int) $matches[1];
+            if (array_key_exists($difficulty, $tagquestsum)) {
+                $tagquestsum[$difficulty] = max(0, $tagquestsum[$difficulty] - (int) $row->used);
+            }
+        }
+
+        return $tagquestsum;
+    }
+
+    /**
      * This functions returns the $tagquestsum class property
      * @return array an array whose keys are difficulty levels and values are the sum of questions associated with the difficulty
      */
@@ -251,7 +302,6 @@ class fetchquestion {
      * @return array an array whose keys are difficulty levels and values are the sum of questions associated with the difficulty
      */
     public function initalize_tags_with_quest_count($tagquestsum, $tags, $min, $max, $rebuild = false) {
-        global $SESSION;
 
         // Check to see if the tagquestsum argument is initialized.
         $count = count($tagquestsum);
@@ -280,8 +330,6 @@ class fetchquestion {
                     }
                 }
             }
-        } else {
-            $tagquestsum = $SESSION->adpqtagquestsum;
         }
 
         return $tagquestsum;
@@ -296,13 +344,19 @@ class fetchquestion {
     public function fetch_questions($excquestids = []) {
         $questids = [];
 
-        // Initialize the difficulty tag question sum property for searching.
-        $this->tagquestsum = $this->initalize_tags_with_quest_count(
-            $this->tagquestsum,
-            $this->tags,
-            $this->minimumlevel,
-            $this->maximumlevel,
-            $this->rebuild
+        // How many questions of each difficulty are still available for this attempt. The pool
+        // sizes come from the database - they belong to the activity and nothing else - and the
+        // questions this attempt has already seen are subtracted from them. Both sides are derived
+        // on every call: neither is state that could drift out of step with the question bank.
+        $this->tagquestsum = $this->subtract_used_questions(
+            $this->initalize_tags_with_quest_count(
+                [],
+                $this->tags,
+                $this->minimumlevel,
+                $this->maximumlevel,
+                true
+            ),
+            $excquestids
         );
 
         // If tagquestsum property ie empty then return with nothing.
@@ -465,13 +519,5 @@ class fetchquestion {
         $this->questcatids = $qcategoryidlist;
 
         return $qcategoryidlist;
-    }
-
-    /**
-     * The destruct method saves the difficult level and qustion number mapping to the session variable
-     */
-    public function __destruct() {
-        global $SESSION;
-        $SESSION->adpqtagquestsum = $this->tagquestsum;
     }
 }

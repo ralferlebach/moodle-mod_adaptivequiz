@@ -114,14 +114,14 @@ final class catmodel_resolver {
      */
     private static function candidate_classes(string $component): array {
         $classes = [];
-        foreach (['instance', 'form'] as $area) {
+        foreach (['instance', 'form', 'itemadministration'] as $area) {
             $classes += core_component::get_component_classes_in_namespace(
                 $component,
                 self::HANDLER_NAMESPACES . '\\' . $area
             );
         }
 
-        // The item administration sits in its own namespace, mirroring the host.
+        // The host keeps its item administration one level higher, and a CAT model may mirror that.
         $classes += core_component::get_component_classes_in_namespace($component, 'local\\itemadministration');
 
         return array_keys($classes);

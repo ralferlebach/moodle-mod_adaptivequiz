@@ -50,8 +50,10 @@ Feature: Attempt an adaptive quiz
   @javascript
   Scenario: Attempt an adaptive quiz
     When I am on the "adaptivequiz1" "Activity" page logged in as "student1"
+    And I save a screenshot named "attempt-01-activity-page"
     And I click on "Start attempt" "button"
     Then I should see "First question"
+    And I save a screenshot named "attempt-02-first-question"
 
   @javascript
   Scenario: A student cannot attempt an adaptive quiz if no more attempts are allowed

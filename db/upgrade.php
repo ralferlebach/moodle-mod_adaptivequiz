@@ -246,5 +246,56 @@ function xmldb_adaptivequiz_upgrade($oldversion) {
         upgrade_mod_savepoint(true, 2026090909, 'adaptivequiz');
     }
 
+    if ($oldversion < 2026091004) {
+        $table = new xmldb_table('adaptivequiz');
+
+        // A second completion rule: a valid result, not merely a technically completed attempt.
+        $field = new xmldb_field(
+            'completionvalidresult',
+            XMLDB_TYPE_INTEGER,
+            '1',
+            null,
+            XMLDB_NOTNULL,
+            null,
+            '0',
+            'completionattemptcompleted'
+        );
+
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        $table = new xmldb_table('adaptivequiz_attempt');
+
+        // The completion time gets its own column: the reports used to show timemodified, which
+        // drifts with every later change to the attempt. Existing completed attempts keep
+        // timemodified as their best available value.
+        $field = new xmldb_field('timefinished', XMLDB_TYPE_INTEGER, '10', null, null, null, null, 'timemodified');
+
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+
+            $DB->execute(
+                "UPDATE {adaptivequiz_attempt} SET timefinished = timemodified WHERE attemptstate = ?",
+                [\mod_adaptivequiz\local\attempt\attempt_state::COMPLETED]
+            );
+        }
+
+        // Whether a result is valid is decided by the CAT model of the activity, which writes
+        // these two onto the attempt. The host only stores and reads them.
+        $fields = [
+            new xmldb_field('resultstatus', XMLDB_TYPE_CHAR, '255', null, null, null, null, 'timefinished'),
+            new xmldb_field('resultvalid', XMLDB_TYPE_INTEGER, '1', null, XMLDB_NOTNULL, null, '0', 'resultstatus'),
+        ];
+
+        foreach ($fields as $field) {
+            if (!$dbman->field_exists($table, $field)) {
+                $dbman->add_field($table, $field);
+            }
+        }
+
+        upgrade_mod_savepoint(true, 2026091004, 'adaptivequiz');
+    }
+
     return true;
 }

@@ -81,6 +81,9 @@ class attempt {
     /** @var int $userid user id */
     protected $userid;
 
+    /** @var bool $justcreated Whether get_attempt() created the record rather than loading it. */
+    protected $justcreated = false;
+
     /** @var int $uniqueid a unique number identifying the activity usage of questions */
     protected $uniqueid;
 
@@ -508,6 +511,8 @@ class attempt {
             $attempt->id = $id;
             $this->adpqattempt = $attempt;
 
+            $this->justcreated = true;
+
             $this->print_debug('get_attempt() - new attempt created: ' . $this->vardump($attempt));
         } else {
             $attempt = current($attempt);
@@ -643,6 +648,19 @@ class attempt {
     }
 
     /**
+     * Returns whether this object created the attempt rather than continuing one.
+     *
+     * A CAT model has to be told once, at the beginning: it sets up its own record for the attempt
+     * and starts its clock. Reading it from the record afterwards is not reliable - a continued
+     * attempt with no answer yet looks exactly like a fresh one.
+     *
+     * @return bool
+     */
+    public function was_just_created(): bool {
+        return $this->justcreated;
+    }
+
+    /**
      * Records the question usage of the attempt.
      *
      * The built-in algorithm puts the question into the usage itself and records the id on the way.
@@ -652,6 +670,10 @@ class attempt {
      * @param int $qubaid Id of the question usage.
      */
     public function set_quba_id(int $qubaid): void {
+        if (!empty($this->adpqattempt->uniqueid)) {
+            throw new coding_exception('The question usage of this attempt is already set.');
+        }
+
         $this->quba = question_engine::load_questions_usage_by_activity($qubaid);
         $this->set_attempt_uniqueid();
     }
