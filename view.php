@@ -29,7 +29,6 @@ require_once($CFG->dirroot . '/mod/adaptivequiz/locallib.php');
 
 use core\output\notification;
 use core_question\local\bank\question_bank_helper;
-use mod_adaptivequiz\item_administration_params_helper;
 use mod_adaptivequiz\item_bank;
 use mod_adaptivequiz\local\catmodel\catmodel_resolver;
 use mod_adaptivequiz\local\report\questions_difficulty_range;
@@ -157,16 +156,13 @@ $event->trigger();
 $PAGE->set_title(format_string($adaptivequiz->name));
 $PAGE->set_heading(format_string($course->fullname));
 
-$hasqbanks = false;
-$hasitemadmparams = false;
+$itembankconfigured = false;
 
 $qbankmigrated = question_bank_helper::has_bank_migration_task_completed_successfully();
 if ($qbankmigrated) {
-    $hasqbanks = item_bank::adaptive_quiz_instance_has_question_banks_or_categories_linked($adaptivequiz->id);
-    $hasitemadmparams = item_administration_params_helper::is_all_valid_for_adaptivequiz($adaptivequiz);
+    // Asks the CAT model first when one is configured; see item_bank::is_ready_for_attempt().
+    $itembankconfigured = item_bank::is_ready_for_attempt($adaptivequiz);
 }
-
-$itembankconfigured = $hasqbanks && $hasitemadmparams;
 
 echo $OUTPUT->header();
 

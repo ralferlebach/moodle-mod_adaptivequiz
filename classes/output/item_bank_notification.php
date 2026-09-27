@@ -19,7 +19,6 @@ namespace mod_adaptivequiz\output;
 use core\output\renderable;
 use core\output\renderer_base;
 use core\output\templatable;
-use mod_adaptivequiz\item_administration_params_helper;
 use mod_adaptivequiz\item_bank;
 use stdClass;
 
@@ -49,10 +48,7 @@ class item_bank_notification implements renderable, templatable {
      * @return \stdClass|array
      */
     public function export_for_template(renderer_base $output) {
-        $hasqbanks = item_bank::adaptive_quiz_instance_has_question_banks_or_categories_linked($this->adaptivequiz->id);
-        $hasitemadmparams = item_administration_params_helper::is_all_valid_for_adaptivequiz($this->adaptivequiz);
-
-        $itembankconfigured = $hasqbanks && $hasitemadmparams;
+        $itembankconfigured = item_bank::is_ready_for_attempt($this->adaptivequiz);
 
         return [
             'itembanknotification' => !$itembankconfigured

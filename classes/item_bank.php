@@ -230,4 +230,28 @@ class item_bank {
 
         return $hasqbanks || $hasqcats;
     }
+
+    /**
+     * Returns whether the item bank of an instance is ready for an attempt.
+     *
+     * The one place that answers this. A CAT model that implements catmodel_item_bank_readiness
+     * decides for itself; otherwise the host's own conditions apply - question banks or categories
+     * linked, and item administration parameters valid. view.php and the item bank notification
+     * used to compute the host's conditions each on their own and never asked the CAT model.
+     *
+     * @param stdClass $adaptivequiz The instance record.
+     * @return bool
+     */
+    public static function is_ready_for_attempt(\stdClass $adaptivequiz): bool {
+        $handler = \mod_adaptivequiz\local\catmodel\catmodel_resolver::handler(
+            $adaptivequiz->catmodel ?? null,
+            \mod_adaptivequiz\local\catmodel\itemadministration\catmodel_item_bank_readiness::class
+        );
+        if ($handler !== null) {
+            return $handler->is_item_bank_ready($adaptivequiz);
+        }
+
+        return self::adaptive_quiz_instance_has_question_banks_or_categories_linked($adaptivequiz->id)
+            && item_administration_params_helper::is_all_valid_for_adaptivequiz($adaptivequiz);
+    }
 }
