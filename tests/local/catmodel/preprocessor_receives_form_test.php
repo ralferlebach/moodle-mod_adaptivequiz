@@ -30,8 +30,8 @@ require_once($CFG->libdir . '/formslib.php');
  *
  * The preprocessor was called with the default values only. A CAT model then could not tell the
  * first load of the form from a reload after the user changed something, and wrote its stored
- * settings over the fresh choice - in CATquiz, a new root scale or an activated subscale could not
- * be saved (local_catquiz issue #124). The form now goes along.
+ * settings over the fresh choice - a CAT model's newly chosen scale or activated subscale could not
+ * be saved. The form now goes along.
  *
  * @package    mod_adaptivequiz
  * @copyright  2026 onwards Ralf Erlebach
