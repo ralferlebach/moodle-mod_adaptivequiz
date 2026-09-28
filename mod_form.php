@@ -402,7 +402,9 @@ class mod_adaptivequiz_mod_form extends moodleform_mod {
             }
 
             $formdatapreprocessor = new $classname();
-            $defaultvalues = $formdatapreprocessor->data_preprocessing_callback($defaultvalues);
+            // The form goes along: without it a CAT model cannot tell a reload from the first load
+            // and would write its stored settings over what the user has just chosen.
+            $defaultvalues = $formdatapreprocessor->data_preprocessing_callback($defaultvalues, $this->_form);
 
             break;
         }
