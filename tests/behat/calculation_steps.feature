@@ -1814,7 +1814,12 @@ Feature: Debug calculation steps
       | 22.3239425	  | 0.22389	         | 0.17897    | Maximum number of questions attempted |
 
   @javascript
-  Scenario: Unable to fetch a question for level 15, continued attempt
+  Scenario: Unable to fetch a question for level 14, continued attempt
+    ## Leaving and coming back must not change the attempt: the unanswered item is
+    ## administered again, not a new one. The values are therefore those of the
+    ## uninterrupted attempt above (fixture 1.csv), as in calculation_steps_test
+    ## "continued attempt". An earlier version expected a different trajectory ending
+    ## at level 15 - that recorded a fresh item being served after every return.
     Given the following "activity" exists:
       | activity          | adaptivequiz            |
       | idnumber          | adaptivequiz            |
@@ -1854,98 +1859,93 @@ Feature: Debug calculation steps
     And I press "Submit answer"
     And I should see the following debugging info for the attempt:
       | difficultysum | standarderrorraw | measureraw | attemptstopcriteria |
-      | 5.8413951     | 0.00000          | 0.00000    | none                |
+      | 6.5722826     | 0.00000          | 0.00000    | none                |
     And I click on "True" "radio"
     And I press "Submit answer"
     And I should see the following debugging info for the attempt:
       | difficultysum | standarderrorraw | measureraw | attemptstopcriteria |
-      | 7.6331546     | 0.00000          | 0.00000    | none                |
+      | 9.1372320     | 0.00000          | 0.00000    | none                |
     And I click on "True" "radio"
     And I press "Submit answer"
     And I should see the following debugging info for the attempt:
       | difficultysum | standarderrorraw | measureraw | attemptstopcriteria |
-      | 10.1981040    | 0.00000          | 0.00000    | none                |
+      | 12.4330689    | 0.00000          | 0.00000    | none                |
     And I click on "True" "radio"
     And I press "Submit answer"
     And I should see the following debugging info for the attempt:
       | difficultysum | standarderrorraw | measureraw | attemptstopcriteria |
-      | 13.4939409    | 0.00000          | 0.00000    | none                |
+      | 15.7289058    | 0.00000          | 0.00000    | none                |
     And I click on "Adaptive Quiz" "link"
     And I click on "Start attempt" "button"
     And I click on "False" "radio"
     And I press "Submit answer"
     And I should see the following debugging info for the attempt:
       | difficultysum | standarderrorraw | measureraw | attemptstopcriteria |
-      | 16.0588903    | 0.00000          | 0.00000    | none                |
+      | 19.0247427    | 0.00000          | 0.00000    | none                |
     And I click on "True" "radio"
     And I press "Submit answer"
     And I should see the following debugging info for the attempt:
       | difficultysum | standarderrorraw | measureraw | attemptstopcriteria |
-      | 17.8506498    | 0.00000          | 0.00000    | none                |
+      | 21.5896921    | 0.00000          | 0.00000    | none                |
     And I click on "True" "radio"
     And I press "Submit answer"
     And I should see the following debugging info for the attempt:
       | difficultysum | standarderrorraw | measureraw | attemptstopcriteria |
-      | 21.1464867    | 0.00000          | 0.00000    | none                |
+      | 24.8855290    | 0.00000          | 0.00000    | none                |
     And I click on "False" "radio"
     And I press "Submit answer"
     And I should see the following debugging info for the attempt:
       | difficultysum | standarderrorraw | measureraw | attemptstopcriteria |
-      | 24.4423236    | 0.00000          | 0.00000    | none                |
+      | 28.1813659    | 0.00000          | 0.00000    | none                |
     And I click on "True" "radio"
     And I press "Submit answer"
     And I should see the following debugging info for the attempt:
       | difficultysum | standarderrorraw | measureraw | attemptstopcriteria |
-      | 26.2340831    | 0.00000          | 0.00000    | none                |
+      | 30.7463153    | 0.00000          | 0.00000    | none                |
     And I click on "True" "radio"
     And I press "Submit answer"
     And I should see the following debugging info for the attempt:
       | difficultysum | standarderrorraw | measureraw | attemptstopcriteria |
-      | 29.5299200    | 0.65828          | 3.47551    | none                |
+      | 34.0421522    | 0.65828          | 3.82260    | none                |
     And I click on "False" "radio"
     And I press "Submit answer"
     And I should see the following debugging info for the attempt:
       | difficultysum | standarderrorraw | measureraw | attemptstopcriteria |
-      | 32.8257569    | 0.59161          | 3.26099    | none                |
+      | 37.3379891    | 0.59161          | 3.58329    | none                |
     And I click on "True" "radio"
     And I press "Submit answer"
     And I should see the following debugging info for the attempt:
       | difficultysum | standarderrorraw | measureraw | attemptstopcriteria |
-      | 34.6175164    | 0.58387          | 3.31944    | none                |
+      | 39.1297486    | 0.58387          | 3.62025    | none                |
     And I click on "True" "radio"
     And I press "Submit answer"
     And I should see the following debugging info for the attempt:
       | difficultysum | standarderrorraw | measureraw | attemptstopcriteria |
-      | 37.9133533    | 0.57735          | 3.46820    | none                |
+      | 42.4255855    | 0.57735          | 3.75021    | none                |
     And I click on "True" "radio"
     And I press "Submit answer"
     And I should see the following debugging info for the attempt:
       | difficultysum | standarderrorraw | measureraw | attemptstopcriteria |
-      | 41.2091902    | 0.57177          | 3.60273    | none                |
-    And I click on "False" "radio"
+      | 45.7214224    | 0.57177          | 3.86815    | none                |
+    And I click on "True" "radio"
     And I press "Submit answer"
     And I should see the following debugging info for the attempt:
       | difficultysum | standarderrorraw | measureraw | attemptstopcriteria |
-      | 44.5050271    | 0.52623          | 3.42801    | none                |
+      | 49.0172593    | 0.56695          | 3.97594    | none                |
     And I click on "Adaptive Quiz" "link"
     And I click on "Start attempt" "button"
     And I click on "True" "radio"
     And I press "Submit answer"
     And I should see the following debugging info for the attempt:
       | difficultysum | standarderrorraw | measureraw | attemptstopcriteria |
-      | 47.0699765    | 0.52099          | 3.50699    | none                |
+      | 52.3130962    | 0.56273          | 4.07508    | none                |
     And I click on "True" "radio"
     And I press "Submit answer"
     And I should see the following debugging info for the attempt:
       | difficultysum | standarderrorraw | measureraw | attemptstopcriteria |
-      | 50.3658134    | 0.51640          | 3.61690    | none                |
-    And I click on "True" "radio"
-    And I press "Submit answer"
-    And I should see the following debugging info for the attempt:
-      | difficultysum | standarderrorraw | measureraw | attemptstopcriteria |
-      | 53.6616503    | 0.51235          | 3.71847    | none                |
+      | 55.6089331    | 0.55902          | 4.16674    | none                |
     And I click on "True" "radio"
     And I press "Submit answer"
     And I should see the following debugging info for the attempt:
       | difficultysum | standarderrorraw | measureraw | attemptstopcriteria                     |
-      | 56.9574872    | 0.50875          | 3.81275    | Unable to fetch a question for level 15 |
+      | 57.4006926    | 0.55572          | 4.18029    | Unable to fetch a question for level 14 |

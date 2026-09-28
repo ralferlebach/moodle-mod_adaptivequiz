@@ -26,6 +26,8 @@ use advanced_testcase;
  * elsewhere never met them, and no attempt could be started. The CAT model now answers for itself
  * through catmodel_item_bank_readiness; without one, nothing changes.
  *
+ * Checked with the neutral test CAT model: the host must not know any real one (issue #10).
+ *
  * @package    mod_adaptivequiz
  * @copyright  2026 onwards Ralf Erlebach
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
@@ -38,43 +40,23 @@ final class item_bank_readiness_test extends advanced_testcase {
     public function test_without_a_cat_model_the_host_decides(): void {
         $this->resetAfterTest();
 
-        $adaptivequiz = (object) ['id' => 97001, 'catmodel' => null];
-
-        $this->assertFalse(item_bank::is_ready_for_attempt($adaptivequiz));
+        $this->assertFalse(item_bank::is_ready_for_attempt((object) ['id' => 97001, 'catmodel' => null]));
     }
 
     /**
-     * With the CATquiz model, CATquiz decides - and says yes once its scale holds an item.
+     * With a CAT model, its answer counts - in both directions, and without any question bank.
      */
-    public function test_with_the_catquiz_model_catquiz_decides(): void {
-        global $DB;
-
-        if (!class_exists(\local_catquiz\catquiz_handler::class)) {
-            $this->markTestSkipped('The CATquiz model is not installed.');
-        }
+    public function test_with_a_cat_model_the_cat_model_decides(): void {
         $this->resetAfterTest();
+        $adaptivequiz = (object) ['id' => 97002, 'catmodel' => 'testcatmodel'];
 
-        $scaleid = (int) $DB->insert_record('local_catquiz_catscales', (object) [
-            'parentid' => 0, 'name' => 'scale', 'contextid' => 1, 'timecreated' => time(), 'timemodified' => time(),
-        ]);
-        $DB->insert_record('local_catquiz_tests', (object) [
-            'componentid' => 97002, 'component' => 'mod_adaptivequiz', 'catscaleid' => $scaleid, 'contextid' => 1,
-            'courseid' => 1, 'name' => 'test', 'json' => '{}', 'status' => 1,
-            'timecreated' => time(), 'timemodified' => time(),
-        ]);
-        $adaptivequiz = (object) ['id' => 97002, 'catmodel' => 'catquiz'];
-
-        // No item yet: not ready, and the host's rules are not consulted at all.
-        $this->assertFalse(item_bank::is_ready_for_attempt($adaptivequiz));
-
-        $DB->insert_record('local_catquiz_items', (object) [
-            'componentid' => 1, 'componentname' => 'question', 'catscaleid' => $scaleid, 'contextid' => 1,
-            'status' => 0, 'timecreated' => time(), 'timemodified' => time(),
-        ]);
-
+        set_config('itembankready', 1, 'adaptivequizcatmodel_testcatmodel');
         $this->assertTrue(
             item_bank::is_ready_for_attempt($adaptivequiz),
-            'A CATquiz test with an item must be ready although no question bank is linked to the instance.'
+            'The CAT model reports ready; the host must not overrule it with its own item bank rules.'
         );
+
+        set_config('itembankready', 0, 'adaptivequizcatmodel_testcatmodel');
+        $this->assertFalse(item_bank::is_ready_for_attempt($adaptivequiz));
     }
 }

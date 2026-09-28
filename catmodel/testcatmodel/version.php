@@ -25,5 +25,5 @@
 defined('MOODLE_INTERNAL') || die();
 
 $plugin->component = 'adaptivequizcatmodel_testcatmodel';
-$plugin->version = 2026090900;
+$plugin->version = 2026092701;
 $plugin->requires = 2025100600;

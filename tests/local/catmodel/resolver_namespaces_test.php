@@ -35,8 +35,8 @@ final class resolver_namespaces_test extends advanced_testcase {
     /**
      * A CAT model keeping its item administration the way the CATquiz adapter does is found.
      *
-     * The fixture CAT model uses local\\catmodel\\itemadministration, exactly like
-     * adaptivequizcatmodel_catquiz. Before this was searched, the adapter's factory was invisible
+     * The fixture CAT model uses local\\catmodel\\itemadministration, exactly like the real CAT
+     * model adapters do. Before this was searched, an adapter's factory was invisible
      * to the host - silently, because a CAT model that offers no factory simply falls back to the
      * built-in algorithm.
      */
