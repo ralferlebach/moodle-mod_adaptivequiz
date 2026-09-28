@@ -287,7 +287,7 @@ class mod_adaptivequiz_mod_form extends moodleform_mod {
     public function data_preprocessing(&$defaultvalues) {
         parent::data_preprocessing($defaultvalues);
 
-        $defaultvalues = mod_form_extension::preprocess($defaultvalues);
+        $defaultvalues = mod_form_extension::preprocess($defaultvalues, $this->_form);
 
         $isnewinstance = !$this->current->instance;
         if ($isnewinstance) {

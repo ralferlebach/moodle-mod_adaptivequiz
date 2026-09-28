@@ -70,10 +70,13 @@ class mod_form_handler implements catmodel_mod_form_data_preprocessor, catmodel_
      * Sets the default of the CAT model field.
      *
      * @param array $formdefaultvalues Default values collected so far.
+     * @param MoodleQuickForm|null $form The form; its submit values distinguish a reload from the first load.
      * @return array Modified form values.
      */
-    public function data_preprocessing_callback(array $formdefaultvalues): array {
+    public function data_preprocessing_callback(array $formdefaultvalues, ?MoodleQuickForm $form = null): array {
         $formdefaultvalues[self::FIELD] = 'default from the test CAT model';
+        // Lets a test see whether the host handed over its form, and what had been submitted.
+        $formdefaultvalues[self::FIELD . '_formseen'] = $form === null ? 'no form' : json_encode($form->getSubmitValues());
 
         return $formdefaultvalues;
     }

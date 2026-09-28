@@ -93,14 +93,17 @@ final class mod_form_extension {
      * Lets the CAT model set the defaults of its own fields.
      *
      * @param array $defaultvalues Default values collected so far.
+     * @param MoodleQuickForm|null $form The form; its submit values distinguish a reload from the first load.
      * @return array The values to use.
      */
-    public static function preprocess(array $defaultvalues): array {
+    public static function preprocess(array $defaultvalues, ?MoodleQuickForm $form = null): array {
         $preprocessor = catmodel_resolver::handler(
             $defaultvalues['catmodel'] ?? null,
             catmodel_mod_form_data_preprocessor::class
         );
 
-        return $preprocessor === null ? $defaultvalues : $preprocessor->data_preprocessing_callback($defaultvalues);
+        // The form goes along: without it a CAT model cannot tell a reload from the first load and
+        // would write its stored settings over what the user has just chosen.
+        return $preprocessor === null ? $defaultvalues : $preprocessor->data_preprocessing_callback($defaultvalues, $form);
     }
 }

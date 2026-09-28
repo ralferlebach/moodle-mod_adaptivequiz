@@ -24,6 +24,8 @@
 
 namespace mod_adaptivequiz\local\catmodel\form;
 
+use MoodleQuickForm;
+
 /**
  * Catmodel mod form data preprocessor.
  */
@@ -35,7 +37,10 @@ interface catmodel_mod_form_data_preprocessor {
      * values.
      *
      * @param array $formdefaultvalues
+     * @param MoodleQuickForm|null $form The form itself. Its submit values tell a CAT model whether this is
+     *      the first load of the form or a reload after the user changed something - only on the first
+     *      load may stored settings be written into the form. Null only for callers that have no form.
      * @return array Modified form values.
      */
-    public function data_preprocessing_callback(array $formdefaultvalues): array;
+    public function data_preprocessing_callback(array $formdefaultvalues, ?MoodleQuickForm $form = null): array;
 }

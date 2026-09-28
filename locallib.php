@@ -240,6 +240,11 @@ function adaptivequiz_delete_attempt(stdClass $adaptivequiz, stdClass $attempt):
     global $DB;
 
     question_engine::delete_questions_usage_by_activity($attempt->uniqueid);
+    // On MySQL and MariaDB the question engine deletes a usage together with its question attempts
+    // through an inner join - a usage that never received a question stays behind. That happens
+    // when an attempt ends before its first item was administered. PostgreSQL removes it either way;
+    // removing it here makes both engines agree and leaves no orphan in question_usages.
+    $DB->delete_records('question_usages', ['id' => $attempt->uniqueid]);
     $DB->delete_records('adaptivequiz_attempt', ['id' => $attempt->id]);
 
     catmodel_resolver::callback(
