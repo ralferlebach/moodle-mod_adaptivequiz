@@ -164,6 +164,24 @@ class cat_session {
                 return;
             }
 
+            // A question already answered in this usage must not be added a second time. The host
+            // cannot ask the CAT model again with that question excluded; ending the attempt in
+            // order - with its own reason and the results so far - is the lesser harm than
+            // measuring the same item twice. A CAT model that keeps its own exclusion set never
+            // gets here.
+            if (self::find_completed_slot_for_question($quba, (int) $questionid) !== null) {
+                debugging(
+                    "Question {$questionid} was named again by the CAT model although it was already "
+                        . 'administered in this attempt; the attempt was ended instead of administering it twice.',
+                    DEBUG_DEVELOPER
+                );
+                $reason = get_string('stopreasonitemalreadyadministered', 'adaptivequiz');
+                adaptivequiz_complete_attempt($uniqueid, $adaptivequiz, $context, $USER->id, $reason);
+                if (empty($adaptiveattempt->get_status())) {
+                    $adaptiveattempt->set_status($reason);
+                }
+                return;
+            }
             $question = question_bank::load_question($questionid);
             $slot = $quba->add_question($question);
 
@@ -193,6 +211,23 @@ class cat_session {
            the slot number itself before returning from_quba_slot(); a sub-plugin
            that only returns the slot cannot do that. */
         $adaptiveattempt->set_question_slot_number($slot);
+    }
+
+    /**
+     * Returns a slot of the usage in which the question has already been administered and closed.
+     *
+     * @param question_usage_by_activity $quba
+     * @param int $questionid
+     * @return int|null
+     */
+    private static function find_completed_slot_for_question(question_usage_by_activity $quba, int $questionid): ?int {
+        foreach ($quba->get_slots() as $slot) {
+            if ((int) $quba->get_question($slot)->id === $questionid && !$quba->get_question_state($slot)->is_active()) {
+                return $slot;
+            }
+        }
+
+        return null;
     }
 
     /**
