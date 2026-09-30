@@ -105,6 +105,7 @@ $string['errorlastattpquest'] = 'Error checking the response value for the last 
 $string['errornumattpzero'] = 'Error with number of questions attempted equals zero, but user submitted an answer to previous question';
 $string['errorsumrightwrong'] = 'Sum of correct and incorrect answers does not equal the total number of questions attempted';
 $string['eventattemptcompleted'] = 'Attempt completed';
+$string['eventresultpageviewed'] = 'Result page viewed';
 $string['formelementdecimal'] = 'Input a decimal number.  Maximum 10 digits long and maximum 5 digits to the right of the decimal point';
 $string['formelementempty'] = 'Input a positive integer from 1 to 999';
 $string['formelementnegative'] = 'Input a positive number from 1 to 999';

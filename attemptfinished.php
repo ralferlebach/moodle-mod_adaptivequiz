@@ -38,7 +38,6 @@ if (!$course = $DB->get_record('course', ['id' => $cm->course])) {
 }
 
 $adaptivequiz = $DB->get_record('adaptivequiz', ['id' => $cm->instance], '*', MUST_EXIST);
-$attempt = $DB->get_record('adaptivequiz_attempt', ['uniqueid' => $uniqueid], '*', MUST_EXIST);
 
 // Deliberately without the course module: passing $cm makes require_login() enforce
 // $cm->uservisible, and that is false as soon as the activity - or the section it sits in - is
@@ -57,13 +56,15 @@ $context = context_module::instance($cm->id);
 
 // TODO - check if user has capability to attempt.
 
-// Check if this is the owner of the attempt.
-$validattempt = adaptivequiz_uniqueid_part_of_attempt($uniqueid, $instance, $USER->id);
+// Loaded once, after the login and only if it is this user's attempt of this activity; the event,
+// the feedback of the CAT model and the rest of the page all use this row.
+$attempt = adaptivequiz_result_page_attempt($cm, $uniqueid, $instance, (int) $USER->id);
 
-// Display an error message if this is not the owner of the attempt.
-if (!$validattempt) {
-    $url = new moodle_url('/mod/adaptivequiz/attempt.php', ['cmid' => $cm->id]);
-    throw new moodle_exception('notyourattempt', 'adaptivequiz', $url);
+// The result page of a completed attempt was opened (issue #15). Every view is an event; which was
+// the first is for the consumer to decide. No visibility check here: an own completed result stays
+// readable even if completion has since hidden the activity.
+if ($attempt->attemptstate === \mod_adaptivequiz\local\attempt\attempt_state::COMPLETED) {
+    \mod_adaptivequiz\event\result_page_viewed::create_from_attempt($attempt, $context)->trigger();
 }
 
 // The require_login() call above omits the course module, so it does not set the module on the page

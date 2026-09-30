@@ -50,7 +50,7 @@ final class attempt_state_change_observers_test extends advanced_testcase {
             ->get_plugin_generator('mod_adaptivequiz')
             ->create_instance([
                 'course' => $course->id,
-                'completion' => 1,
+                'completion' => COMPLETION_TRACKING_AUTOMATIC,
                 'completionattemptcompleted' => 1,
                 'questionpool' => [$questioncategory->id],
             ]);
@@ -65,7 +65,7 @@ final class attempt_state_change_observers_test extends advanced_testcase {
         $attemptrecordsnapshot->instance = $adaptivequiz->id;
         $attemptrecordsnapshot->userid = $user->id;
         $attemptrecordsnapshot->uniqueid = 1;
-        $attemptrecordsnapshot->attemptstate = attempt_state::IN_PROGRESS;
+        $attemptrecordsnapshot->attemptstate = attempt_state::COMPLETED;
         $attemptrecordsnapshot->attemptstopcriteria = 'Unable to fetch a questions for level 1';
         $attemptrecordsnapshot->questionsattempted = 1;
         $attemptrecordsnapshot->difficultysum = 0.0000000;
@@ -73,14 +73,19 @@ final class attempt_state_change_observers_test extends advanced_testcase {
         $attemptrecordsnapshot->measure = 1.94591;
         $attemptrecordsnapshot->timecreated = 1658524979;
         $attemptrecordsnapshot->timemodified = 1658525029;
-        $attemptrecordsnapshot->timefinished = null;
+        $attemptrecordsnapshot->timefinished = 1658525029;
         $attemptrecordsnapshot->resultstatus = null;
         $attemptrecordsnapshot->resultvalid = 0;
 
         $cm = get_coursemodule_from_instance('adaptivequiz', $adaptivequiz->id, $adaptivequiz->course);
         $context = context_module::instance($cm->id);
 
-        $attemptid = 1;
+        // A real completed attempt: completion is decided from the stored attempts (issue #121), and
+        // automatic tracking is what completion rules apply to - with manual tracking the observer
+        // used to tick the box on the person's behalf.
+        unset($attemptrecordsnapshot->id);
+        $attemptid = $DB->insert_record('adaptivequiz_attempt', $attemptrecordsnapshot);
+        $attemptrecordsnapshot->id = $attemptid;
 
         $event = attempt_completed::create([
             'objectid' => $attemptid,
