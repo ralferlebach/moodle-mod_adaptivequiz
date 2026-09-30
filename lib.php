@@ -910,6 +910,9 @@ function adaptivequiz_get_coursemodule_info(stdClass $coursemodule) {
 
     if ($coursemodule->completion == COMPLETION_TRACKING_AUTOMATIC) {
         $result->customdata['customcompletionrules']['completionattemptcompleted'] = $adaptivequiz->completionattemptcompleted;
+        // Registered so Moodle evaluates it: an unregistered rule is ignored when completion is
+        // recomputed, and the valid-result rule never took part (issue #121).
+        $result->customdata['customcompletionrules']['completionvalidresult'] = $adaptivequiz->completionvalidresult ?? 0;
     }
 
     return $result;

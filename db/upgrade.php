@@ -162,5 +162,18 @@ function xmldb_adaptivequiz_upgrade($oldversion) {
         upgrade_mod_savepoint(true, 2026082105, 'adaptivequiz');
     }
 
+    if ($oldversion < 2026092902) {
+        // Issue #121: completionvalidresult is now part of the cached course module info. Courses that
+        // use it are rebuilt so the rule takes part in completion without waiting for a cache purge.
+        $courseids = $DB->get_fieldset_sql(
+            'SELECT DISTINCT course FROM {adaptivequiz} WHERE completionvalidresult = 1'
+        );
+        foreach ($courseids as $courseid) {
+            rebuild_course_cache((int) $courseid, true);
+        }
+
+        upgrade_mod_savepoint(true, 2026092902, 'adaptivequiz');
+    }
+
     return true;
 }

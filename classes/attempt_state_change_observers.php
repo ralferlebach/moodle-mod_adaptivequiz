@@ -46,12 +46,24 @@ class attempt_state_change_observers {
         if (!$completion->is_enabled()) {
             return;
         }
-        if (!$adaptivequiz->completionattemptcompleted && empty($adaptivequiz->completionvalidresult)) {
+        // Either rule makes a completed attempt relevant for completion (issue #121). v-3.0 had lost
+        // completionvalidresult here, so an activity completed by a valid result was never
+        // re-evaluated.
+        if (empty($adaptivequiz->completionattemptcompleted) && empty($adaptivequiz->completionvalidresult)) {
             return;
         }
         if (!$cm = get_coursemodule_from_instance('adaptivequiz', $adaptivequiz->id, $adaptivequiz->course)) {
             return;
         }
-        $completion->update_state($cm, COMPLETION_COMPLETE, $event->userid);
+        // Completion rules apply to automatic tracking only. With manual tracking the person ticks the
+        // box themselves; the observer used to tick it for them.
+        if ((int) $cm->completion !== COMPLETION_TRACKING_AUTOMATIC) {
+            return;
+        }
+
+        // Moodle re-evaluates the configured rules; custom_completion decides. Setting COMPLETE here
+        // declared every completed attempt a completion - also one without a valid result, which
+        // the valid-result rule must leave incomplete (issue #121).
+        $completion->update_state($cm, COMPLETION_UNKNOWN, (int) $attempt->userid);
     }
 }

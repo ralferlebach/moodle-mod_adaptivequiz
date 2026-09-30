@@ -179,6 +179,37 @@ function adaptivequiz_uniqueid_part_of_attempt($uniqueid, $instance, $userid) {
 }
 
 /**
+ * Returns the attempt whose result page the user may see, or throws.
+ *
+ * The attempt must belong to the activity of the course module - not merely to the instance id
+ * the request names - and to the user. Everything the result page and its event use comes from
+ * the stored row this returns, never from the request (issue #15).
+ *
+ * @param stdClass $cm The course module of the activity.
+ * @param int $uniqueid The question usage id of the attempt, as passed to the page.
+ * @param int $instance The instance id as passed to the page.
+ * @param int $userid The user asking for the page.
+ * @return stdClass The row of adaptivequiz_attempt.
+ * @throws moodle_exception If the attempt is not this user's attempt of this activity.
+ */
+function adaptivequiz_result_page_attempt(stdClass $cm, int $uniqueid, int $instance, int $userid): stdClass {
+    global $DB;
+
+    $attempt = $DB->get_record('adaptivequiz_attempt', ['uniqueid' => $uniqueid]);
+    if (
+        !$attempt
+        || $instance !== (int) $cm->instance
+        || (int) $attempt->instance !== (int) $cm->instance
+        || (int) $attempt->userid !== $userid
+    ) {
+        $url = new moodle_url('/mod/adaptivequiz/attempt.php', ['cmid' => $cm->id]);
+        throw new moodle_exception('notyourattempt', 'adaptivequiz', $url);
+    }
+
+    return $attempt;
+}
+
+/**
  * This function increments the difficultysum value and the number of questions attempted for the adaptivequiz_attempt record
  * @throws dml_exception A DML specific exception
  * @param int $uniqueid uniqueid value of the adaptivequiz_attempt record
@@ -243,9 +274,6 @@ function adaptivequiz_complete_attempt(
     $attempt = $DB->get_record('adaptivequiz_attempt',
         ['uniqueid' => $uniqueid, 'instance' => $adaptivequiz->id, 'userid' => $userid], '*', MUST_EXIST);
 
-    // Need to keep the record as it is before triggering the event below.
-    $attemptrecordsnapshot = clone $attempt;
-
     $now = time();
     $attempt->attemptstate = attempt_state::COMPLETED;
     $attempt->attemptstopcriteria = $statusmessage;
@@ -279,6 +307,10 @@ function adaptivequiz_complete_attempt(
         'context' => $context,
         'userid' => $userid
     ]);
+    // The attempt as it stands now: completed, with the result the CAT model has written. The
+    // snapshot used to be cloned before the change of state, so the event described an attempt
+    // that was not yet completed (issue #121).
+    $attemptrecordsnapshot = $DB->get_record('adaptivequiz_attempt', ['id' => $attempt->id]);
     $event->add_record_snapshot('adaptivequiz_attempt', $attemptrecordsnapshot);
     $event->add_record_snapshot('adaptivequiz', $adaptivequiz);
     $event->trigger();

@@ -44,6 +44,7 @@ $string['completionattemptcompletedform'] = 'Student must have al least one comp
 $string['completionvalidresultcminfo'] = 'Achieve a valid CAT result';
 $string['completionvalidresultform'] = 'Student must have at least one completed attempt with a valid CAT result';
 $string['eventattemptcompleted'] = 'Attempt completed';
+$string['eventresultpageviewed'] = 'Result page viewed';
 $string['modformcatmodel'] = 'CAT model';
 $string['modformcatmodel_help'] = 'Select one of the CAT model sub-plugins installed to use as a CAT model implementation. The form will perform a reload after the selection.';
 $string['modformshowattemptprogress'] = 'Show quiz progress to students';
