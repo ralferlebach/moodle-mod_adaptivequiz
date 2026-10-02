@@ -39,6 +39,9 @@ use stdClass;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class cat_session {
+    /** @var int How often the CAT model is asked when it names an item already answered. */
+    private const MAX_ASKS = 3;
+
 
     /**
      * Chooses the next question and adds it to the quba instance to be presented to the user.
@@ -164,23 +167,38 @@ class cat_session {
                 return;
             }
 
-            // A question already answered in this usage must not be added a second time. The host
-            // cannot ask the CAT model again with that question excluded; ending the attempt in
-            // order - with its own reason and the results so far - is the lesser harm than
-            // measuring the same item twice. A CAT model that keeps its own exclusion set never
-            // gets here.
-            if (self::find_completed_slot_for_question($quba, (int) $questionid) !== null) {
+            // A question already answered in this usage is asked for again, a few times (issue #126
+            // of the CAT model's plugin): a CAT model that keeps its own exclusion set names another
+            // one. The test always goes on - if a CAT model insists, its item is administered once
+            // more and stays visible as a technical duplicate; ending the test is never the answer.
+            $asked = 1;
+            while (self::find_completed_slot_for_question($quba, (int) $questionid) !== null && $asked < self::MAX_ASKS) {
                 debugging(
                     "Question {$questionid} was named again by the CAT model although it was already "
-                        . 'administered in this attempt; the attempt was ended instead of administering it twice.',
+                        . 'administered in this attempt; asking once more.',
                     DEBUG_DEVELOPER
                 );
-                $reason = get_string('stopreasonitemalreadyadministered', 'adaptivequiz');
-                adaptivequiz_complete_attempt($uniqueid, $adaptivequiz, $context, $USER->id, $reason);
-                if (empty($adaptiveattempt->get_status())) {
-                    $adaptiveattempt->set_status($reason);
+                $again = $itemadministration->evaluate_ability_to_administer_next_item($previousslot);
+                $asked++;
+                if ($again->item_administration_is_to_stop()) {
+                    // A regular stop by the CAT model's own criteria, not because of the repetition.
+                    adaptivequiz_complete_attempt($uniqueid, $adaptivequiz, $context, $USER->id, $again->stoppage_reason());
+                    if (empty($adaptiveattempt->get_status())) {
+                        $adaptiveattempt->set_status($again->stoppage_reason());
+                    }
+                    return;
                 }
-                return;
+                if ($again->next_item()->quba_slot() !== null) {
+                    break;
+                }
+                $questionid = $again->next_item()->question_id();
+            }
+            if (self::find_completed_slot_for_question($quba, (int) $questionid) !== null) {
+                debugging(
+                    "Question {$questionid} was named again {$asked} times; it is administered once more "
+                        . 'as a technical duplicate and the test continues.',
+                    DEBUG_DEVELOPER
+                );
             }
             $question = question_bank::load_question($questionid);
             $slot = $quba->add_question($question);
