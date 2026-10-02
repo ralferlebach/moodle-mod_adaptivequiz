@@ -288,7 +288,6 @@ $string['startattemptbtn'] = 'Start attempt';
 $string['startinglevel'] = 'Starting level of difficulty';
 $string['startinglevel_help'] = 'The the student begins an attempt, the activity will randomly select a question matching the level of difficulty';
 $string['statistic'] = 'Statistic';
-$string['stopreasonitemalreadyadministered'] = 'The next question named by the CAT model had already been administered in this attempt. To avoid asking it a second time, the attempt was ended here; the results up to this point are kept.';
 $string['submitanswer'] = 'Submit answer';
 $string['times_used_display_name'] = 'Times Used';
 $string['updateattempterror'] = 'Error trying to update attempt record';

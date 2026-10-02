@@ -34,6 +34,9 @@ class serve_fixed_question_administration implements item_administration {
     /** @var int|null Question this administration names, set by the test before the run. */
     public static ?int $questionid = null;
 
+    /** @var int[] Questions named one after another, one per call; when empty, $questionid is named. */
+    public static array $questionsequence = [];
+
     /** @var int|null Slot this administration answers with instead, the way a CAT model may. */
     public static ?int $slot = null;
 
@@ -48,6 +51,8 @@ class serve_fixed_question_administration implements item_administration {
             return item_administration_evaluation::with_next_item(next_item::from_quba_slot(self::$slot));
         }
 
-        return item_administration_evaluation::with_next_item(next_item::from_question_id(self::$questionid));
+        $questionid = self::$questionsequence ? array_shift(self::$questionsequence) : self::$questionid;
+
+        return item_administration_evaluation::with_next_item(next_item::from_question_id($questionid));
     }
 }

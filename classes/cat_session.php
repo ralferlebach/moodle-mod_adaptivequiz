@@ -43,6 +43,9 @@ use stdClass;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 final class cat_session {
+    /** @var int How often the CAT model is asked when it names an item already answered. */
+    private const MAX_ASKS = 3;
+
     /**
      * Returns the item administration factory that drives the given activity.
      *
@@ -149,20 +152,35 @@ final class cat_session {
             return $evaluation;
         }
 
-        // A question already answered in this usage must not be added a second time (issue #126 of
-        // the CAT model's plugin). The host cannot ask the CAT model again with that question
-        // excluded; ending the attempt in order - with its own reason and the results so far - is
-        // the lesser harm than measuring the same item twice. A CAT model that keeps its own
-        // exclusion set never gets here.
-        if (self::completed_slot_for_question($quba, (int) $questionid) !== null) {
+        // A question already answered in this usage is asked for again, a few times (issue #126 of the
+        // CAT model's plugin): a CAT model that keeps its own exclusion set names another one. The test
+        // always goes on - if a CAT model insists, its item is administered once more and stays visible
+        // as a technical duplicate in the attempt's history; ending the test is never the answer.
+        $asked = 1;
+        while (self::completed_slot_for_question($quba, (int) $questionid) !== null && $asked < self::MAX_ASKS) {
             debugging(
                 "Question {$questionid} was named again by the CAT model although it was already administered "
-                    . 'in this attempt; the attempt was ended instead of administering it twice.',
+                    . 'in this attempt; asking once more.',
                 DEBUG_DEVELOPER
             );
-
-            return item_administration_evaluation::with_stoppage_reason(
-                get_string('stopreasonitemalreadyadministered', 'adaptivequiz')
+            $evaluation = $administration->evaluate_ability_to_administer_next_item(
+                !empty($slots) ? end($slots) : null
+            );
+            $asked++;
+            if ($evaluation->item_administration_is_to_stop()) {
+                return $evaluation;
+            }
+            if (($slot = $evaluation->next_item()->quba_slot()) !== null) {
+                $attempt->set_question_slot_number($slot);
+                return $evaluation;
+            }
+            $questionid = $evaluation->next_item()->question_id();
+        }
+        if (self::completed_slot_for_question($quba, (int) $questionid) !== null) {
+            debugging(
+                "Question {$questionid} was named again {$asked} times; it is administered once more as a "
+                    . 'technical duplicate and the test continues.',
+                DEBUG_DEVELOPER
             );
         }
         $slot = $quba->add_question(question_bank::load_question($questionid));

@@ -110,6 +110,7 @@ final class cat_session_test extends advanced_testcase {
     protected function tearDown(): void {
         serve_fixed_question_administration::$questionid = null;
         serve_fixed_question_administration::$slot = null;
+        serve_fixed_question_administration::$questionsequence = [];
 
         parent::tearDown();
     }
@@ -343,17 +344,11 @@ final class cat_session_test extends advanced_testcase {
         $this->assertCount(0, $attempt->get_quba()->get_slots());
     }
     /**
-     * A question already answered is not added a second time; the attempt ends in order instead.
+     * Answers the first item and returns the next request of the same attempt.
      *
-     * The host reused an active slot of the same question but did not look at closed ones: a CAT
-     * model naming an item it had already administered got it added again, and the item was
-     * measured twice. Now the attempt ends with its own reason and without a new slot.
+     * @return attempt
      */
-    public function test_an_answered_question_is_not_administered_again(): void {
-        $this->resetAfterTest();
-        $this->set_up_activity('testcatmodel');
-        serve_fixed_question_administration::$questionid = $this->questionids[0];
-
+    private function after_answering_the_first_item(): attempt {
         $attempt = $this->new_request();
         cat_session::administer_next_item($this->adaptivequiz, $attempt);
         cat_session::process_administered_item_result(
@@ -363,16 +358,49 @@ final class cat_session_test extends advanced_testcase {
             $this->answer_helper($attempt, true)
         );
 
-        // The CAT model names the same, now answered question again.
-        $attempt = $this->new_request();
+        return $this->new_request();
+    }
+
+    /**
+     * A CAT model that names an answered item again is asked once more, and the test goes on.
+     *
+     * The host must not end a test because of it - a test always goes on: a CAT model
+     * keeping its own exclusion set names another item when asked again.
+     */
+    public function test_an_answered_item_is_asked_for_again_and_the_test_goes_on(): void {
+        $this->resetAfterTest();
+        $this->set_up_activity('testcatmodel');
+        serve_fixed_question_administration::$questionid = $this->questionids[0];
+        $attempt = $this->after_answering_the_first_item();
+
+        // Named again: the answered one first, then another one.
+        serve_fixed_question_administration::$questionsequence = [$this->questionids[0], $this->questionids[1]];
         $evaluation = cat_session::administer_next_item($this->adaptivequiz, $attempt);
         $this->assertDebuggingCalled();
 
-        $this->assertTrue($evaluation->item_administration_is_to_stop(), 'The answered question was administered again.');
-        $this->assertSame(
-            get_string('stopreasonitemalreadyadministered', 'adaptivequiz'),
-            $evaluation->stoppage_reason()
-        );
-        $this->assertCount(1, $attempt->get_quba()->get_slots(), 'A second slot was added for the same question.');
+        $this->assertFalse($evaluation->item_administration_is_to_stop(), 'The test was ended.');
+        $slots = $attempt->get_quba()->get_slots();
+        $this->assertCount(2, $slots);
+        $this->assertEquals($this->questionids[1], $attempt->get_quba()->get_question(end($slots))->id);
+    }
+
+    /**
+     * A CAT model that insists on an answered item still gets it; the test goes on.
+     *
+     * The item is administered once more and stays visible as a technical duplicate in the history.
+     */
+    public function test_an_insisting_cat_model_gets_its_item_and_the_test_goes_on(): void {
+        $this->resetAfterTest();
+        $this->set_up_activity('testcatmodel');
+        serve_fixed_question_administration::$questionid = $this->questionids[0];
+        $attempt = $this->after_answering_the_first_item();
+
+        $evaluation = cat_session::administer_next_item($this->adaptivequiz, $attempt);
+        $this->assertDebuggingCalledCount(3);
+
+        $this->assertFalse($evaluation->item_administration_is_to_stop(), 'The test was ended.');
+        $slots = $attempt->get_quba()->get_slots();
+        $this->assertCount(2, $slots, 'The test did not go on with the item.');
+        $this->assertEquals($this->questionids[0], $attempt->get_quba()->get_question(end($slots))->id);
     }
 }
