@@ -835,40 +835,8 @@ function mod_adaptivequiz_question_pluginfile($course, context $context, $compon
     global $CFG, $DB, $USER;
 
     $attemptrec = $DB->get_record('adaptivequiz_attempt', ['uniqueid' => $qubaid], '*', MUST_EXIST);
-    $adaptivequiz  = $DB->get_record('adaptivequiz', ['id' => $attemptrec->instance], '*', MUST_EXIST);
-    $course = $DB->get_record('course', ['id' => $adaptivequiz->course], '*', MUST_EXIST);
-    $cm = get_coursemodule_from_instance('adaptivequiz', $adaptivequiz->id, $adaptivequiz->course, false, MUST_EXIST);
-
-    require_login($course, true, $cm);
-
-    $modcontext = context_module::instance($cm->id);
-
-    // Check if the user has the attempt capability.
-    if (!has_capability('mod/adaptivequiz:attempt', $modcontext) && !has_capability('mod/adaptivequiz:viewreport', $modcontext)) {
-        throw new moodle_exception('nopermission', 'adaptivequiz');
-    }
-
-    // If we are reviewing an attempt, require the viewreport capability.
-    if ($attemptrec->userid != $USER->id) {
-        require_capability('mod/adaptivequiz:viewreport', $modcontext);
-    } else {
-        // Otherwise, check that the attempt is active.
-        require_once($CFG->dirroot.'/mod/adaptivequiz/locallib.php');
-
-        // Check if the user has any previous attempts at this activity.
-        $count = adaptivequiz_count_user_previous_attempts($adaptivequiz->id, $USER->id);
-        if (!adaptivequiz_allowed_attempt($adaptivequiz->attempts, $count)) {
-            throw new moodle_exception('noattemptsallowed', 'adaptivequiz');
-        }
-        // Check if the uniqueid belongs to the same attempt record the user is currently using.
-        if (!adaptivequiz_uniqueid_part_of_attempt($qubaid, $cm->instance, $USER->id)) {
-            throw new moodle_exception('uniquenotpartofattempt', 'adaptivequiz');
-        }
-        // Verify that the attempt is still in progress.
-        if ($attemptrec->attemptstate != attempt_state::IN_PROGRESS) {
-            throw new moodle_exception('notinprogress', 'adaptivequiz');
-        }
-    }
+    // A running attempt and the review of a finished one follow different rules (issue #18).
+    \mod_adaptivequiz\local\question_file_access::require_access($attemptrec);
 
     $fs = get_file_storage();
     $relativepath = implode('/', $args);
