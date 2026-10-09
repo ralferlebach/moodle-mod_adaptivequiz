@@ -148,6 +148,12 @@ final class attempt_test extends advanced_testcase {
         unset($data->timefinished);
         unset($data->resultstatus);
         unset($data->resultvalid);
+        // The result snapshot is taken at completion (issue #14); a started attempt has none.
+        $snapshot = ['resultreason', 'resultscore', 'resultlower', 'resultupper', 'resultpercent', 'resultlink', 'resulttime'];
+        foreach ($snapshot as $field) {
+            $this->assertNull($data->$field, $field);
+            unset($data->$field);
+        }
 
         // Cast the float values to eliminate the data representation issues.
         $data->difficultysum = (float) $data->difficultysum;

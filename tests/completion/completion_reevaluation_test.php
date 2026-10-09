@@ -65,7 +65,7 @@ final class completion_reevaluation_test extends advanced_testcase {
      * @dataProvider combinations
      * @param int $attemptcompleted completionattemptcompleted
      * @param int $validresult completionvalidresult
-     * @param int $resultvalid The validity the CAT model wrote for the attempt.
+     * @param int $resultvalid Whether the attempt has a valid result.
      * @param int $expected The expected completion state.
      */
     public function test_completion_follows_the_rules(
@@ -90,11 +90,12 @@ final class completion_reevaluation_test extends advanced_testcase {
         $cm = get_coursemodule_from_instance('adaptivequiz', $adaptivequiz->id);
         $context = context_module::instance($cm->id);
 
-        // What the CAT model has written by the time the attempt is completed.
+        // The built-in algorithm decides validity from the result snapshot (issue #14): an attempt
+        // with answered questions has a result, one without has none.
         $now = time();
         $DB->insert_record('adaptivequiz_attempt', (object) [
             'instance' => $adaptivequiz->id, 'userid' => $student->id, 'uniqueid' => 88000 + $adaptivequiz->id,
-            'attemptstate' => 'inprogress', 'attemptstopcriteria' => '', 'questionsattempted' => 3,
+            'attemptstate' => 'inprogress', 'attemptstopcriteria' => '', 'questionsattempted' => $resultvalid ? 3 : 0,
             'difficultysum' => 0, 'standarderror' => 0.3, 'measure' => 0.2,
             'resultvalid' => $resultvalid, 'resultstatus' => $resultvalid ? 'valid' : 'invalid',
             'timecreated' => $now, 'timemodified' => $now,

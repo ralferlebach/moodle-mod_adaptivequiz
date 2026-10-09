@@ -62,6 +62,10 @@ class provider implements
             'measure' => 'privacy:metadata:adaptivequiz_attempt:measure',
             'timecreated' => 'privacy:metadata:adaptivequiz_attempt:timecreated',
             'timemodified' => 'privacy:metadata:adaptivequiz_attempt:timemodified',
+            'resultvalid' => 'privacy:metadata:adaptivequiz_attempt:resultvalid',
+            'resultreason' => 'privacy:metadata:adaptivequiz_attempt:resultreason',
+            'resultscore' => 'privacy:metadata:adaptivequiz_attempt:resultscore',
+            'resultpercent' => 'privacy:metadata:adaptivequiz_attempt:resultpercent',
         ], 'privacy:metadata:adaptivequiz_attempt');
 
         // The answers given during an attempt live in the question subsystem.
@@ -370,6 +374,10 @@ class provider implements
             'measure' => $attempt->measure,
             'timecreated' => transform::datetime($attempt->timecreated),
             'timemodified' => transform::datetime($attempt->timemodified),
+            'resultvalid' => transform::yesno(!empty($attempt->resultvalid)),
+            'resultreason' => $attempt->resultreason ?? null,
+            'resultscore' => $attempt->resultscore ?? null,
+            'resultpercent' => $attempt->resultpercent ?? null,
         ];
     }
 

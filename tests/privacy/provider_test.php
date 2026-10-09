@@ -144,7 +144,8 @@ final class provider_test extends provider_testcase {
         $this->assertArrayHasKey('adaptivequiz_attempt', $tables);
         $this->assertEqualsCanonicalizing(
             ['userid', 'uniqueid', 'attemptstate', 'attemptstopcriteria', 'questionsattempted',
-                'difficultysum', 'standarderror', 'measure', 'timecreated', 'timemodified'],
+                'difficultysum', 'standarderror', 'measure', 'timecreated', 'timemodified',
+                'resultvalid', 'resultreason', 'resultscore', 'resultpercent'],
             $tables['adaptivequiz_attempt']
         );
     }

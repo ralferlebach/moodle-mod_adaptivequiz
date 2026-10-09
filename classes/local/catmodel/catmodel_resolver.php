@@ -114,7 +114,7 @@ final class catmodel_resolver {
      */
     private static function candidate_classes(string $component): array {
         $classes = [];
-        foreach (['instance', 'form', 'itemadministration'] as $area) {
+        foreach (['instance', 'form', 'itemadministration', 'result'] as $area) {
             $classes += core_component::get_component_classes_in_namespace(
                 $component,
                 self::HANDLER_NAMESPACES . '\\' . $area

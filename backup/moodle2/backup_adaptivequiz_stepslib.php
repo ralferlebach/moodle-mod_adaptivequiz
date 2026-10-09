@@ -37,13 +37,14 @@ class backup_adaptivequiz_activity_structure_step extends backup_questions_activ
             'attemptfeedback', 'attemptfeedbackformat', 'showabilitymeasure', 'showabilitymeasurefeedback',
             'showabilitymeasuresummary', 'showattemptprogress', 'highestlevel', 'lowestlevel', 'minimumquestions',
             'maximumquestions', 'standarderror', 'startinglevel', 'timecreated', 'timemodified', 'completionattemptcompleted',
-            'completionvalidresult'];
+            'completionvalidresult', 'grademethod', 'passscore'];
         $adaptivequiz = new backup_nested_element('adaptivequiz', ['id'], $nodes);
 
         // Attempts.
         $adaptiveattempts = new backup_nested_element('adaptiveattempts');
         $nodes = ['userid', 'uniqueid', 'attemptstate', 'attemptstopcriteria', 'questionsattempted', 'difficultysum',
-            'standarderror', 'measure', 'timecreated', 'timemodified', 'timefinished', 'resultstatus', 'resultvalid'];
+            'standarderror', 'measure', 'timecreated', 'timemodified', 'timefinished', 'resultstatus', 'resultvalid',
+            'resultreason', 'resultscore', 'resultlower', 'resultupper', 'resultpercent', 'resultlink', 'resulttime'];
         $adaptiveattempt = new backup_nested_element('adaptiveattempt', ['id'], $nodes);
 
         // This module is using questions, so produce the related question states and sessions.
