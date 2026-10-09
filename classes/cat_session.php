@@ -25,6 +25,7 @@ use mod_adaptivequiz\local\catalgo;
 use mod_adaptivequiz\local\fetchquestion;
 use mod_adaptivequiz\local\itemadministration\default_item_administration_factory;
 use mod_adaptivequiz\local\itemadministration\item_administration_factory;
+use mod_adaptivequiz\local\request_timing;
 use moodle_exception;
 use question_bank;
 use question_engine;
@@ -66,7 +67,11 @@ class cat_session {
         // go through here, so the lock covers both.
         $lockfactory = \core\lock\lock_config::get_lock_factory('mod_adaptivequiz');
         $lockkey = 'adaptivequiz_itemadministration_' . $adaptivequiz->id . '_' . $USER->id;
+        // How long the request waited for the lock is measured on its own: up to ten seconds of it
+        // would otherwise look like slow item selection.
+        request_timing::start('lock_wait');
         $lock = $lockfactory->get_lock($lockkey, 10);
+        request_timing::stop('lock_wait', ['acquired' => (bool) $lock]);
         if (!$lock) {
             // A concurrent request for the same attempt is already administering
             // an item; bail out rather than risk creating a duplicate slot.
@@ -119,7 +124,10 @@ class cat_session {
             $adaptiveattempt,
             $adaptivequiz
         );
-        $itemadministrationevaluation = $itemadministration->evaluate_ability_to_administer_next_item($previousslot);
+        $itemadministrationevaluation = request_timing::measure(
+            'select_item',
+            fn() => $itemadministration->evaluate_ability_to_administer_next_item($previousslot)
+        );
 
         if ($itemadministrationevaluation->item_administration_is_to_stop()) {
             $noquestionsfetchedforattempt = $uniqueid == 0;
@@ -200,7 +208,8 @@ class cat_session {
                     DEBUG_DEVELOPER
                 );
             }
-            $question = question_bank::load_question($questionid);
+            $question = request_timing::measure('load_question', fn() => question_bank::load_question($questionid));
+            request_timing::start('question_usage');
             $slot = $quba->add_question($question);
 
             if (!$quba->get_question_state($slot)->is_active()) {
@@ -212,6 +221,7 @@ class cat_session {
                     $adaptiveattempt->set_quba_id($quba->get_id());
                 }
             }
+            request_timing::stop('question_usage', ['slots' => count($quba->get_slots())]);
 
             $adaptiveattempt->set_question_slot_number($slot);
 

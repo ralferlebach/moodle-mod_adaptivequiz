@@ -493,7 +493,7 @@ class attempt {
                 $pluginswithfunction = get_plugin_list_with_function('adaptivequizcatmodel', 'post_create_attempt_callback');
                 if (array_key_exists($catmodelcomponentname, $pluginswithfunction)) {
                     $functionname = $pluginswithfunction[$catmodelcomponentname];
-                    $functionname($this->adaptivequiz, $this);
+                    request_timing::measure('catmodel_attempt_created', fn() => $functionname($this->adaptivequiz, $this));
                 }
             }
         } else {

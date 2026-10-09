@@ -29,6 +29,7 @@ require_once($CFG->dirroot . '/tag/lib.php');
 
 use mod_adaptivequiz\cat_session;
 use mod_adaptivequiz\local\attempt;
+use mod_adaptivequiz\local\request_timing;
 
 $id = required_param('cmid', PARAM_INT); // Course module id.
 $uniqueid  = optional_param('uniqueid', 0, PARAM_INT);  // Unique id of the attempt.
@@ -115,7 +116,10 @@ if (!empty($uniqueid) && confirm_sesskey()) {
             $quba->process_all_actions($time);
             $quba->finish_all_questions($time);
         };
-        cat_session::process_administered_item_result($uniqueid, $adaptivequiz, $adaptiveattempt, $qubahelper);
+        request_timing::measure(
+            'process_response',
+            fn() => cat_session::process_administered_item_result($uniqueid, $adaptivequiz, $adaptiveattempt, $qubahelper)
+        );
     } catch (question_out_of_sequence_exception $e) {
         $url = new moodle_url('/mod/adaptivequiz/attempt.php', array('cmid' => $id));
         throw new moodle_exception('submissionoutofsequencefriendlymessage', 'question', $url);
@@ -131,7 +135,10 @@ if (!empty($uniqueid) && confirm_sesskey()) {
     }
 }
 
-cat_session::run_item_administration($uniqueid, $adaptivequiz, $context, $adaptiveattempt);
+request_timing::measure(
+    'administer_item',
+    fn() => cat_session::run_item_administration($uniqueid, $adaptivequiz, $context, $adaptiveattempt)
+);
 
 $attemptcompleted = !empty($adaptiveattempt->get_status());
 if ($attemptcompleted) {
