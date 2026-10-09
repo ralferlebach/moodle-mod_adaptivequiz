@@ -131,7 +131,10 @@ final class question_pool_scope_test extends advanced_testcase {
             'The second activity refused a question although its own pool holds nine: '
                 . $evaluation->stoppage_reason()
         );
-        $this->assertSame([4 => 3, 5 => 3, 6 => 3], $SESSION->adpqtagquestsum[$wide->id]);
+        // A count per level; the order of the levels comes from the database and means nothing.
+        $counts = $SESSION->adpqtagquestsum[$wide->id];
+        ksort($counts);
+        $this->assertSame([4 => 3, 5 => 3, 6 => 3], $counts);
         $this->assertSame([5 => 1], $SESSION->adpqtagquestsum[$narrow->id]);
     }
 }

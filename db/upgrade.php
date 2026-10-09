@@ -49,8 +49,16 @@ function xmldb_adaptivequiz_upgrade($oldversion) {
 
     if ($oldversion < 2022012600) {
         $table = new xmldb_table('adaptivequiz');
-        $field = new xmldb_field('showabilitymeasure', XMLDB_TYPE_INTEGER, '1', null, XMLDB_NOTNULL, false, '0',
-            'attemptfeedbackformat');
+        $field = new xmldb_field(
+            'showabilitymeasure',
+            XMLDB_TYPE_INTEGER,
+            '1',
+            null,
+            XMLDB_NOTNULL,
+            false,
+            '0',
+            'attemptfeedbackformat'
+        );
 
         if (!$dbman->field_exists($table, $field)) {
             $dbman->add_field($table, $field);
@@ -72,8 +80,16 @@ function xmldb_adaptivequiz_upgrade($oldversion) {
 
     if ($oldversion < 2022110200) {
         $table = new xmldb_table('adaptivequiz');
-        $field = new xmldb_field('showattemptprogress', XMLDB_TYPE_INTEGER, '1', null, XMLDB_NOTNULL, null, 0,
-            'showabilitymeasure');
+        $field = new xmldb_field(
+            'showattemptprogress',
+            XMLDB_TYPE_INTEGER,
+            '1',
+            null,
+            XMLDB_NOTNULL,
+            null,
+            0,
+            'showabilitymeasure'
+        );
 
         if (!$dbman->field_exists($table, $field)) {
             $dbman->add_field($table, $field);
@@ -82,69 +98,158 @@ function xmldb_adaptivequiz_upgrade($oldversion) {
         upgrade_mod_savepoint(true, 2022110200, 'adaptivequiz');
     }
 
-    if ($oldversion < 2024082100) {
+    if ($oldversion < 2025092700) {
         $table = new xmldb_table('adaptivequiz');
-        $field = new xmldb_field('catmodel', XMLDB_TYPE_CHAR, 255);
+        // The default value is set to '-1' to indicate the transition state of the setting for the existing instances.
+        $field = new xmldb_field(
+            'attemptfeedbackenable',
+            XMLDB_TYPE_INTEGER,
+            '1',
+            null,
+            XMLDB_NOTNULL,
+            null,
+            '-1',
+            'attemptfeedbackformat'
+        );
 
         if (!$dbman->field_exists($table, $field)) {
             $dbman->add_field($table, $field);
         }
 
-        upgrade_mod_savepoint(true, 2024082100, 'adaptivequiz');
+        upgrade_mod_savepoint(true, 2025092700, 'adaptivequiz');
     }
 
-    if ($oldversion < 2026082100) {
-        // The 'measure' column exists in install.xml but is created by no upgrade
-        // step, so installations that were set up from an older install.xml never
-        // received it. That is not merely cosmetic: closeattempt.php, catalgo.php,
-        // view.php and the reports all read the column, so such an instance fails at
-        // run time and not only during an upgrade.
-        //
-        // Created here with exactly the definition from install.xml, and only when
-        // absent - so a healthy installation is untouched.
-        $table = new xmldb_table('adaptivequiz_attempt');
-        $field = new xmldb_field('measure', XMLDB_TYPE_NUMBER, '10, 5', null, XMLDB_NOTNULL, null, '0.0');
+    if ($oldversion < 2025092701) {
+        $table = new xmldb_table('adaptivequiz');
 
+        $field = new xmldb_field(
+            'showabilitymeasurefeedback',
+            XMLDB_TYPE_INTEGER,
+            '1',
+            null,
+            XMLDB_NOTNULL,
+            null,
+            '0',
+            'showabilitymeasure'
+        );
         if (!$dbman->field_exists($table, $field)) {
             $dbman->add_field($table, $field);
         }
 
-        // Issue #5: authoritative, immutable completion timestamp on the attempt.
-        // NULL while the attempt is running; set exactly once at the transition
-        // to COMPLETED. Additive and idempotent.
-        $table = new xmldb_table('adaptivequiz_attempt');
-
-        // No positional argument: it used to say "after measure", which turned into
-        // an AFTER clause on MySQL/MariaDB and failed wherever that column was
-        // missing. PostgreSQL ignores column position, which is why this only ever
-        // surfaced on one engine. Column order carries no meaning in SQL, so the
-        // field is appended - independently of the step above.
-        $field = new xmldb_field('timefinished', XMLDB_TYPE_INTEGER, '10', null, null, null, null);
-
+        $field = new xmldb_field(
+            'showabilitymeasuresummary',
+            XMLDB_TYPE_INTEGER,
+            '1',
+            null,
+            XMLDB_NOTNULL,
+            null,
+            '0',
+            'showabilitymeasurefeedback'
+        );
         if (!$dbman->field_exists($table, $field)) {
             $dbman->add_field($table, $field);
         }
 
-        upgrade_mod_savepoint(true, 2026082100, 'adaptivequiz');
+        upgrade_mod_savepoint(true, 2025092701, 'adaptivequiz');
     }
 
-    if ($oldversion < 2026082105) {
-        // Issue #8: couple activity completion to a valid CAT result. Add the
-        // per-attempt result fields and the per-activity completion rule flag.
-        // Additive and idempotent.
-        $table = new xmldb_table('adaptivequiz_attempt');
-        // No positional argument here either, for the same reason as above: it would
-        // make this step depend on a column the previous step may not have created.
-        $field = new xmldb_field('resultstatus', XMLDB_TYPE_CHAR, '255', null, null, null, null);
-        if (!$dbman->field_exists($table, $field)) {
-            $dbman->add_field($table, $field);
+    if ($oldversion < 2025092702) {
+        // Both new fields will acquire their values from the original 'showabilitymeasure'.
+        $sql = "UPDATE {adaptivequiz}
+                   SET showabilitymeasurefeedback = showabilitymeasure,
+                       showabilitymeasuresummary = showabilitymeasure";
+        $DB->execute($sql);
+
+        upgrade_mod_savepoint(true, 2025092702, 'adaptivequiz');
+    }
+
+    if ($oldversion < 2026030100) {
+        $table = new xmldb_table('adaptivequiz_qbank');
+        $table->add_field('id', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, XMLDB_SEQUENCE);
+        $table->add_field('adaptivequizid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL);
+        $table->add_field('qbankid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL);
+        $table->add_field('qbankcontextid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL);
+
+        $table->add_key('primary', XMLDB_KEY_PRIMARY, ['id']);
+        $table->add_key('adaptivequizid', XMLDB_KEY_FOREIGN, ['adaptivequizid'], 'adaptivequiz', ['id']);
+        $table->add_key('qbankid', XMLDB_KEY_FOREIGN, ['qbankid'], 'qbank', ['id']);
+        $table->add_key('qbankcontextid', XMLDB_KEY_FOREIGN, ['qbankcontextid'], 'context', ['id']);
+
+        $table->add_index('adaptivequiz-qbank', XMLDB_INDEX_UNIQUE, ['adaptivequizid', 'qbankid', 'qbankcontextid']);
+
+        if (!$dbman->table_exists($table)) {
+            $dbman->create_table($table);
         }
-        $field = new xmldb_field('resultvalid', XMLDB_TYPE_INTEGER, '1', null, XMLDB_NOTNULL, null, '0');
+
+        upgrade_mod_savepoint(true, 2026030100, 'adaptivequiz');
+    }
+
+    if ($oldversion < 2026030101) {
+        $table = new xmldb_table('adaptivequiz');
+        $field = new xmldb_field(
+            'debuginfoenable',
+            XMLDB_TYPE_INTEGER,
+            '1',
+            null,
+            XMLDB_NOTNULL,
+            null,
+            '0',
+            'completionattemptcompleted'
+        );
+
         if (!$dbman->field_exists($table, $field)) {
             $dbman->add_field($table, $field);
         }
 
+        upgrade_mod_savepoint(true, 2026030101, 'adaptivequiz');
+    }
+
+    if ($oldversion < 2026090902) {
         $table = new xmldb_table('adaptivequiz');
+        $field = new xmldb_field(
+            'catmodel',
+            XMLDB_TYPE_CHAR,
+            '255',
+            null,
+            null,
+            null,
+            null,
+            'debuginfoenable'
+        );
+
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        upgrade_mod_savepoint(true, 2026090902, 'adaptivequiz');
+    }
+
+    if ($oldversion < 2026090909) {
+        // Issue #9: these columns were NOT NULL without a default, so every insert that did not
+        // mention them failed. Only the integer flags can carry one - XMLDB rejects an empty
+        // string as a default for char and text columns, so name, intro, password and
+        // attemptfeedback are filled by adaptivequiz_add_instance() instead.
+        $table = new xmldb_table('adaptivequiz');
+        $fields = [
+            new xmldb_field('attemptfeedbackenable', XMLDB_TYPE_INTEGER, '1', null, XMLDB_NOTNULL, null, '0'),
+            new xmldb_field('showabilitymeasurefeedback', XMLDB_TYPE_INTEGER, '1', null, XMLDB_NOTNULL, null, '0'),
+            new xmldb_field('showabilitymeasuresummary', XMLDB_TYPE_INTEGER, '1', null, XMLDB_NOTNULL, null, '0'),
+            new xmldb_field('debuginfoenable', XMLDB_TYPE_INTEGER, '1', null, XMLDB_NOTNULL, null, '0'),
+        ];
+
+        foreach ($fields as $field) {
+            if ($dbman->field_exists($table, $field)) {
+                $dbman->change_field_default($table, $field);
+            }
+        }
+
+        upgrade_mod_savepoint(true, 2026090909, 'adaptivequiz');
+    }
+
+    if ($oldversion < 2026091004) {
+        $table = new xmldb_table('adaptivequiz');
+
+        // A second completion rule: a valid result, not merely a technically completed attempt.
         $field = new xmldb_field(
             'completionvalidresult',
             XMLDB_TYPE_INTEGER,
@@ -155,24 +260,41 @@ function xmldb_adaptivequiz_upgrade($oldversion) {
             '0',
             'completionattemptcompleted'
         );
+
         if (!$dbman->field_exists($table, $field)) {
             $dbman->add_field($table, $field);
         }
 
-        upgrade_mod_savepoint(true, 2026082105, 'adaptivequiz');
-    }
+        $table = new xmldb_table('adaptivequiz_attempt');
 
-    if ($oldversion < 2026092902) {
-        // Issue #121: completionvalidresult is now part of the cached course module info. Courses that
-        // use it are rebuilt so the rule takes part in completion without waiting for a cache purge.
-        $courseids = $DB->get_fieldset_sql(
-            'SELECT DISTINCT course FROM {adaptivequiz} WHERE completionvalidresult = 1'
-        );
-        foreach ($courseids as $courseid) {
-            rebuild_course_cache((int) $courseid, true);
+        // The completion time gets its own column: the reports used to show timemodified, which
+        // drifts with every later change to the attempt. Existing completed attempts keep
+        // timemodified as their best available value.
+        $field = new xmldb_field('timefinished', XMLDB_TYPE_INTEGER, '10', null, null, null, null, 'timemodified');
+
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+
+            $DB->execute(
+                "UPDATE {adaptivequiz_attempt} SET timefinished = timemodified WHERE attemptstate = ?",
+                [\mod_adaptivequiz\local\attempt\attempt_state::COMPLETED]
+            );
         }
 
-        upgrade_mod_savepoint(true, 2026092902, 'adaptivequiz');
+        // Whether a result is valid is decided by the CAT model of the activity, which writes
+        // these two onto the attempt. The host only stores and reads them.
+        $fields = [
+            new xmldb_field('resultstatus', XMLDB_TYPE_CHAR, '255', null, null, null, null, 'timefinished'),
+            new xmldb_field('resultvalid', XMLDB_TYPE_INTEGER, '1', null, XMLDB_NOTNULL, null, '0', 'resultstatus'),
+        ];
+
+        foreach ($fields as $field) {
+            if (!$dbman->field_exists($table, $field)) {
+                $dbman->add_field($table, $field);
+            }
+        }
+
+        upgrade_mod_savepoint(true, 2026091004, 'adaptivequiz');
     }
 
     return true;

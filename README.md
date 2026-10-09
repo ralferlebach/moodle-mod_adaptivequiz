@@ -22,7 +22,11 @@ This Moodle activity module was originally created as a collaborative effort bet
 College][3] and [Remote Learner][4]. The current repository was forked from
 [https://github.com/middlebury/moodle-mod_adaptivequiz][5].
 
-The current branch of the repository is compatible with Moodle versions from 4.1 to 4.3.
+The current branch of the repository is compatible with Moodle 5.0, 5.1 and 5.2.
+
+**<span style="font-size:1.25em">IMPORTANT: the current branch is not an official plugin release for Moodle 5! It is
+an alpha and is intended for test sites only. Use the current branch at your own risk for any public Moodle
+sites.</span>**
 
 [3]: http://www.middlebury.edu/
 [4]: http://remote-learner.net/
@@ -61,6 +65,15 @@ of the scale is arbitrary (e.g. 1-10, 0-99, 1-1000), but should have enough leve
 distinguish between
 question difficulties.
 
+### Moodle 5 updates ###
+The current version allows to start operating with entire question banks in Moodle. This means a quiz manager
+can link an entire question bank or several question banks to use them as an item bank for the adaptive quiz.
+This is the key difference from any previous plugin version where the item bank consisted of linked question
+categories. For the upgraded sites however, all question categories linked as an item bank (or 'questions pool')
+in previous plugin versions remain linked with no changes. Please note, that quiz managers won't be able to
+link more separate question categories in the new plugin version, this is a temporary limitation in the new
+item bank management. As a new item bank, only entire question banks can be linked.
+
 The Testing Process
 -------------------
 The Adaptive Test activity is configured with a fixed starting level. The test will
@@ -80,20 +93,20 @@ This process of alternating harder questions following correct answers and easie
 questions following wrong answers continues until one of the stopping conditions is
 met. The possible stopping conditions are as follows:
 
-* There are no remaining easier questions to ask after a wrong answer.
-* There are no remaining harder questions to ask after a correct answer.
-* The standard error in the measure has become precise enough to stop.
-* The maximum number of questions has been exceeded.
+ * There are no remaining easier questions to ask after a wrong answer.
+ * There are no remaining harder questions to ask after a correct answer.
+ * The standard error in the measure has become precise enough to stop.
+ * The maximum number of questions has been exceeded.
 
 Test Parameters and Operation
 ==============================
 
 The primary parameters for tuning the operation of the test are:
 
-* The starting level
-* The minimum number of questions
-* The maximum number of questions
-* The standard error to stop
+ * The starting level
+ * The minimum number of questions
+ * The maximum number of questions
+ * The standard error to stop
 
 Relationship between maximum number of questions and Standard Error
 --------------------------------------------------------------------
@@ -115,26 +128,26 @@ answers were wrong. For a given number of questions asked, the Standard Error wi
 smallest when half the answers are right and half are wrong. From this, we can deduce
 the minimum standard error possible to achieve for any number of questions asked:
 
-* 10 questions (5 right, 5 wrong) → Minimum Standard Error = ± 15.30%
-* 20 questions (10 right, 10 wrong) → Minimum Standard Error = ± 11.00%
-* 30 questions (15 right, 15 wrong) →  Minimum Standard Error = ± 9.03%
-* 40 questions (20 right, 20 wrong) →  Minimum Standard Error = ± 7.84%
-* 50 questions (25 right, 25 wrong) →  Minimum Standard Error = ± 7.02%
-* 60 questions (30 right, 30 wrong) →  Minimum Standard Error = ± 6.42%
-* 70 questions (35 right, 35 wrong) →  Minimum Standard Error = ± 5.95%
-* 80 questions (40 right, 40 wrong) →  Minimum Standard Error = ± 5.57%
-* 90 questions (45 right, 45 wrong) →  Minimum Standard Error = ± 5.25%
-* 100 questions (50 right, 50 wrong) →  Minimum Standard Error = ± 4.98%
-* 110 questions (55 right, 55 wrong) →  Minimum Standard Error = ± 4.75%
-* 120 questions (60 right, 60 wrong) →  Minimum Standard Error = ± 4.55%
-* 130 questions (65 right, 65 wrong) →  Minimum Standard Error = ± 4.37%
-* 140 questions (70 right, 70 wrong) →  Minimum Standard Error = ± 4.22%
-* 150 questions (75 right, 75 wrong) →  Minimum Standard Error = ± 4.07%
-* 160 questions (80 right, 80 wrong) →  Minimum Standard Error = ± 3.94%
-* 170 questions (85 right, 85 wrong) →  Minimum Standard Error = ± 3.83%
-* 180 questions (90 right, 90 wrong) →  Minimum Standard Error = ± 3.72%
-* 190 questions (95 right, 95 wrong) →  Minimum Standard Error = ± 3.62%
-* 200 questions (100 right, 100 wrong) →  Minimum Standard Error = ± 3.53%
+ * 10 questions (5 right, 5 wrong) → Minimum Standard Error = ± 15.30%
+ * 20 questions (10 right, 10 wrong) → Minimum Standard Error = ± 11.00%
+ * 30 questions (15 right, 15 wrong) →  Minimum Standard Error = ± 9.03%
+ * 40 questions (20 right, 20 wrong) →  Minimum Standard Error = ± 7.84%
+ * 50 questions (25 right, 25 wrong) →  Minimum Standard Error = ± 7.02%
+ * 60 questions (30 right, 30 wrong) →  Minimum Standard Error = ± 6.42%
+ * 70 questions (35 right, 35 wrong) →  Minimum Standard Error = ± 5.95%
+ * 80 questions (40 right, 40 wrong) →  Minimum Standard Error = ± 5.57%
+ * 90 questions (45 right, 45 wrong) →  Minimum Standard Error = ± 5.25%
+ * 100 questions (50 right, 50 wrong) →  Minimum Standard Error = ± 4.98%
+ * 110 questions (55 right, 55 wrong) →  Minimum Standard Error = ± 4.75%
+ * 120 questions (60 right, 60 wrong) →  Minimum Standard Error = ± 4.55%
+ * 130 questions (65 right, 65 wrong) →  Minimum Standard Error = ± 4.37%
+ * 140 questions (70 right, 70 wrong) →  Minimum Standard Error = ± 4.22%
+ * 150 questions (75 right, 75 wrong) →  Minimum Standard Error = ± 4.07%
+ * 160 questions (80 right, 80 wrong) →  Minimum Standard Error = ± 3.94%
+ * 170 questions (85 right, 85 wrong) →  Minimum Standard Error = ± 3.83%
+ * 180 questions (90 right, 90 wrong) →  Minimum Standard Error = ± 3.72%
+ * 190 questions (95 right, 95 wrong) →  Minimum Standard Error = ± 3.62%
+ * 200 questions (100 right, 100 wrong) →  Minimum Standard Error = ± 3.53%
 
 What this listing indicates is that for a test configured with a maximum of 50
 questions and a "standard error to stop" of 7%, the maximum number of questions will
@@ -192,235 +205,110 @@ when acting on the score.
 
 # Custom CAT models
 
-## General information
+## What a CAT model subplugin is
 
-Apart from the CAT model described above, the activity can be customized to use another logic to assess answers
-and select questions when running a quiz. At this moment, this is an experimental, partially implemented feature.
-This section describes the ongoing work for those who are interested in this functionality to be present in
-the adaptive quiz activity.
+Besides the built-in algorithm described above, the activity can hand the whole assessment over to
+a subplugin: which question comes next, how an answer is judged, what a finished attempt means.
+Such subplugins live under `/mod/adaptivequiz/catmodel` and have the frankenstyle name
+`adaptivequizcatmodel_<name>`. An activity names the one it uses in `adaptivequiz.catmodel`; an
+empty value means the built-in algorithm.
 
-The plugin supports sub-plugins placed under `/mod/adaptivequiz/catmodel` directory. Each sub-plugin of such type
-is implementation of a custom CAT model. Such sub-plugins are enabled to modify the activity form by adding
-custom fields there, validation for those fields and specifying the way those fields are populated when the form is initialized.
-Sub-plugin can inject custom logic to be called when an adaptive quiz is created, updated and deleted. Basically, this allows for
-processing the custom form fields added by a sub-plugin. Finally, sub-plugins can implement certain hooks to replace the default
-logic of administering items (questions) during the quiz and inject their own logic based on some custom algorithms. The ways
-a sub-plugin injects such functionality are described in detail below.
+The host offers extension points, it holds no CAT model logic of its own - and it must stay usable
+with no CAT model installed at all. Its test suite runs without one.
 
-## Technical implementation
+## How the host reaches a subplugin
 
-This section makes the most interest for those who would like to implement certain interfaces to add their custom
-CAT models to get used by the adaptive quiz activity. At this point there are three parts of such extension: `mod_form`
-customization, hooking up to the mod's lib functions, particularly, `adaptivequiz_add_instance()`,
-`adaptivequiz_update_instance()` and `adaptivequiz_delete_instance()`, and the most powerful one - implementing of item
-administration interface and a couple of callbacks with specific names placed in sub-plugin's `lib.php`.
+Through exactly one class: `mod_adaptivequiz\local\catmodel\catmodel_resolver`. Everything else in
+the host asks it, nothing looks up a subplugin on its own.
 
-### Customization of `mod_form`
+    catmodel_resolver::handler(?string $catmodel, string $interface): ?object
+    catmodel_resolver::callback(?string $catmodel, string $callback, ...$arguments)
 
-A new section has been added to the `mod_form` - 'CAT model'. So far it contains just one field - the sub-plugin selector.
-After creating a sub-plugin and placing it under `/mod/adaptivequiz/catmodel` directory, it becomes available in this selector.
-After selecting a sub-plugin with a CAT model to use, the `mod_form` is reloaded and tries to pick up implementations of
-interfaces, which it expects to be implemented to customize the form. The interfaces are defined under
-`/mod/adaptivequiz/classes/local/catmodel/form` dir and `mod_adaptivequiz\local\catmodel\form` namespace.
+`handler()` answers with an object implementing the given interface, `callback()` with the return
+value of a plugin callback function. Both have the same three outcomes:
 
-Below you'll find short description of the interfaces used for `mod_form` customization.
+* no CAT model configured - `null`, the host default applies;
+* CAT model configured but this extension point not offered - `null`, same;
+* CAT model configured but not installed - `coding_exception`, never a PHP fatal.
 
-***catmodel_mod_form_modifier***
+Handlers are looked up below the subplugin namespace, in both layouts in use:
+`…\local\catmodel\{form,instance,itemadministration}` and `…\local\itemadministration`.
 
-Used to add custom fields to the form. The fields will be placed right after the CAT model selector.
+## Extension points
 
-The interface defines one method to be implemented for adding custom fields:
+### The activity form
 
-```
-public function definition_after_data_callback(MoodleQuickForm $form): array;
-```
+Interfaces under `mod_adaptivequiz\local\catmodel\form`:
 
-In Moodle, when you want to define the `moodleform`'s fields based on values of other fields (like the CAT model selector from above)
-you're making use of `moodleform::definition_after_data()` method. The adaptive quiz plugin overrides this method in its `mod_form`
-and wires up implementations of `catmodel_mod_form_modifier::definition_after_data_callback()` in it. You can find an example
-of implementation of this interface in the 'Hello world' sub-plugin included in the adaptive quiz mod. In general, this
-example sub-plugin is a good source of example implementations of the interfaces listed here. Thus, the example source
-code isn't listed here, it can be found in the 'Hello world' sub-plugin.
+| Interface | Called for |
+|---|---|
+| `catmodel_mod_form_modifier` | adding the CAT model's own fields, returned elements are placed at the marker |
+| `catmodel_mod_form_validator` | validating those fields |
+| `catmodel_mod_form_data_preprocessor` | filling them when the form opens |
 
-***catmodel_mod_form_validator***
+The form shows a CAT model selector as soon as at least one subplugin is installed. Choosing one
+reloads the form through a no-submit button - no JavaScript is involved, so the form also works
+without it. When a CAT model is selected, the settings of the built-in algorithm disappear: they do
+not apply to an activity the subplugin drives.
 
-Used to add extra validation the form. Defines one method:
+`mod_adaptivequiz\local\catmodel\form\mod_form_extension` applies all three. The form class itself
+only forwards, because a form cannot be instantiated in a test.
 
-```
-public function validation_callback(array $data, array $files): array;
-```
+### The activity lifecycle
 
-Accepts the same parameters as the calling `moodleform_mod::validation()` method, and is expected to return an array
-with the same structure as `moodleform_mod::validation()` returns. Again, see the example implementation in 'Hello world'
-sub-plugin.
+Interfaces under `mod_adaptivequiz\local\catmodel\instance`, called from `lib.php`:
 
-***catmodel_mod_form_data_preprocessor***
+| Interface | Called from |
+|---|---|
+| `catmodel_add_instance_handler` | `adaptivequiz_add_instance()` |
+| `catmodel_update_instance_handler` | `adaptivequiz_update_instance()` |
+| `catmodel_delete_instance_handler` | `adaptivequiz_delete_instance()`, before the host clears its own data |
 
-The interface defines one method to be implemented:
+### Administering items
 
-```
-public function data_preprocessing_callback(array $formdefaultvalues): array;
-```
+`mod_adaptivequiz\local\itemadministration\item_administration_factory` hands out an
+`item_administration`, asked once per request by `cat_session::item_administration_factory_for()`.
+Without a CAT model the host uses `default_item_administration`, which is the built-in algorithm
+behind the same contract.
 
-In Moodle, to tweak how the `moodleform`'s fields are populated you're making use of `moodleform::data_preprocessing()` method.
-The adaptive quiz plugin overrides this method in its `mod_form` and wires up implementations of
-`catmodel_mod_form_data_preprocessor::data_preprocessing_callback()` in it. Please, note how the form's values are passed to this
-method and that it expects them to be returned modified. As opposed to the calling method passing it be reference. Again, PHPDocs
-both in interfaces definition and the sub-plugin's implementations is a good source of information.
+`evaluate_ability_to_administer_next_item(?int $previousquestionslot)` answers with an
+`item_administration_evaluation`: either a `next_item` or a reason to stop.
 
-You may have noticed that there are several interfaces covering extension of `mod_form` containing just one method. We just follow
-the interface segregation principle here, which means a sub-plugin implementation may not necessarily need all methods to be
-implemented. For example, it may implement adding of fields to the form, but no validation is needed, etc. This encourages proper
-extension design in sub-plugins. Later it can be reviewed whether one interface can go without the others in reality, but for now
-such atomic structure is encouraged.
+A `next_item` names **either** a question id **or** a slot of the question usage. Naming a question
+id is the normal case for a CAT model: the question usage belongs to the host, so the host puts the
+question in and records the slot. A CAT model never writes to the usage itself.
 
-Where those implementations of interfaces should be placed in the sub-plugin's structure? The adaptive quiz plugin searches for
-possible implementations under `adaptivequizcatmodel_{your sub-plugin name}\local\catmodel\form` namespace. Thus, the class(es)
-should be kept under `/mod/adaptivequiz/catmodel/{your sub-plugin name}/classes/local/catmodel/form` directory. The name of
-the class implementing the interfaces does not matter. One class may also implement several interfaces. See the 'Hello world'
-plugin to get some tips on how it should be structured.
+The whole step runs under a lock keyed on activity and user, in
+`cat_session::administer_next_item()`. Two requests - a double click, a concurrent AJAX call -
+must not each create a slot for the same item. If a slot is already active and unanswered it is
+reused, even when the CAT model names a different question in the meantime: an attempt has exactly
+one open item, and appending would make the visible question number grow with every reload.
 
-### Hooking up to the lib functions
+## Callbacks in the subplugin's `lib.php`
 
-After customizing the `mod_form` by adding some fields the next logical step for a CAT model sub-plugin would be processing those
-values coming from the form. For this, a sub-plugin may implement several hooks, which are called from the adaptive quiz plugin's
-lib functions when creating, updating and deleting a quiz activity instance.
+Named `adaptivequizcatmodel_<name>_<callback>` and resolved through `catmodel_resolver::callback()`:
 
-The interfaces, which a sub-plugin may implement to hook up to creation/updating/deleting of an adaptive quiz instance
-are listed below. They're defined under `/mod/adaptivequiz/classes/local/catmodel/instance` dir
-and `mod_adaptivequiz\local\catmodel\instance` namespace.
+| Callback | Called when |
+|---|---|
+| `post_create_attempt_callback($adaptivequiz, $attempt)` | an attempt has just been created, before the first item is administered - the CAT model sets up its own record and starts its clock |
+| `post_process_item_result_callback($quba, $adaptivequiz, $attempt)` | an answer has been recorded; the host keeps no estimate of its own for such an activity |
+| `post_complete_attempt_callback($adaptivequiz, $context, $userid, $attempt)` | the attempt changes to completed - not on the result page, which a participant may never reach |
+| `post_delete_attempt_callback($adaptivequiz, $attempt)` | an attempt is deleted; the CAT model may hold results of its own |
+| `attempts_report_url($adaptivequiz, $cm)` | the activity shows the number of attempts and links it here; without it a teacher reaches no attempts overview at all |
+| `attempt_finished_feedback($adaptivequiz, $cm, $attempt)` | the result page asks for the feedback text; what the CAT model returns replaces the one configured on the activity |
 
-***catmodel_add_instance_handler***
+An activity driven by a CAT model does not show the built-in attempts report or the question
+analysis: their numbers come from the built-in algorithm and would not match.
 
-Defines one method to be implemented:
+## The completion rule 'valid result'
 
-```
-public function add_instance_callback(stdClass $adaptivequiz, ?mod_adaptivequiz_mod_form $form = null): void;
-```
+Besides 'attempt completed' the activity offers 'valid CAT result'. It reads
+`adaptivequiz_attempt.resultvalid`, which the host never writes itself - a CAT model does, together
+with `resultstatus`. The host owns the schema, the backup and the rule; the judgement is the CAT
+model's.
 
-Gets called in adaptive quiz's lib.php in `adaptivequiz_add_instance()`, during creation of an adaptive quiz instance. Here you can
-process those custom fields values added by the CAT model sub-plugin, perform some other actions, like triggering specific events,
-grades management, etc.
+## Writing one
 
-***catmodel_update_instance_handler***
-
-Defines one method:
-
-```
-public function update_instance_callback(stdClass $adaptivequiz, ?mod_adaptivequiz_mod_form $form = null): void;
-```
-
-Gets called in `adaptivequiz_update_instance()`, the definition and purpose are similar to the `add_instance_callback()` above.
-
-***catmodel_delete_instance_handler***
-
-Defines one method:
-
-```
-public function delete_instance_callback(stdClass $adaptivequiz): void;
-```
-
-Gets called in `adaptivequiz_delete_instance()`.
-
-In general, the methods of those interfaces accept the same parameters as the adaptive quiz's calling functions. Here again we
-follow the interface segregation principle and define several interfaces to implement. As with the `mod_form`, a sub-plugin may
-want to implement just one or two interface, depending on its needs.
-
-In a sub-plugin, the implementations of the interfaces listed above are expected to be under
-`adaptivequizcatmodel_{your sub-plugin name}\local\catmodel\instance` namespace
-and `/mod/adaptivequiz/catmodel/{your sub-plugin name}/classes/local/catmodel/instance` directory.
-
-### Item administration interface
-
-In the process of CAT item administration is basically presenting questions to the test-taker. On the technical level, in
-the adaptive quiz activity this is an interface, which has one public method:
-
-```
-item_administration::evaluate_ability_to_administer_next_item(?int $previousquestionslot): item_administration_evaluation;
-```
-
-The method accepts slot number of the previous administered question. By this slot number an implementation may reach out to
-the question engine to evaluate the result (correct/incorrect, fraction, etc.). The `$previousquestionslot` parameter may also be
-null. This is the case when attempt has just started and no question has been administered yet. An implementations of
-the interface must handle such value as well.
-
-`item_administration::evaluate_ability_to_administer_next_item()` returns an object of specific type -
-`item_administration_evaluation`. It has two properties which must be populated depending on the result of evaluating ability
-to administer next question:
-1. `nextitem` - in case the next item (question) should be administered, this should acquire a value of the `next_item` type.
-   `next_item` is a very simple value object, containing either an id of the next question to be administered, or a **slot** number
-   of the next question to be administered. In some case you may already have a slot number of the next question at hand, thus,
-   with care about performance you pass it instead of question id, because later on the adaptive quiz engine will anyway try to fetch
-   the slot number from that id, as it operates on slots internally.
-2. `stoppagereason` - in case item administration must stop, this property is populated with the string value of the reason
-   to stop administering questions.
-
-Of course normally only one property should be populated while another one must be null. The class contains a couple of
-convenience factory methods to quickly instantiate a corresponding object, check the class' definition.
-
-### Item administration factory
-
-To provide an implementation of item administration described above a sub-plugin is required to implement the following
-factory interface:
-
-```
-item_administration_factory::item_administration_implementation(
-        question_usage_by_activity $quba,
-        attempt $attempt,
-        stdClass $adaptivequiz
-    ): item_administration;
-```
-
-The purpose for this interface is to give sub-plugins an ability to instantiate an item administration object with some
-constructor parameters, basically, its dependencies. The only public method accepts several arguments - this is the most
-general data, which may be required when instantiating an item administration object. Perhaps, it may require more,
-suggestions on extending this range of provided data are always welcome! Below is a quick summary of the arguments:
-1. `question_usage_by_activity $quba` - a well-known Moodle's part of the question engine
-2. `attempt $attempt` - the attempt entity, normally should be used to just read data from using
-   the `read_attempt_data()->{property}` statement, where `{property}` is a field name from the attempts database table.
-3. `stdClass $adaptivequiz` - an activity instance record, but with a couple of extra properties - `context` and `cm` - also
-   are well-known Moodle objects.
-
-This data should be sufficient to run item administration, as with its help a sub-plugin may fetch its own data linked to
-the attempt, for example (and which normally should be the case).
-
-The returned value is an instance of the class implementing the `item_administration` interface, described in the previous
-section.
-
-### Extra Callbacks
-The adaptive quiz engine supports a number of callbacks, which may be implemented by sub-plugins to run some specific logic:
-1. `post_create_attempt_callback` - can be run when a new attempt has just been created. This may be used by a sub-plugin
-   to initialize its own data in some way, etc. Arguments:
-    - `stdClass $adaptivequiz` - an activity instance record
-    - `attempt $attempt` - the attempt entity, normally should be used to just read data from using
-      the `read_attempt_data()->{property}` statement, where `{property}` is a field name from the attempts database table.
-2. `post_process_item_result_callback` - can be run when a question answer has been submitted. Please, do not confuse it with
-   item administration interface, which should decide what next question should be ot stop the attempt. This callback instead
-   allows a sub-plugin run some intermediate logic between answering questions by the test-taker. For example, update some
-   calculations in its database, even trigger its own events and whatever. Deciding what the next question should be or whether
-   the attempt will stop must still be inside implementation of the item administration interface. Arguments:
-    - `question_usage_by_activity $quba` - a well-known Moodle's part of the question engine
-    - `stdClass $adaptivequiz` - an activity instance record
-    - `attempt $attempt` - the attempt entity, normally should be used to just read data from using
-      the `read_attempt_data()->{property}` statement, where `{property}` is a field name from the attempts database table.
-3. `post_delete_attempt_callback` - enables a sub-plugin to inject its code to run when an attempt is deleted. Normally
-   a sub-plugin creates its own data structures to support its implementation. This is the right place to remove the sub-plugin's
-   data bound to an attempt. Arguments (note the second argument - it's a record from the attempts table, not an attempt instance):
-    - `stdClass $adaptivequiz` - an activity instance record
-    - `stdClass $attempt` - an attempt record
-4. `attempt_finished_feedback` - enables a sub-plugin to provide its own feedback text to display to the user when an attempt
-   is finished. When defined, the feedback text returned by this callback will always has a precedence over the feedback text
-   defined in the activity settings (or the activity's default one). Arguments:
-    - `stdClass $adaptivequiz` - an activity instance record
-    - `stdClass $cm` - a course module record, what's returned by `get_coursemodule_from_id()`
-    - `stdClass $attempt` - an attempt record
-5. `attempts_report_url` - enables a sub-plugin to provide a link to its own attempts report, which will be picked up by
-   the adaptive quiz activity and displayed as a number of attempts made in the activity's view page for a manager/teacher role.
-   When a custom sub-plugin is used, the default attempts reporting obviously does not make sense. The sub-plugin being used is fully
-   responsible for providing proper attempts reporting. Arguments:
-    - `stdClass $adaptivequiz` - an activity instance record
-    - `stdClass $cm` - a course module record, what's returned by `get_coursemodule_from_id()`
-
-### Hooking to attempt completion
-If some actions (also in background) should be done by a sub-plugin once an attempt is completed, it may handle the adaptive quiz
-plugin's even, which is available site-wide - `\mod_adaptivequiz\event\attempt_completed`.
+`catmodel/testcatmodel` is a neutral CAT model used by the host's own contract tests. It holds no
+CAT logic - it records which extension points were reached - and it is the shortest complete
+example of the contract. It is excluded from the released package by `.gitattributes`.

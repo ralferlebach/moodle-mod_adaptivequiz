@@ -22,8 +22,8 @@ namespace mod_adaptivequiz\local;
  * @package    mod_adaptivequiz
  * @copyright  2026 onwards Ralf Erlebach
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- * @covers \mod_adaptivequiz\local\request_timing
  */
+#[\PHPUnit\Framework\Attributes\CoversClass(request_timing::class)]
 final class request_timing_test extends \basic_testcase {
     /**
      * Starts and ends every test with no spans.

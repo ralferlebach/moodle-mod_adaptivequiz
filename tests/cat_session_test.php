@@ -16,586 +16,391 @@
 
 namespace mod_adaptivequiz;
 
+use adaptivequizcatmodel_testcatmodel\local\catmodel\itemadministration\serve_fixed_question_administration;
 use advanced_testcase;
-use context_course;
 use context_module;
-use core_tag_tag;
 use mod_adaptivequiz\local\attempt;
-use mod_adaptivequiz\local\attempt\attempt_state;
-use question_bank;
-use question_engine;
-use question_usage_by_activity;
-use ReflectionMethod;
+use stdClass;
 
 /**
- * Tests for the adaptive quiz session class.
+ * Tests of the item administration step of a running attempt.
+ *
+ * A CAT model names the next question, the host puts it into the question usage. That step must
+ * never produce a second slot for an item that already has an active one - on a reload, on a
+ * double click, or when the CAT model changes its mind between two requests.
  *
  * @package    mod_adaptivequiz
- * @copyright  2024 Vitaly Potenko <potenkov@gmail.com>
+ * @copyright  2026 onwards Ralf Erlebach
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- * @covers     \mod_adaptivequiz\cat_session
  */
-class cat_session_test extends advanced_testcase {
+#[\PHPUnit\Framework\Attributes\CoversClass(cat_session::class)]
+final class cat_session_test extends advanced_testcase {
+    /** @var stdClass The activity instance under test. */
+    private stdClass $adaptivequiz;
 
-    public function test_item_administration_sets_attempt_to_completed(): void {
-        global $DB;
+    /** @var stdClass The user taking the attempt. */
+    private stdClass $user;
 
-        $this->resetAfterTest();
+    /** @var int[] Ids of the questions available to the activity. */
+    private array $questionids = [];
 
-        $datagenerator = $this->getDataGenerator();
-        $questionsgenerator = $datagenerator->get_plugin_generator('core_question');
-        $modgenerator = $datagenerator->get_plugin_generator('mod_adaptivequiz');
+    /**
+     * Builds an activity with questions on the starting level and a user to take it.
+     *
+     * @param string|null $catmodel Name of the CAT model to configure, null for the built-in one.
+     */
+    private function set_up_activity(?string $catmodel = null): void {
+        $coregenerator = $this->getDataGenerator();
+        /** @var \mod_adaptivequiz_generator $modgenerator */
+        $modgenerator = $coregenerator->get_plugin_generator('mod_adaptivequiz');
+        /** @var \core_question_generator $questiongenerator */
+        $questiongenerator = $coregenerator->get_plugin_generator('core_question');
+        /** @var \mod_qbank_generator $qbankgenerator */
+        $qbankgenerator = $coregenerator->get_plugin_generator('mod_qbank');
 
-        $course = $datagenerator->create_course();
-        $user = $datagenerator->create_user();
+        $course = $coregenerator->create_course();
 
-        $qcategory = $questionsgenerator->create_question_category([
-            'contextid' => context_course::instance($course->id)->id,
-        ]);
+        $qbank = $qbankgenerator->create_instance(['course' => $course->id]);
+        $qbankcm = get_coursemodule_from_instance('qbank', $qbank->id, 0, false, MUST_EXIST);
+        $qcat = question_get_default_category(context_module::instance($qbankcm->id)->id);
 
-        $question1 = $questionsgenerator->create_question('truefalse', null, [
-            'category' => $qcategory->id,
-        ]);
-        $questionsgenerator->create_question_tag([
-            'questionid' => $question1->id,
-            'tag' => 'adpq_3',
-        ]);
+        for ($copy = 0; $copy < 4; $copy++) {
+            $question = $questiongenerator->create_question('truefalse', null, ['category' => $qcat->id]);
+            $questiongenerator->create_question_tag(['questionid' => $question->id, 'tag' => 'adpq_5']);
+            $this->questionids[] = (int) $question->id;
+        }
 
-        $question2 = $questionsgenerator->create_question('truefalse', null, [
-            'category' => $qcategory->id,
-        ]);
-        $questionsgenerator->create_question_tag([
-            'questionid' => $question2->id,
-            'tag' => 'adpq_5',
-        ]);
-
-        $adaptivequiz = $modgenerator->create_instance([
+        $instance = $modgenerator->create_instance([
             'course' => $course->id,
-            'questionpool' => [$qcategory->id],
+            'startinglevel' => 5,
             'lowestlevel' => 1,
-            'highestlevel' => 5,
-            'startinglevel' => 3,
-            'minimumquestions' => 2,
-            'maximumquestions' => 3,
-            'standarderror' => 5,
-        ]);
-
-        $cm = get_coursemodule_from_instance('adaptivequiz', $adaptivequiz->id, $course->id, false, MUST_EXIST);
-        $modcontext = context_module::instance($cm->id);
-
-        $adaptivequiz->context = $modcontext;
-
-        $this->setUser($user);
-
-        $attempt = new attempt($adaptivequiz, $user->id);
-        $attemptrecord = $attempt->get_attempt();
-        $attempt->initialize_quba($modcontext);
-
-        $quba = $attempt->get_quba();
-
-        $time = time();
-
-        $question = question_bank::load_question($question1->id);
-        $slot = $quba->add_question($question);
-        $quba->start_question($slot);
-        question_engine::save_questions_usage_by_activity($quba);
-
-        // Set quba id for the attempt in a hacky way, no public API for this historically.
-        $attemptrecord->uniqueid = $quba->get_id();
-        $DB->update_record('adaptivequiz_attempt', $attemptrecord);
-
-        $quba->process_all_actions($time, $quba->prepare_simulated_post_data([
-            $slot => ['answer' => true],
-        ]));
-        $quba->finish_all_questions($time);
-        question_engine::save_questions_usage_by_activity($quba);
-
-        $attempt->set_level(5);
-
-        $question = question_bank::load_question($question2->id);
-        $slot = $quba->add_question($question);
-        $quba->start_question($slot);
-        question_engine::save_questions_usage_by_activity($quba);
-
-        $quba->process_all_actions($time, $quba->prepare_simulated_post_data([
-            $slot => ['answer' => true],
-        ]));
-        $quba->finish_all_questions($time);
-        question_engine::save_questions_usage_by_activity($quba);
-
-        $attempt->set_level(5);
-
-        cat_session::run_item_administration($attemptrecord->uniqueid, $adaptivequiz, $modcontext, $attempt);
-
-        $completedattemptrecord = $DB->get_record('adaptivequiz_attempt', ['uniqueid' => $attemptrecord->uniqueid],
-            'attemptstate, attemptstopcriteria', MUST_EXIST);
-
-        self::assertEquals(attempt_state::COMPLETED, $completedattemptrecord->attemptstate);
-        self::assertEquals('Unable to fetch a question for level 5', $completedattemptrecord->attemptstopcriteria);
-    }
-
-    public function test_it_administers_next_item(): void {
-        global $DB;
-
-        $this->resetAfterTest();
-
-        $datagenerator = $this->getDataGenerator();
-        $questionsgenerator = $datagenerator->get_plugin_generator('core_question');
-        $modgenerator = $datagenerator->get_plugin_generator('mod_adaptivequiz');
-
-        $course = $datagenerator->create_course();
-        $user = $datagenerator->create_user();
-
-        $qcategory = $questionsgenerator->create_question_category([
-            'contextid' => context_course::instance($course->id)->id,
-        ]);
-
-        $question1 = $questionsgenerator->create_question('truefalse', null, [
-            'category' => $qcategory->id,
-        ]);
-        $questionsgenerator->create_question_tag([
-            'questionid' => $question1->id,
-            'tag' => 'adpq_3',
-        ]);
-
-        $question2 = $questionsgenerator->create_question('truefalse', null, [
-            'category' => $qcategory->id,
-        ]);
-        $questionsgenerator->create_question_tag([
-            'questionid' => $question2->id,
-            'tag' => 'adpq_4',
-        ]);
-
-        $question3 = $questionsgenerator->create_question('truefalse', null, [
-            'category' => $qcategory->id,
-        ]);
-        $questionsgenerator->create_question_tag([
-            'questionid' => $question3->id,
-            'tag' => 'adpq_5',
-        ]);
-
-        $question4 = $questionsgenerator->create_question('truefalse', null, [
-            'category' => $qcategory->id,
-        ]);
-        $questionsgenerator->create_question_tag([
-            'questionid' => $question4->id,
-            'tag' => 'adpq_6',
-        ]);
-
-        $adaptivequiz = $modgenerator->create_instance([
-            'course' => $course->id,
-            'questionpool' => [$qcategory->id],
-            'lowestlevel' => 3,
-            'highestlevel' => 6,
-            'startinglevel' => 3,
-            'minimumquestions' => 3,
-            'maximumquestions' => 4,
-            'standarderror' => 5,
-        ]);
-
-        $cm = get_coursemodule_from_instance('adaptivequiz', $adaptivequiz->id, $course->id, false, MUST_EXIST);
-        $modcontext = context_module::instance($cm->id);
-
-        $adaptivequiz->context = $modcontext;
-
-        $this->setUser($user);
-
-        $attempt = new attempt($adaptivequiz, $user->id);
-        $attemptrecord = $attempt->get_attempt();
-        $attempt->initialize_quba($modcontext);
-
-        $quba = $attempt->get_quba();
-
-        $time = time();
-
-        $question = question_bank::load_question($question1->id);
-        $slot = $quba->add_question($question);
-        $quba->start_question($slot);
-        question_engine::save_questions_usage_by_activity($quba);
-
-        // Set quba id for the attempt in a hacky way, no public API for this historically.
-        $attemptrecord->uniqueid = $quba->get_id();
-        $DB->update_record('adaptivequiz_attempt', $attemptrecord);
-
-        $quba->process_all_actions($time, $quba->prepare_simulated_post_data([
-            $slot => ['answer' => true],
-        ]));
-        $quba->finish_all_questions($time);
-        question_engine::save_questions_usage_by_activity($quba);
-
-        $attempt->set_level(5);
-
-        $question = question_bank::load_question($question3->id);
-        $slot = $quba->add_question($question);
-        $quba->start_question($slot);
-        question_engine::save_questions_usage_by_activity($quba);
-
-        $quba->process_all_actions($time, $quba->prepare_simulated_post_data([
-            $slot => ['answer' => true],
-        ]));
-        $quba->finish_all_questions($time);
-        question_engine::save_questions_usage_by_activity($quba);
-
-        $attempt->set_level(6);
-
-        cat_session::run_item_administration($attemptrecord->uniqueid, $adaptivequiz, $modcontext, $attempt);
-        $slot = $attempt->get_question_slot_number();
-
-        self::assertEquals(3, $slot);
-
-        // Important: reload quba.
-        $quba = $attempt->initialize_quba($modcontext);
-
-        // Assert difficulty level of the administered item. Fetch actual data from the database directly.
-
-        $question = $quba->get_question($slot);
-
-        $questiontags = core_tag_tag::get_item_tags('core_question', 'question', $question->id);
-        $questiontags = array_filter($questiontags, function (core_tag_tag $tag): bool {
-            return substr($tag->name, 0, strlen(ADAPTIVEQUIZ_QUESTION_TAG)) === ADAPTIVEQUIZ_QUESTION_TAG;
-        });
-        $questiontag = array_shift($questiontags);
-
-        $level = substr($questiontag->name, strlen(ADAPTIVEQUIZ_QUESTION_TAG));
-
-        self::assertEquals(6, $level);
-
-        // Ensure the attempt didn't change its state.
-        $inprogressattemptrecord = $DB->get_record('adaptivequiz_attempt', ['uniqueid' => $attemptrecord->uniqueid],
-            'attemptstate, attemptstopcriteria', MUST_EXIST);
-
-        self::assertEquals(attempt_state::IN_PROGRESS, $inprogressattemptrecord->attemptstate);
-        self::assertEmpty($inprogressattemptrecord->attemptstopcriteria);
-    }
-
-    public function test_it_sets_attempt_status_when_processing_administered_item_result(): void {
-        global $DB;
-
-        $this->resetAfterTest();
-
-        $datagenerator = $this->getDataGenerator();
-        $questionsgenerator = $datagenerator->get_plugin_generator('core_question');
-        $modgenerator = $datagenerator->get_plugin_generator('mod_adaptivequiz');
-
-        $course = $datagenerator->create_course();
-        $user = $datagenerator->create_user();
-
-        $qcategory = $questionsgenerator->create_question_category([
-            'contextid' => context_course::instance($course->id)->id,
-        ]);
-
-        $question1 = $questionsgenerator->create_question('truefalse', null, [
-            'category' => $qcategory->id,
-        ]);
-        $questionsgenerator->create_question_tag([
-            'questionid' => $question1->id,
-            'tag' => 'adpq_3',
-        ]);
-
-        $question2 = $questionsgenerator->create_question('truefalse', null, [
-            'category' => $qcategory->id,
-        ]);
-        $questionsgenerator->create_question_tag([
-            'questionid' => $question2->id,
-            'tag' => 'adpq_5',
-        ]);
-
-        $adaptivequiz = $modgenerator->create_instance([
-            'course' => $course->id,
-            'questionpool' => [$qcategory->id],
-            'lowestlevel' => 3,
-            'highestlevel' => 6,
-            'startinglevel' => 3,
+            'highestlevel' => 10,
             'minimumquestions' => 1,
-            'maximumquestions' => 4,
-
-            // The value is extremely high to make sure this will be the stoppage reason.
-            'standarderror' => 40,
+            'maximumquestions' => 10,
+            'catmodel' => $catmodel ?? '',
+        ]);
+        $modgenerator->create_link_with_question_bank([
+            'adaptivequizid' => $instance->id,
+            'qbankid' => $qbank->id,
         ]);
 
-        $cm = get_coursemodule_from_instance('adaptivequiz', $adaptivequiz->id, $course->id, false, MUST_EXIST);
-        $modcontext = context_module::instance($cm->id);
-
-        $adaptivequiz->context = $modcontext;
-
-        $this->setUser($user);
-
-        $attempt = new attempt($adaptivequiz, $user->id);
-        $attemptrecord = $attempt->get_attempt();
-        $attempt->initialize_quba($modcontext);
-
-        $quba = $attempt->get_quba();
-
-        $time = time();
-
-        $question = question_bank::load_question($question1->id);
-        $slot = $quba->add_question($question);
-        $quba->start_question($slot);
-        question_engine::save_questions_usage_by_activity($quba);
-
-        // Set quba id for the attempt in a hacky way, no public API for this historically.
-        $attemptrecord->uniqueid = $quba->get_id();
-        $DB->update_record('adaptivequiz_attempt', $attemptrecord);
-
-        $quba->process_all_actions($time, $quba->prepare_simulated_post_data([
-            $slot => ['answer' => true],
-        ]));
-        $quba->finish_all_questions($time);
-        question_engine::save_questions_usage_by_activity($quba);
-
-        $attempt->set_level(5);
-
-        adaptivequiz_update_attempt_data($attemptrecord->uniqueid, $adaptivequiz->id, $user->id, 0, 0, 0);
-
-        $question = question_bank::load_question($question2->id);
-        $slot = $quba->add_question($question);
-        $quba->start_question($slot);
-        question_engine::save_questions_usage_by_activity($quba);
-
-        $simulatedresponses = [
-            $slot => ['answer' => true],
-        ];
-
-        $qubahelper = function (question_usage_by_activity $quba) use ($simulatedresponses): void {
-            $simulatedpostdata = $quba->prepare_simulated_post_data($simulatedresponses);
-
-            $time = time();
-            $quba->process_all_actions($time, $simulatedpostdata);
-            $quba->finish_all_questions($time);
-        };
-
-        cat_session::process_administered_item_result($attemptrecord->uniqueid, $adaptivequiz, $attempt, $qubahelper);
-
-        self::assertEquals('Calculated standard error of 34 is within the limits imposed by the activity 40',
-            $attempt->get_status());
-    }
-
-    public function test_it_processes_administered_item_result(): void {
-        global $DB;
-
-        $this->resetAfterTest();
-
-        $datagenerator = $this->getDataGenerator();
-        $questionsgenerator = $datagenerator->get_plugin_generator('core_question');
-        $modgenerator = $datagenerator->get_plugin_generator('mod_adaptivequiz');
-
-        $course = $datagenerator->create_course();
-        $user = $datagenerator->create_user();
-
-        $qcategory = $questionsgenerator->create_question_category([
-            'contextid' => context_course::instance($course->id)->id,
-        ]);
-
-        $question1 = $questionsgenerator->create_question('truefalse', null, [
-            'category' => $qcategory->id,
-        ]);
-        $questionsgenerator->create_question_tag([
-            'questionid' => $question1->id,
-            'tag' => 'adpq_3',
-        ]);
-
-        $question2 = $questionsgenerator->create_question('truefalse', null, [
-            'category' => $qcategory->id,
-        ]);
-        $questionsgenerator->create_question_tag([
-            'questionid' => $question2->id,
-            'tag' => 'adpq_5',
-        ]);
-
-        $adaptivequiz = $modgenerator->create_instance([
-            'course' => $course->id,
-            'questionpool' => [$qcategory->id],
-            'lowestlevel' => 3,
-            'highestlevel' => 6,
-            'startinglevel' => 3,
-            'minimumquestions' => 1,
-            'maximumquestions' => 4,
-            'standarderror' => 5,
-        ]);
-
-        $cm = get_coursemodule_from_instance('adaptivequiz', $adaptivequiz->id, $course->id, false, MUST_EXIST);
-        $modcontext = context_module::instance($cm->id);
-
-        $adaptivequiz->context = $modcontext;
-
-        $this->setUser($user);
-
-        $attempt = new attempt($adaptivequiz, $user->id);
-        $attemptrecord = $attempt->get_attempt();
-        $attempt->initialize_quba($modcontext);
-
-        $quba = $attempt->get_quba();
-
-        $question = question_bank::load_question($question2->id);
-        $slot = $quba->add_question($question);
-        $quba->start_question($slot);
-        question_engine::save_questions_usage_by_activity($quba);
-
-        // Set quba id for the attempt in a hacky way, no public API for this historically.
-        $attemptrecord->uniqueid = $quba->get_id();
-        $DB->update_record('adaptivequiz_attempt', $attemptrecord);
-
-        $simulatedresponses = [
-            $slot => ['answer' => true],
-        ];
-
-        $qubahelper = function (question_usage_by_activity $quba) use ($simulatedresponses): void {
-            $simulatedpostdata = $quba->prepare_simulated_post_data($simulatedresponses);
-
-            $time = time();
-            $quba->process_all_actions($time, $simulatedpostdata);
-            $quba->finish_all_questions($time);
-        };
-
-        cat_session::process_administered_item_result($attemptrecord->uniqueid, $adaptivequiz, $attempt, $qubahelper);
-
-        $inprogressattemptrecord = $DB->get_record('adaptivequiz_attempt', ['uniqueid' => $attemptrecord->uniqueid],
-            'attemptstate, attemptstopcriteria', MUST_EXIST);
-
-        self::assertEquals(attempt_state::IN_PROGRESS, $inprogressattemptrecord->attemptstate);
-        self::assertEmpty($inprogressattemptrecord->attemptstopcriteria);
+        $this->adaptivequiz = clone($instance);
+        $this->adaptivequiz->context = context_module::instance($instance->cmid);
+        $this->user = $coregenerator->create_user();
+        $this->setUser($this->user);
     }
 
     /**
-     * The defensive duplicate guard finds an active slot holding a given
-     * question, and reports none once that slot is answered or for a different
-     * question (Issue #6).
+     * Returns a fresh attempt object with its question usage initialised, as a new request would.
+     *
+     * @return attempt
      */
-    public function test_find_active_slot_for_question(): void {
-        $this->resetAfterTest();
-
-        $datagenerator = $this->getDataGenerator();
-        $questionsgenerator = $datagenerator->get_plugin_generator('core_question');
-        $modgenerator = $datagenerator->get_plugin_generator('mod_adaptivequiz');
-
-        $course = $datagenerator->create_course();
-        $user = $datagenerator->create_user();
-
-        $qcategory = $questionsgenerator->create_question_category([
-            'contextid' => context_course::instance($course->id)->id,
-        ]);
-        $question = $questionsgenerator->create_question('truefalse', null, [
-            'category' => $qcategory->id,
-        ]);
-        $questionsgenerator->create_question_tag([
-            'questionid' => $question->id,
-            'tag' => 'adpq_3',
-        ]);
-
-        $adaptivequiz = $modgenerator->create_instance([
-            'course' => $course->id,
-            'questionpool' => [$qcategory->id],
-            'lowestlevel' => 3,
-            'highestlevel' => 6,
-            'startinglevel' => 3,
-            'minimumquestions' => 2,
-            'maximumquestions' => 3,
-            'standarderror' => 5,
-        ]);
-
-        $cm = get_coursemodule_from_instance('adaptivequiz', $adaptivequiz->id, $course->id, false, MUST_EXIST);
-        $modcontext = context_module::instance($cm->id);
-
-        $this->setUser($user);
-
-        $attempt = new attempt($adaptivequiz, $user->id);
+    private function new_request(): attempt {
+        $attempt = new attempt($this->adaptivequiz, $this->user->id);
+        $attempt->set_level((int) $this->adaptivequiz->startinglevel);
         $attempt->get_attempt();
-        $attempt->initialize_quba($modcontext);
-        $quba = $attempt->get_quba();
+        $attempt->initialize_quba();
 
-        $loaded = question_bank::load_question($question->id);
-        $slot = $quba->add_question($loaded);
-        $quba->start_question($slot);
-        question_engine::save_questions_usage_by_activity($quba);
-
-        $method = new ReflectionMethod(cat_session::class, 'find_active_slot_for_question');
-        $method->setAccessible(true);
-
-        // Active slot holding the question is found.
-        self::assertSame($slot, $method->invoke(null, $quba, (int) $question->id));
-        // A different question id is not found.
-        self::assertNull($method->invoke(null, $quba, (int) $question->id + 999));
-
-        // Once the question is answered/finished, its slot is no longer active.
-        $time = time();
-        $quba->process_all_actions($time, $quba->prepare_simulated_post_data([
-            $slot => ['answer' => true],
-        ]));
-        $quba->finish_all_questions($time);
-        question_engine::save_questions_usage_by_activity($quba);
-
-        self::assertNull($method->invoke(null, $quba, (int) $question->id));
+        return $attempt;
     }
 
-    public function test_find_any_active_slot(): void {
+    /**
+     * Resets what the fixture CAT model answers.
+     */
+    protected function tearDown(): void {
+        serve_fixed_question_administration::$questionid = null;
+        serve_fixed_question_administration::$slot = null;
+        serve_fixed_question_administration::$questionsequence = [];
+
+        parent::tearDown();
+    }
+
+    /**
+     * The built-in algorithm answers with a slot, and that slot reaches the attempt.
+     */
+    public function test_built_in_algorithm_writes_the_slot_back(): void {
         $this->resetAfterTest();
+        $this->set_up_activity();
 
-        $datagenerator = $this->getDataGenerator();
-        $questionsgenerator = $datagenerator->get_plugin_generator('core_question');
-        $modgenerator = $datagenerator->get_plugin_generator('mod_adaptivequiz');
+        $attempt = $this->new_request();
+        $evaluation = cat_session::administer_next_item($this->adaptivequiz, $attempt);
 
-        $course = $datagenerator->create_course();
-        $user = $datagenerator->create_user();
+        $this->assertNotNull($evaluation);
+        $this->assertFalse($evaluation->item_administration_is_to_stop());
+        $this->assertSame(1, $attempt->get_question_slot_number());
+    }
 
-        $qcategory = $questionsgenerator->create_question_category([
-            'contextid' => context_course::instance($course->id)->id,
-        ]);
-        $question = $questionsgenerator->create_question('truefalse', null, [
-            'category' => $qcategory->id,
-        ]);
-        $questionsgenerator->create_question_tag([
-            'questionid' => $question->id,
-            'tag' => 'adpq_3',
-        ]);
+    /**
+     * A question named by the CAT model is put into the usage by the host.
+     */
+    public function test_question_named_by_the_catmodel_is_added_once(): void {
+        $this->resetAfterTest();
+        $this->set_up_activity('testcatmodel');
+        serve_fixed_question_administration::$questionid = $this->questionids[0];
 
-        $adaptivequiz = $modgenerator->create_instance([
-            'course' => $course->id,
-            'questionpool' => [$qcategory->id],
-            'lowestlevel' => 3,
-            'highestlevel' => 6,
-            'startinglevel' => 3,
-            'minimumquestions' => 2,
-            'maximumquestions' => 3,
-            'standarderror' => 5,
-        ]);
+        $attempt = $this->new_request();
+        $evaluation = cat_session::administer_next_item($this->adaptivequiz, $attempt);
 
-        $cm = get_coursemodule_from_instance('adaptivequiz', $adaptivequiz->id, $course->id, false, MUST_EXIST);
-        $modcontext = context_module::instance($cm->id);
+        $this->assertNotNull($evaluation);
+        $this->assertSame(1, $attempt->get_question_slot_number());
+        $this->assertCount(1, $attempt->get_quba()->get_slots());
+    }
 
-        $this->setUser($user);
+    /**
+     * A second request without an answer reuses the slot instead of adding another one.
+     */
+    public function test_reload_reuses_the_active_slot(): void {
+        $this->resetAfterTest();
+        $this->set_up_activity('testcatmodel');
+        serve_fixed_question_administration::$questionid = $this->questionids[0];
 
-        $attempt = new attempt($adaptivequiz, $user->id);
-        $attempt->get_attempt();
-        $attempt->initialize_quba($modcontext);
-        $quba = $attempt->get_quba();
+        $first = $this->new_request();
+        cat_session::administer_next_item($this->adaptivequiz, $first);
 
-        $anyslot = new ReflectionMethod(cat_session::class, 'find_any_active_slot');
-        $anyslot->setAccessible(true);
-        $byquestion = new ReflectionMethod(cat_session::class, 'find_active_slot_for_question');
-        $byquestion->setAccessible(true);
+        $second = $this->new_request();
+        cat_session::administer_next_item($this->adaptivequiz, $second);
 
-        // No slots yet: nothing to reuse.
-        self::assertNull($anyslot->invoke(null, $quba));
+        $this->assertSame(1, $second->get_question_slot_number(), 'The reload moved to a new slot.');
+        $this->assertCount(1, $second->get_quba()->get_slots(), 'The reload added a second question.');
+    }
 
-        $loaded = question_bank::load_question($question->id);
-        $slot = $quba->add_question($loaded);
-        $quba->start_question($slot);
-        question_engine::save_questions_usage_by_activity($quba);
+    /**
+     * Even a CAT model that changes its mind must not get a second active slot.
+     */
+    public function test_a_different_question_on_reload_still_reuses_the_slot(): void {
+        $this->resetAfterTest();
+        $this->set_up_activity('testcatmodel');
 
-        // The active slot is found regardless of which question id is requested:
-        // this is what lets a resume reuse the existing slot even when the CAT
-        // model re-selected a different next item (so the by-question lookup misses).
-        self::assertSame($slot, $anyslot->invoke(null, $quba));
-        self::assertNull($byquestion->invoke(null, $quba, (int) $question->id + 999));
+        serve_fixed_question_administration::$questionid = $this->questionids[0];
+        $first = $this->new_request();
+        cat_session::administer_next_item($this->adaptivequiz, $first);
 
-        // Once answered/finished, there is no active slot to reuse.
-        $time = time();
-        $quba->process_all_actions($time, $quba->prepare_simulated_post_data([
-            $slot => ['answer' => true],
-        ]));
-        $quba->finish_all_questions($time);
-        question_engine::save_questions_usage_by_activity($quba);
+        // The CAT model now names a different question, as it may after a reload.
+        serve_fixed_question_administration::$questionid = $this->questionids[1];
+        $second = $this->new_request();
+        cat_session::administer_next_item($this->adaptivequiz, $second);
 
-        self::assertNull($anyslot->invoke(null, $quba));
+        $this->assertCount(
+            1,
+            $second->get_quba()->get_slots(),
+            'A changed choice on reload appended a slot instead of reusing the active one.'
+        );
+        $this->assertSame(1, $second->get_question_slot_number());
+    }
+
+    /**
+     * A CAT model may answer with a slot instead of a question, and that slot must reach the attempt.
+     *
+     * The built-in algorithm sets the slot number on the attempt itself, so this write-back only
+     * shows when a CAT model answers by slot. Without it the attempt keeps whatever number it
+     * carried before, and rendering the question fails.
+     */
+    public function test_slot_named_by_the_catmodel_reaches_the_attempt(): void {
+        $this->resetAfterTest();
+        $this->set_up_activity('testcatmodel');
+
+        // Put a question into the usage first, so there is a slot to name.
+        serve_fixed_question_administration::$questionid = $this->questionids[0];
+        $first = $this->new_request();
+        cat_session::administer_next_item($this->adaptivequiz, $first);
+
+        serve_fixed_question_administration::$questionid = null;
+        serve_fixed_question_administration::$slot = 1;
+
+        $second = $this->new_request();
+        $this->assertSame(0, $second->get_question_slot_number());
+
+        cat_session::administer_next_item($this->adaptivequiz, $second);
+
+        $this->assertSame(1, $second->get_question_slot_number());
+    }
+
+    /**
+     * Answers the question in the given slot of the attempt.
+     *
+     * @param attempt $attempt The running attempt.
+     * @param bool $correct Whether to answer correctly.
+     * @return callable The helper cat_session applies to the question usage.
+     */
+    private function answer_helper(attempt $attempt, bool $correct): callable {
+        $slot = $attempt->get_question_slot_number();
+
+        return function (\question_usage_by_activity $quba) use ($slot, $correct): void {
+            $time = time();
+            $quba->process_all_actions($time, $quba->prepare_simulated_post_data([
+                $slot => ['answer' => $correct],
+            ]));
+            $quba->finish_all_questions($time);
+        };
+    }
+
+    /**
+     * Processing an answer recalculates the ability estimate of the attempt.
+     */
+    public function test_answer_is_processed_by_the_built_in_algorithm(): void {
+        global $DB;
+
+        $this->resetAfterTest();
+        $this->set_up_activity();
+
+        $attempt = $this->new_request();
+        cat_session::administer_next_item($this->adaptivequiz, $attempt);
+
+        $before = $DB->get_record('adaptivequiz_attempt', ['uniqueid' => $attempt->get_quba()->get_id()]);
+
+        $result = cat_session::process_administered_item_result(
+            (int) $attempt->get_quba()->get_id(),
+            $this->adaptivequiz,
+            $attempt,
+            $this->answer_helper($attempt, true)
+        );
+
+        $after = $DB->get_record('adaptivequiz_attempt', ['uniqueid' => $attempt->get_quba()->get_id()]);
+
+        $this->assertSame(5, $result->answereddifficulty, 'The difficulty was not read from the question tag.');
+        $this->assertEquals(
+            $before->questionsattempted + 1,
+            $after->questionsattempted,
+            'The answered question was not counted.'
+        );
+        $this->assertNotEquals(
+            $before->difficultysum,
+            $after->difficultysum,
+            'The answered difficulty was not added to the running sum.'
+        );
+        $this->assertNotEquals('', (string) $result->standarderror);
+    }
+
+    /**
+     * With a CAT model the host records the answer but leaves the estimate to the subplugin.
+     */
+    public function test_answer_of_a_catmodel_instance_is_handed_over(): void {
+        global $DB;
+
+        $this->resetAfterTest();
+        $this->set_up_activity('testcatmodel');
+        serve_fixed_question_administration::$questionid = $this->questionids[0];
+
+        $attempt = $this->new_request();
+        cat_session::administer_next_item($this->adaptivequiz, $attempt);
+
+        adaptivequizcatmodel_testcatmodel_reset_processed_items();
+
+        $result = cat_session::process_administered_item_result(
+            (int) $attempt->get_quba()->get_id(),
+            $this->adaptivequiz,
+            $attempt,
+            $this->answer_helper($attempt, true)
+        );
+
+        $this->assertNull($result->answereddifficulty, 'The host judged the answer although a CAT model is in use.');
+        $this->assertFalse($result->attempt_is_to_stop());
+        $this->assertSame(
+            1,
+            adaptivequizcatmodel_testcatmodel_processed_items(),
+            'The CAT model was not told about the answered item.'
+        );
+
+        $after = $DB->get_record('adaptivequiz_attempt', ['uniqueid' => $attempt->get_quba()->get_id()]);
+        $this->assertEquals(1, $after->questionsattempted);
+    }
+
+    /**
+     * A CAT model learns about a new attempt exactly once, before the first item.
+     */
+    public function test_catmodel_is_told_about_a_new_attempt_once(): void {
+        $this->resetAfterTest();
+        $this->set_up_activity('testcatmodel');
+        serve_fixed_question_administration::$questionid = $this->questionids[0];
+
+        adaptivequizcatmodel_testcatmodel_reset_created();
+
+        $first = $this->new_request();
+        cat_session::administer_next_item($this->adaptivequiz, $first);
+        $this->assertSame(1, adaptivequizcatmodel_testcatmodel_created_attempts());
+
+        // A second request continues the same attempt and must not announce it again.
+        $second = $this->new_request();
+        cat_session::administer_next_item($this->adaptivequiz, $second);
+        $this->assertSame(
+            1,
+            adaptivequizcatmodel_testcatmodel_created_attempts(),
+            'A continued attempt was announced as a new one.'
+        );
+    }
+
+    /**
+     * A CAT model that stops is passed through unchanged, without touching the usage.
+     */
+    public function test_stopping_catmodel_is_passed_through(): void {
+        $this->resetAfterTest();
+        $this->set_up_activity('testcatmodel');
+
+        $attempt = $this->new_request();
+        $evaluation = cat_session::administer_next_item($this->adaptivequiz, $attempt);
+
+        $this->assertNotNull($evaluation);
+        $this->assertTrue($evaluation->item_administration_is_to_stop());
+        $this->assertCount(0, $attempt->get_quba()->get_slots());
+    }
+    /**
+     * Answers the first item and returns the next request of the same attempt.
+     *
+     * @return attempt
+     */
+    private function after_answering_the_first_item(): attempt {
+        $attempt = $this->new_request();
+        cat_session::administer_next_item($this->adaptivequiz, $attempt);
+        cat_session::process_administered_item_result(
+            (int) $attempt->get_quba()->get_id(),
+            $this->adaptivequiz,
+            $attempt,
+            $this->answer_helper($attempt, true)
+        );
+
+        return $this->new_request();
+    }
+
+    /**
+     * A CAT model that names an answered item again is asked once more, and the test goes on.
+     *
+     * The host must not end a test because of it - a test always goes on: a CAT model
+     * keeping its own exclusion set names another item when asked again.
+     */
+    public function test_an_answered_item_is_asked_for_again_and_the_test_goes_on(): void {
+        $this->resetAfterTest();
+        $this->set_up_activity('testcatmodel');
+        serve_fixed_question_administration::$questionid = $this->questionids[0];
+        $attempt = $this->after_answering_the_first_item();
+
+        // Named again: the answered one first, then another one.
+        serve_fixed_question_administration::$questionsequence = [$this->questionids[0], $this->questionids[1]];
+        $evaluation = cat_session::administer_next_item($this->adaptivequiz, $attempt);
+        $this->assertDebuggingCalled();
+
+        $this->assertFalse($evaluation->item_administration_is_to_stop(), 'The test was ended.');
+        $slots = $attempt->get_quba()->get_slots();
+        $this->assertCount(2, $slots);
+        $this->assertEquals($this->questionids[1], $attempt->get_quba()->get_question(end($slots))->id);
+    }
+
+    /**
+     * A CAT model that insists on an answered item still gets it; the test goes on.
+     *
+     * The item is administered once more and stays visible as a technical duplicate in the history.
+     */
+    public function test_an_insisting_cat_model_gets_its_item_and_the_test_goes_on(): void {
+        $this->resetAfterTest();
+        $this->set_up_activity('testcatmodel');
+        serve_fixed_question_administration::$questionid = $this->questionids[0];
+        $attempt = $this->after_answering_the_first_item();
+
+        $evaluation = cat_session::administer_next_item($this->adaptivequiz, $attempt);
+        $this->assertDebuggingCalledCount(3);
+
+        $this->assertFalse($evaluation->item_administration_is_to_stop(), 'The test was ended.');
+        $slots = $attempt->get_quba()->get_slots();
+        $this->assertCount(2, $slots, 'The test did not go on with the item.');
+        $this->assertEquals($this->questionids[0], $attempt->get_quba()->get_question(end($slots))->id);
     }
 }

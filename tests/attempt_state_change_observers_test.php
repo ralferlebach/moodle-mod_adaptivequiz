@@ -22,6 +22,7 @@ use context_module;
 use mod_adaptivequiz\completion\custom_completion;
 use mod_adaptivequiz\event\attempt_completed;
 use mod_adaptivequiz\local\attempt\attempt_state;
+use PHPUnit\Framework\Attributes\CoversClass;
 use stdClass;
 
 /**
@@ -30,11 +31,9 @@ use stdClass;
  * @package    mod_adaptivequiz
  * @copyright  2022 Vitaly Potenko <potenkov@gmail.com>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- *
- * @covers     \mod_adaptivequiz\attempt_state_change_observers::attempt_completed
  */
-class attempt_state_change_observers_test extends advanced_testcase {
-
+#[CoversClass(\mod_adaptivequiz\attempt_state_change_observers::class)]
+final class attempt_state_change_observers_test extends advanced_testcase {
     public function test_it_handles_completion_state(): void {
         global $DB;
 
@@ -51,7 +50,7 @@ class attempt_state_change_observers_test extends advanced_testcase {
             ->get_plugin_generator('mod_adaptivequiz')
             ->create_instance([
                 'course' => $course->id,
-                'completion' => 1,
+                'completion' => COMPLETION_TRACKING_AUTOMATIC,
                 'completionattemptcompleted' => 1,
                 'questionpool' => [$questioncategory->id],
             ]);
@@ -66,22 +65,27 @@ class attempt_state_change_observers_test extends advanced_testcase {
         $attemptrecordsnapshot->instance = $adaptivequiz->id;
         $attemptrecordsnapshot->userid = $user->id;
         $attemptrecordsnapshot->uniqueid = 1;
-        $attemptrecordsnapshot->attemptstate = attempt_state::IN_PROGRESS;
+        $attemptrecordsnapshot->attemptstate = attempt_state::COMPLETED;
         $attemptrecordsnapshot->attemptstopcriteria = 'Unable to fetch a questions for level 1';
         $attemptrecordsnapshot->questionsattempted = 1;
         $attemptrecordsnapshot->difficultysum = 0.0000000;
         $attemptrecordsnapshot->standarderror = 1.51186;
         $attemptrecordsnapshot->measure = 1.94591;
-        $attemptrecordsnapshot->timefinished = 1658525029;
-        $attemptrecordsnapshot->resultstatus = 'valid';
-        $attemptrecordsnapshot->resultvalid = 1;
         $attemptrecordsnapshot->timecreated = 1658524979;
         $attemptrecordsnapshot->timemodified = 1658525029;
+        $attemptrecordsnapshot->timefinished = 1658525029;
+        $attemptrecordsnapshot->resultstatus = null;
+        $attemptrecordsnapshot->resultvalid = 0;
 
         $cm = get_coursemodule_from_instance('adaptivequiz', $adaptivequiz->id, $adaptivequiz->course);
         $context = context_module::instance($cm->id);
 
-        $attemptid = 1;
+        // A real completed attempt: completion is decided from the stored attempts (issue #121), and
+        // automatic tracking is what completion rules apply to - with manual tracking the observer
+        // used to tick the box on the person's behalf.
+        unset($attemptrecordsnapshot->id);
+        $attemptid = $DB->insert_record('adaptivequiz_attempt', $attemptrecordsnapshot);
+        $attemptrecordsnapshot->id = $attemptid;
 
         $event = attempt_completed::create([
             'objectid' => $attemptid,

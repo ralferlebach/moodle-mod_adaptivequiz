@@ -27,28 +27,28 @@ use core_completion\activity_custom_completion;
 use mod_adaptivequiz\local\attempt;
 use mod_adaptivequiz\local\attempt\attempt_state;
 
+/**
+ * Custom completion.
+ */
 class custom_completion extends activity_custom_completion {
-
     /**
-     * @inheritDoc
+     * Returns state.
+     * @param string $rule Rule.
      */
     public function get_state(string $rule): int {
         global $DB;
 
         $this->validate_rule($rule);
 
-        // Issue #8: completion may require a valid CAT result, not just a
-        // technically completed attempt. A technically completed but invalid
-        // attempt does not satisfy this rule.
+        // A technically completed attempt is not the same as a usable result. Whether a result is
+        // valid is decided by the CAT model of the activity, which records it on the attempt.
         if ($rule === 'completionvalidresult') {
-            $hasvalidresult = $DB->record_exists('adaptivequiz_attempt', [
+            return $DB->record_exists('adaptivequiz_attempt', [
                 'instance' => $this->cm->instance,
                 'userid' => $this->userid,
                 'attemptstate' => attempt_state::COMPLETED,
                 'resultvalid' => 1,
-            ]);
-
-            return $hasvalidresult ? COMPLETION_COMPLETE : COMPLETION_INCOMPLETE;
+            ]) ? COMPLETION_COMPLETE : COMPLETION_INCOMPLETE;
         }
 
         return attempt::user_has_completed_on_quiz($this->cm->instance, $this->userid)
@@ -57,14 +57,14 @@ class custom_completion extends activity_custom_completion {
     }
 
     /**
-     * @inheritDoc
+     * Returns defined custom rules.
      */
     public static function get_defined_custom_rules(): array {
         return ['completionattemptcompleted', 'completionvalidresult'];
     }
 
     /**
-     * @inheritDoc
+     * Returns custom rule descriptions.
      */
     public function get_custom_rule_descriptions(): array {
         return [
@@ -74,7 +74,7 @@ class custom_completion extends activity_custom_completion {
     }
 
     /**
-     * @inheritDoc
+     * Returns sort order.
      */
     public function get_sort_order(): array {
         return ['completionview', 'completionusegrade', 'completionattemptcompleted', 'completionvalidresult'];

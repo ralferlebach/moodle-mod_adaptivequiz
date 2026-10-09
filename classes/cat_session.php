@@ -17,228 +17,194 @@
 namespace mod_adaptivequiz;
 
 use coding_exception;
-use context_module;
-use core_component;
+use core\lock\lock_config;
 use core_tag_tag;
 use mod_adaptivequiz\local\attempt;
 use mod_adaptivequiz\local\catalgo;
 use mod_adaptivequiz\local\fetchquestion;
+use moodle_exception;
+use mod_adaptivequiz\local\catmodel\catmodel_resolver;
 use mod_adaptivequiz\local\itemadministration\default_item_administration_factory;
+use mod_adaptivequiz\local\itemadministration\item_administration_evaluation;
 use mod_adaptivequiz\local\itemadministration\item_administration_factory;
 use mod_adaptivequiz\local\request_timing;
-use moodle_exception;
 use question_bank;
 use question_engine;
 use question_usage_by_activity;
 use stdClass;
 
 /**
- * High level API class to manage the process of CAT.
+ * The parts of a running CAT session that must not live inside attempt.php.
+ *
+ * attempt.php is a script: it cannot be instantiated in a test, so anything decided there is
+ * decided untested. Whatever can be answered without the request context belongs here instead.
  *
  * @package    mod_adaptivequiz
- * @copyright  2024 Vitaly Potenko <potenkov@gmail.com>
+ * @copyright  2026 onwards Ralf Erlebach
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-class cat_session {
+final class cat_session {
     /** @var int How often the CAT model is asked when it names an item already answered. */
     private const MAX_ASKS = 3;
 
+    /**
+     * Returns the item administration factory that drives the given activity.
+     *
+     * The CAT model of the activity if it offers one, the built-in algorithm otherwise. This is
+     * the single place where the activity decides who picks the next question.
+     *
+     * @param stdClass $adaptivequiz The activity instance record.
+     * @return item_administration_factory
+     */
+    public static function item_administration_factory_for(stdClass $adaptivequiz): item_administration_factory {
+        $factory = catmodel_resolver::handler($adaptivequiz->catmodel ?? null, item_administration_factory::class);
+
+        return $factory ?? new default_item_administration_factory();
+    }
 
     /**
-     * Chooses the next question and adds it to the quba instance to be presented to the user.
+     * Administers the next item of a running attempt, whoever picks it.
      *
-     * @param int $uniqueid
-     * @param stdClass $adaptivequiz
-     * @param context_module $context
-     * @param attempt $adaptiveattempt
+     * The whole step runs under a lock keyed on activity and user. Without it a double click or a
+     * concurrent AJAX request can have two requests pick a question at the same time, each adding
+     * its own slot for the same item. A CAT attempt only ever has one active unanswered slot.
+     *
+     * @param stdClass $adaptivequiz The activity instance record.
+     * @param attempt $attempt The running attempt, with its question usage already initialised.
+     * @return item_administration_evaluation|null The evaluation, or null when a concurrent
+     *      request is already administering an item for this attempt.
      */
-    public static function run_item_administration(
-        int $uniqueid,
-        stdClass $adaptivequiz,
-        context_module $context,
-        attempt $adaptiveattempt
-    ): void {
+    public static function administer_next_item(stdClass $adaptivequiz, attempt $attempt): ?item_administration_evaluation {
         global $USER;
 
-        // Issue #6: serialise item administration per attempt (adaptive quiz
-        // instance + user). This closes the double-click / concurrent-request
-        // race in which two requests would both select a question and each add
-        // its own QUBA slot for the same item. AJAX and full page requests both
-        // go through here, so the lock covers both.
-        $lockfactory = \core\lock\lock_config::get_lock_factory('mod_adaptivequiz');
-        $lockkey = 'adaptivequiz_itemadministration_' . $adaptivequiz->id . '_' . $USER->id;
         // How long the request waited for the lock is measured on its own: up to ten seconds of it
         // would otherwise look like slow item selection.
         request_timing::start('lock_wait');
-        $lock = $lockfactory->get_lock($lockkey, 10);
+        $lock = lock_config::get_lock_factory('mod_adaptivequiz')
+            ->get_lock('adaptivequiz_itemadministration_' . $adaptivequiz->id . '_' . $USER->id, 10);
         request_timing::stop('lock_wait', ['acquired' => (bool) $lock]);
+
         if (!$lock) {
-            // A concurrent request for the same attempt is already administering
-            // an item; bail out rather than risk creating a duplicate slot.
-            return;
+            return null;
         }
 
         try {
-            self::run_item_administration_locked($uniqueid, $adaptivequiz, $context, $adaptiveattempt);
+            return self::administer_next_item_locked($adaptivequiz, $attempt);
         } finally {
             $lock->release();
         }
     }
 
     /**
-     * The item administration body, executed while holding the per-attempt lock.
+     * Does the work of administer_next_item(), with the lock already held.
      *
-     * @param int $uniqueid
-     * @param stdClass $adaptivequiz
-     * @param context_module $context
-     * @param attempt $adaptiveattempt
+     * @param stdClass $adaptivequiz The activity instance record.
+     * @param attempt $attempt The running attempt.
+     * @return item_administration_evaluation
      */
-    private static function run_item_administration_locked(
-        int $uniqueid,
+    private static function administer_next_item_locked(
         stdClass $adaptivequiz,
-        context_module $context,
-        attempt $adaptiveattempt
-    ): void {
-        global $USER;
-
-        $adaptiveattempt->get_attempt();
-        $quba = $adaptiveattempt->initialize_quba($context);
-
-        $message = $adaptiveattempt->get_status();
-        if (!empty($message)) {
-            // The attempt has been flagged as having a stoppage reason, complete it and exit here.
-            adaptivequiz_complete_attempt($uniqueid, $adaptivequiz, $context, $USER->id, $message);
-
-            return;
+        attempt $attempt
+    ): item_administration_evaluation {
+        // A CAT model sets up its own record for the attempt and starts its clock. It has to learn
+        // about a new attempt before the first item is administered - afterwards its estimate would
+        // already be expected to exist.
+        if ($attempt->was_just_created()) {
+            request_timing::measure('catmodel_attempt_created', fn() => catmodel_resolver::callback(
+                $adaptivequiz->catmodel ?? null,
+                'post_create_attempt_callback',
+                $adaptivequiz,
+                $attempt
+            ));
         }
 
-        $itemadministrationfactory = $adaptivequiz->catmodel
-            ? self::catmodel_item_administration_factory($adaptivequiz->catmodel)
-            : new default_item_administration_factory();
-
+        $quba = $attempt->get_quba();
         $slots = $quba->get_slots();
-        $previousslot = !empty($slots) ? end($slots) : null;
 
-        $itemadministration = $itemadministrationfactory->item_administration_implementation(
-            $quba,
-            $adaptiveattempt,
-            $adaptivequiz
-        );
-        $itemadministrationevaluation = request_timing::measure(
-            'select_item',
-            fn() => $itemadministration->evaluate_ability_to_administer_next_item($previousslot)
-        );
+        $administration = self::item_administration_factory_for($adaptivequiz)
+            ->item_administration_implementation($quba, $attempt, $adaptivequiz);
 
-        if ($itemadministrationevaluation->item_administration_is_to_stop()) {
-            $noquestionsfetchedforattempt = $uniqueid == 0;
-            if ($noquestionsfetchedforattempt) {
-                // The script will try to complete an 'empty' attempt as it couldn't fetch the first question for some reason.
-                // This is an invalid behaviour, which could be caused by a misconfigured questions pool. Stop it here.
-                throw new moodle_exception('attemptnofirstquestion', 'adaptivequiz');
-            }
+        $evaluation = request_timing::measure('select_item', fn() => $administration->evaluate_ability_to_administer_next_item(
+            !empty($slots) ? end($slots) : null
+        ));
 
-            adaptivequiz_complete_attempt($uniqueid, $adaptivequiz, $context, $USER->id,
-                $itemadministrationevaluation->stoppage_reason());
-
-            // In case it was an alternative CAT implementation set the attempt status.
-            if (empty($adaptiveattempt->get_status())) {
-                $adaptiveattempt->set_status($itemadministrationevaluation->stoppage_reason());
-            }
-
-            return;
+        if ($evaluation->item_administration_is_to_stop()) {
+            return $evaluation;
         }
 
-        $slot = $itemadministrationevaluation->next_item()->quba_slot();
-        if (is_null($slot)) {
-            $questionid = $itemadministrationevaluation->next_item()->question_id();
+        $slot = $evaluation->next_item()->quba_slot();
 
-            // Issue #6: defensive guard against duplicate slots. If an active
-            // slot for this question already exists (for example on a reload of
-            // an unanswered item, or from a concurrent request that ran just
-            // before the lock was acquired), reuse it instead of adding a second
-            // slot for the same item. Reusing is the intended, normal outcome
-            // here, so this deliberately does not raise a debugging notice.
-            //
-            // On a resume/reload the alternative CAT model may re-select a
-            // DIFFERENT next item than the one already sitting in the active,
-            // unanswered slot (the catquiz progress drops the unanswered last
-            // question, so its strategy picks afresh). A CAT attempt only ever
-            // has a single active unanswered slot at a time, so if the by-question
-            // lookup misses, fall back to reusing whatever active slot exists
-            // rather than appending a new one - otherwise the visible question
-            // (slot) number keeps growing across every resume/reload.
-            $existingslot = self::find_active_slot_for_question($quba, $questionid)
-                ?? self::find_any_active_slot($quba);
-            if ($existingslot !== null) {
-                $adaptiveattempt->set_question_slot_number($existingslot);
+        if ($slot !== null) {
+            // The built-in algorithm has put the question into the usage itself and answers with
+            // its slot. The number still has to be written back: attempt.php reads it from the
+            // attempt to render the question.
+            $attempt->set_question_slot_number($slot);
 
-                return;
-            }
-
-            // A question already answered in this usage is asked for again, a few times (issue #126
-            // of the CAT model's plugin): a CAT model that keeps its own exclusion set names another
-            // one. The test always goes on - if a CAT model insists, its item is administered once
-            // more and stays visible as a technical duplicate; ending the test is never the answer.
-            $asked = 1;
-            while (self::find_completed_slot_for_question($quba, (int) $questionid) !== null && $asked < self::MAX_ASKS) {
-                debugging(
-                    "Question {$questionid} was named again by the CAT model although it was already "
-                        . 'administered in this attempt; asking once more.',
-                    DEBUG_DEVELOPER
-                );
-                $again = $itemadministration->evaluate_ability_to_administer_next_item($previousslot);
-                $asked++;
-                if ($again->item_administration_is_to_stop()) {
-                    // A regular stop by the CAT model's own criteria, not because of the repetition.
-                    adaptivequiz_complete_attempt($uniqueid, $adaptivequiz, $context, $USER->id, $again->stoppage_reason());
-                    if (empty($adaptiveattempt->get_status())) {
-                        $adaptiveattempt->set_status($again->stoppage_reason());
-                    }
-                    return;
-                }
-                if ($again->next_item()->quba_slot() !== null) {
-                    break;
-                }
-                $questionid = $again->next_item()->question_id();
-            }
-            if (self::find_completed_slot_for_question($quba, (int) $questionid) !== null) {
-                debugging(
-                    "Question {$questionid} was named again {$asked} times; it is administered once more "
-                        . 'as a technical duplicate and the test continues.',
-                    DEBUG_DEVELOPER
-                );
-            }
-            $question = request_timing::measure('load_question', fn() => question_bank::load_question($questionid));
-            request_timing::start('question_usage');
-            $slot = $quba->add_question($question);
-
-            if (!$quba->get_question_state($slot)->is_active()) {
-                $quba->start_question($slot);
-                question_engine::save_questions_usage_by_activity($quba);
-
-                // If this is the first question, set quba id for the attempt.
-                if (count($quba->get_slots()) == 1) {
-                    $adaptiveattempt->set_quba_id($quba->get_id());
-                }
-            }
-            request_timing::stop('question_usage', ['slots' => count($quba->get_slots())]);
-
-            $adaptiveattempt->set_question_slot_number($slot);
-
-            return;
+            return $evaluation;
         }
 
-        /* The CAT model returned an EXISTING slot instead of a question id - the
-           normal outcome when an unanswered item is re-served after a reload or a
-           resume. The slot number still has to be written to the attempt, because
-           attempt.php reads it back via get_question_slot_number() to render the
-           question. Without this the attempt kept whatever slot number it carried
-           before, and the next access to that slot failed with
-           "There is no question_attempt number in this attempt".
-           The built-in default_item_administration never hit this because it sets
-           the slot number itself before returning from_quba_slot(); a sub-plugin
-           that only returns the slot cannot do that. */
-        $adaptiveattempt->set_question_slot_number($slot);
+        // A CAT model only names the question - the usage belongs to the host, so the host puts it in.
+        $questionid = $evaluation->next_item()->question_id();
+
+        // On a reload the CAT model may name a different question than the one already sitting in
+        // the active, unanswered slot. Reusing that slot is the intended outcome: appending a new
+        // one would make the visible question number grow with every reload.
+        $existing = self::active_slot_for_question($quba, $questionid) ?? self::any_active_slot($quba);
+
+        if ($existing !== null) {
+            $attempt->set_question_slot_number($existing);
+
+            return $evaluation;
+        }
+
+        // A question already answered in this usage is asked for again, a few times (issue #126 of the
+        // CAT model's plugin): a CAT model that keeps its own exclusion set names another one. The test
+        // always goes on - if a CAT model insists, its item is administered once more and stays visible
+        // as a technical duplicate in the attempt's history; ending the test is never the answer.
+        $asked = 1;
+        while (self::completed_slot_for_question($quba, (int) $questionid) !== null && $asked < self::MAX_ASKS) {
+            debugging(
+                "Question {$questionid} was named again by the CAT model although it was already administered "
+                    . 'in this attempt; asking once more.',
+                DEBUG_DEVELOPER
+            );
+            $evaluation = $administration->evaluate_ability_to_administer_next_item(
+                !empty($slots) ? end($slots) : null
+            );
+            $asked++;
+            if ($evaluation->item_administration_is_to_stop()) {
+                return $evaluation;
+            }
+            if (($slot = $evaluation->next_item()->quba_slot()) !== null) {
+                $attempt->set_question_slot_number($slot);
+                return $evaluation;
+            }
+            $questionid = $evaluation->next_item()->question_id();
+        }
+        if (self::completed_slot_for_question($quba, (int) $questionid) !== null) {
+            debugging(
+                "Question {$questionid} was named again {$asked} times; it is administered once more as a "
+                    . 'technical duplicate and the test continues.',
+                DEBUG_DEVELOPER
+            );
+        }
+        $question = request_timing::measure('load_question', fn() => question_bank::load_question($questionid));
+        request_timing::start('question_usage');
+        $slot = $quba->add_question($question);
+
+        if (!$quba->get_question_state($slot)->is_active()) {
+            $quba->start_question($slot);
+            question_engine::save_questions_usage_by_activity($quba);
+
+            if (count($quba->get_slots()) == 1) {
+                $attempt->set_quba_id($quba->get_id());
+            }
+        }
+        request_timing::stop('question_usage', ['slots' => count($quba->get_slots())]);
+
+        $attempt->set_question_slot_number($slot);
+
+        return $evaluation;
     }
 
     /**
@@ -248,7 +214,7 @@ class cat_session {
      * @param int $questionid
      * @return int|null
      */
-    private static function find_completed_slot_for_question(question_usage_by_activity $quba, int $questionid): ?int {
+    private static function completed_slot_for_question(question_usage_by_activity $quba, int $questionid): ?int {
         foreach ($quba->get_slots() as $slot) {
             if ((int) $quba->get_question($slot)->id === $questionid && !$quba->get_question_state($slot)->is_active()) {
                 return $slot;
@@ -259,24 +225,15 @@ class cat_session {
     }
 
     /**
-     * Finds an active (unanswered) QUBA slot that already holds the given question.
+     * Returns the active slot holding the given question, if there is one.
      *
-     * Used as a defensive guard against duplicate slots for the same item
-     * (Issue #6).
-     *
-     * @param question_usage_by_activity $quba
-     * @param int $questionid
-     * @return int|null The slot number, or null if no active slot holds the question.
+     * @param question_usage_by_activity $quba The question usage of the attempt.
+     * @param int $questionid Id of the question to look for.
+     * @return int|null
      */
-    private static function find_active_slot_for_question(
-        question_usage_by_activity $quba,
-        int $questionid
-    ): ?int {
+    private static function active_slot_for_question(question_usage_by_activity $quba, int $questionid): ?int {
         foreach ($quba->get_slots() as $slot) {
-            if (
-                (int) $quba->get_question($slot)->id === (int) $questionid
-                && $quba->get_question_state($slot)->is_active()
-            ) {
+            if ((int) $quba->get_question($slot)->id === $questionid && $quba->get_question_state($slot)->is_active()) {
                 return $slot;
             }
         }
@@ -285,21 +242,12 @@ class cat_session {
     }
 
     /**
-     * Finds any active (unanswered) QUBA slot, regardless of which question it
-     * holds.
+     * Returns any active slot of the usage, if there is one.
      *
-     * A CAT attempt only ever has a single active unanswered slot at a time (the
-     * item currently presented to the user). When a fresh item is requested while
-     * such a slot already exists, we are resuming or reloading and must re-present
-     * that slot rather than appending a new one - otherwise the slot (question)
-     * number grows on every resume/reload (Issue #6).
-     *
-     * @param question_usage_by_activity $quba
-     * @return int|null The slot number, or null if there is no active slot.
+     * @param question_usage_by_activity $quba The question usage of the attempt.
+     * @return int|null
      */
-    private static function find_any_active_slot(
-        question_usage_by_activity $quba
-    ): ?int {
+    private static function any_active_slot(question_usage_by_activity $quba): ?int {
         foreach ($quba->get_slots() as $slot) {
             if ($quba->get_question_state($slot)->is_active()) {
                 return $slot;
@@ -310,24 +258,29 @@ class cat_session {
     }
 
     /**
-     * Processes the submitted question answer and operates on the given attempt instance changing its state.
+     * Processes the answer to the item that was administered last.
      *
-     * @param int $uniqueid
-     * @param stdClass $adaptivequiz
-     * @param attempt $adaptiveattempt
-     * @param callable $qubahelper Used to change behavior when processing a submitted question.
+     * The host runs the question engine and then hands over: to the CAT model of the activity if
+     * there is one, otherwise to the built-in algorithm, which recalculates the ability estimate
+     * and decides whether the attempt goes on.
+     *
+     * @param int $uniqueid Id of the question usage of the attempt.
+     * @param stdClass $adaptivequiz The activity instance record.
+     * @param attempt $attempt The running attempt.
+     * @param callable $qubahelper Applies the submitted actions to the question usage.
+     * @return item_result_processing
      */
     public static function process_administered_item_result(
         int $uniqueid,
         stdClass $adaptivequiz,
-        attempt $adaptiveattempt,
+        attempt $attempt,
         callable $qubahelper
-    ): void {
+    ): item_result_processing {
         global $USER;
 
-        $attemptrec = $adaptiveattempt->get_attempt();
+        $attemptrecord = $attempt->get_attempt();
 
-        if (!adaptivequiz_uniqueid_part_of_attempt($uniqueid, $adaptivequiz->id, $USER->id)) {
+        if (!adaptivequiz_uniqueid_part_of_attempt($uniqueid, (int) $adaptivequiz->id, (int) $USER->id)) {
             throw new moodle_exception('uniquenotpartofattempt', 'adaptivequiz');
         }
 
@@ -335,121 +288,91 @@ class cat_session {
         $qubahelper($quba);
         question_engine::save_questions_usage_by_activity($quba);
 
-        // If this is a custom CAT model, update the attempt, call the callback and exit.
-        if ($adaptivequiz->catmodel) {
-            self::catmodel_post_process_item_result($quba, $adaptivequiz, $adaptiveattempt);
+        $result = new item_result_processing();
+
+        if (!empty($adaptivequiz->catmodel)) {
+            // The CAT model keeps its own estimate; the host only records that a question was answered.
+            catmodel_resolver::callback(
+                $adaptivequiz->catmodel,
+                'post_process_item_result_callback',
+                $quba,
+                $adaptivequiz,
+                $attempt
+            );
             adaptivequiz_update_attempt_data($uniqueid, $adaptivequiz->id, $USER->id, 0, 0, 0);
 
-            return;
+            return $result;
         }
 
-        $slots = $quba->get_slots();
-        $slot = $slots[count($slots) - 1];
-
-        $question = $quba->get_question($slot);
-
-        $questiontags = core_tag_tag::get_item_tags('core_question', 'question', $question->id);
-        $questiontags = array_filter($questiontags, function (core_tag_tag $tag): bool {
-            return substr($tag->name, 0, strlen(ADAPTIVEQUIZ_QUESTION_TAG)) === ADAPTIVEQUIZ_QUESTION_TAG;
-        });
-        $questiontag = array_shift($questiontags);
-
-        $difflevel = substr($questiontag->name, strlen(ADAPTIVEQUIZ_QUESTION_TAG));
+        $result->answereddifficulty = self::difficulty_of_last_administered_item($quba);
 
         $minattemptreached = adaptivequiz_min_attempts_reached($uniqueid, $adaptivequiz->id, $USER->id);
+        $algorithm = new catalgo($quba, (int) $attemptrecord->id, $minattemptreached, $result->answereddifficulty);
 
-        $algo = new catalgo($quba, (int) $attemptrec->id, $minattemptreached, (int) $difflevel);
-        $nextdiff = $algo->perform_calculation_steps();
+        $result->nextdifficulty = $algorithm->perform_calculation_steps();
+        $result->standarderror = (float) $algorithm->get_standarderror();
 
-        $adaptiveattempt->set_level($nextdiff);
+        $updated = adaptivequiz_update_attempt_data(
+            $uniqueid,
+            $adaptivequiz->id,
+            $USER->id,
+            $algorithm->get_levellogit(),
+            $result->standarderror,
+            $algorithm->get_measure()
+        );
 
-        $difflogit = $algo->get_levellogit();
-        $standarderror = $algo->get_standarderror();
-        $measure = $algo->get_measure();
-        $everythingokay = adaptivequiz_update_attempt_data($uniqueid, $adaptivequiz->id, $USER->id, $difflogit, $standarderror,
-            $measure);
-
-        // Something went wrong with updating the attempt.
-        if (!$everythingokay) {
+        if (!$updated) {
             throw new moodle_exception('unableupdatediffsum', 'adaptivequiz');
         }
 
-        // Check whether the status property is empty.
-        $message = $algo->get_status();
-        if (!empty($message)) {
-            $adaptiveattempt->set_status($message);
+        $result->stoppagereason = (string) $algorithm->get_status();
 
-            return;
+        if ($result->attempt_is_to_stop()) {
+            return $result;
         }
 
-        // Lastly decrement the sum of questions for the attempted difficulty level.
-        $fetchquestion = new fetchquestion($adaptivequiz, (int) $difflevel, $adaptivequiz->lowestlevel,
-            $adaptivequiz->highestlevel);
-        $tagquestcount = $fetchquestion->get_tagquestsum();
-        $tagquestcount = $fetchquestion->decrement_question_sum_from_difficulty($tagquestcount, $difflevel);
-        $fetchquestion->set_tagquestsum($tagquestcount);
-
-        $fetchquestion->store_tagquestsum_in_session();
-    }
-
-    /**
-     * Tries to instantiate implementation of the factory for the given CAT model.
-     *
-     * @param string $catmodel
-     * @return item_administration_factory
-     * @throws coding_exception
-     */
-    private static function catmodel_item_administration_factory(string $catmodel): item_administration_factory {
-        $implementations = core_component::get_component_classes_in_namespace(
-            "adaptivequizcatmodel_$catmodel",
-            'local\catmodel\itemadministration'
+        // One question of that difficulty has been used up.
+        $fetchquestion = new fetchquestion(
+            $adaptivequiz,
+            $result->answereddifficulty,
+            (int) $adaptivequiz->lowestlevel,
+            (int) $adaptivequiz->highestlevel
         );
-        if (empty($implementations)) {
-            throw new coding_exception(
-                'implementations of the item_administration_factory interface could not be found for the selected CAT model'
-            );
-        }
+        $tagquestcount = $fetchquestion->decrement_question_sum_from_difficulty(
+            $fetchquestion->get_tagquestsum(),
+            $result->answereddifficulty
+        );
+        $fetchquestion->set_tagquestsum($tagquestcount);
+        $fetchquestion->store_tagquestsum_in_session();
 
-        $classnames = array_filter(array_keys($implementations), function (string $classname): bool {
-            return is_subclass_of($classname, '\mod_adaptivequiz\local\itemadministration\item_administration_factory');
-        });
-
-        if (empty($classnames)) {
-            throw new coding_exception(
-                'implementations of the item_administration_factory interface could not be found for the selected CAT model'
-            );
-        }
-
-        if (count($classnames) > 1) {
-            throw new coding_exception('only one implementation of the item_administration_factory interface is expected');
-        }
-
-        $classname = array_shift($classnames);
-
-        return new $classname();
+        return $result;
     }
 
     /**
-     * Calls custom CAT model's callback if it could be found.
+     * Returns the difficulty level of the question in the last slot of the usage.
      *
-     * When the callback cannot be executed the method silently exits.
+     * Read from the tag of the question, not from the request: the level decides the whole
+     * recalculation, and a posted value can say anything.
      *
-     * @param question_usage_by_activity $quba
-     * @param stdClass $adaptivequiz
-     * @param attempt $attempt
+     * @param question_usage_by_activity $quba The question usage of the attempt.
+     * @return int
      */
-    private static function catmodel_post_process_item_result(
-        question_usage_by_activity $quba,
-        stdClass $adaptivequiz,
-        attempt $attempt
-    ): void {
-        $catmodelcomponentname = 'adaptivequizcatmodel_' . $adaptivequiz->catmodel;
-        $pluginswithfunction = get_plugin_list_with_function('adaptivequizcatmodel', 'post_process_item_result_callback');
-        if (!array_key_exists($catmodelcomponentname, $pluginswithfunction)) {
-            return;
+    private static function difficulty_of_last_administered_item(question_usage_by_activity $quba): int {
+        $slots = $quba->get_slots();
+
+        if (empty($slots)) {
+            throw new coding_exception('The question usage holds no administered item.');
         }
 
-        $functionname = $pluginswithfunction[$catmodelcomponentname];
-        $functionname($quba, $adaptivequiz, $attempt);
+        $question = $quba->get_question(end($slots));
+        $tags = core_tag_tag::get_item_tags('core_question', 'question', $question->id);
+
+        foreach ($tags as $tag) {
+            if (str_starts_with($tag->name, ADAPTIVEQUIZ_QUESTION_TAG)) {
+                return (int) substr($tag->name, strlen(ADAPTIVEQUIZ_QUESTION_TAG));
+            }
+        }
+
+        throw new coding_exception('The administered question carries no difficulty tag.');
     }
 }

@@ -172,3 +172,14 @@ function adaptivequizcatmodel_testcatmodel_reset_created(): void {
 function adaptivequizcatmodel_testcatmodel_created_attempts(): int {
     return $GLOBALS['adaptivequizcatmodel_testcatmodel_created'] ?? 0;
 }
+
+/**
+ * Whether the owner of a finished attempt may review its questions; set by the test.
+ *
+ * @param stdClass $adaptivequiz
+ * @param stdClass $attempt
+ * @return bool
+ */
+function adaptivequizcatmodel_testcatmodel_completed_attempt_review_allowed(stdClass $adaptivequiz, stdClass $attempt): bool {
+    return (bool) get_config('adaptivequizcatmodel_testcatmodel', 'reviewallowed');
+}
