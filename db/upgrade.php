@@ -175,5 +175,38 @@ function xmldb_adaptivequiz_upgrade($oldversion) {
         upgrade_mod_savepoint(true, 2026092902, 'adaptivequiz');
     }
 
+    if ($oldversion < 2026100902) {
+        // Issue #14: results go to the gradebook as 0-100 % of their range, from a snapshot taken
+        // when the attempt is completed.
+        $table = new xmldb_table('adaptivequiz');
+        $field = new xmldb_field('passscore', XMLDB_TYPE_NUMBER, '15, 5', null, null, null, null, 'catmodel');
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        $table = new xmldb_table('adaptivequiz_attempt');
+        $fields = [
+            new xmldb_field('resultreason', XMLDB_TYPE_CHAR, '255', null, null, null, null, 'resultvalid'),
+            new xmldb_field('resultscore', XMLDB_TYPE_NUMBER, '15, 5', null, null, null, null, 'resultreason'),
+            new xmldb_field('resultlower', XMLDB_TYPE_NUMBER, '15, 5', null, null, null, null, 'resultscore'),
+            new xmldb_field('resultupper', XMLDB_TYPE_NUMBER, '15, 5', null, null, null, null, 'resultlower'),
+            new xmldb_field('resultpercent', XMLDB_TYPE_NUMBER, '10, 5', null, null, null, null, 'resultupper'),
+            new xmldb_field('resultlink', XMLDB_TYPE_CHAR, '50', null, null, null, null, 'resultpercent'),
+            new xmldb_field('resulttime', XMLDB_TYPE_INTEGER, '10', null, null, null, null, 'resultlink'),
+        ];
+        foreach ($fields as $field) {
+            if (!$dbman->field_exists($table, $field)) {
+                $dbman->add_field($table, $field);
+            }
+        }
+
+        // The snapshots of attempts completed before, and the regrade onto 0-100, need the result
+        // providers of the CAT models - which may themselves still be upgrading. A task does it
+        // once the upgrade is over.
+        \core\task\manager::queue_adhoc_task(new \mod_adaptivequiz\task\snapshot_results(), true);
+
+        upgrade_mod_savepoint(true, 2026100902, 'adaptivequiz');
+    }
+
     return true;
 }

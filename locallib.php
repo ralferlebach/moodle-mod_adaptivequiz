@@ -32,7 +32,7 @@ require_once($CFG->dirroot . '/question/engine/lib.php');
 use core_question\local\bank\question_edit_contexts;
 use mod_adaptivequiz\event\attempt_completed;
 use mod_adaptivequiz\local\attempt\attempt_state;
-use mod_adaptivequiz\local\catalgo;
+use mod_adaptivequiz\local\result\result_service;
 use qbank_managecategories\helper as qbank_managecategories_helper;
 
 // Default tagging used.
@@ -300,6 +300,10 @@ function adaptivequiz_complete_attempt(
         }
     }
 
+    // The result as the engine reports it now, kept with the attempt: the gradebook and the
+    // completion rules read this snapshot and nothing else (issue #14).
+    result_service::snapshot($adaptivequiz, $attempt);
+
     adaptivequiz_update_grades($adaptivequiz, $userid);
 
     $event = attempt_completed::create([
@@ -385,58 +389,71 @@ function adaptivequiz_get_grading_options() {
 /**
  * Return grade for given user or all users.
  *
+ * The grade is the percentage of the result snapshot (issue #14): 0-100, taken only from attempts
+ * with a valid result. A user whose completed attempts have no valid result gets null - never 0,
+ * which would read as a measured result at the bottom of the range. First and last refer to the
+ * valid attempts in the order they were finished; highest compares percentages.
+ *
  * @param stdClass $adaptivequiz The adaptivequiz
  * @param int $userid optional user id, 0 means all users
- * @return array array of grades, false if none. These are raw grades. They should
- * be processed with adaptivequiz_format_grade for display.
+ * @return array Grade objects with userid and rawgrade, keyed by user id.
  */
 function adaptivequiz_get_user_grades($adaptivequiz, $userid = 0) {
-    global $CFG, $DB;
+    global $DB;
 
-    $params = array(
+    $params = [
         'instance' => $adaptivequiz->id,
         'attemptstate' => attempt_state::COMPLETED,
-    );
+    ];
     $userwhere = '';
     if ($userid) {
         $params['userid'] = $userid;
-        $userwhere = 'AND aa.userid = :userid';
+        $userwhere = 'AND userid = :userid';
     }
-    $sql = "SELECT aa.uniqueid, aa.userid, aa.measure, aa.timemodified, aa.timecreated, a.highestlevel,
-               a.lowestlevel
-          FROM {adaptivequiz_attempt} aa
-          JOIN {adaptivequiz} a ON aa.instance = a.id
-         WHERE aa.instance = :instance
-               AND aa.attemptstate = :attemptstate
-               $userwhere";
-    $records = $DB->get_records_sql($sql, $params);
+    $records = $DB->get_records_select(
+        'adaptivequiz_attempt',
+        "instance = :instance AND attemptstate = :attemptstate $userwhere",
+        $params,
+        'id',
+        'id, userid, resultvalid, resultpercent, timefinished, timemodified'
+    );
 
-    $grades = array();
-    foreach ($records as $grade) {
-        $grade->rawgrade = catalgo::map_logit_to_scale($grade->measure,
-            $grade->highestlevel, $grade->lowestlevel);
+    $grades = [];
+    $chosen = [];
+    foreach ($records as $attempt) {
+        $grades[$attempt->userid] ??= (object) ['userid' => (int) $attempt->userid, 'rawgrade' => null];
 
-        if (empty($grades[$grade->userid])) {
-            // Store the first attempt.
-            $grades[$grade->userid] = $grade;
-        } else {
-            // If additional attempts are recorded, uses the settings to determine
-            // which one to report.
-            if ($adaptivequiz->grademethod == ADAPTIVEQUIZ_ATTEMPTFIRST) {
-                if ($grade->timemodified < $grades[$grade->userid]->timemodified) {
-                    $grades[$grade->userid] = $grade;
-                }
-            } else if ($adaptivequiz->grademethod == ADAPTIVEQUIZ_ATTEMPTLAST) {
-                if ($grade->timemodified > $grades[$grade->userid]->timemodified) {
-                    $grades[$grade->userid] = $grade;
-                }
-            } else {
-                // By default, use the highst grade.
-                if ($grade->rawgrade > $grades[$grade->userid]->rawgrade) {
-                    $grades[$grade->userid] = $grade;
-                }
-            }
+        if (empty($attempt->resultvalid) || $attempt->resultpercent === null) {
+            continue;
+        }
+        $attempt->percent = (float) $attempt->resultpercent;
+        $attempt->finished = (int) ($attempt->timefinished ?: $attempt->timemodified);
+
+        $current = $chosen[$attempt->userid] ?? null;
+        if ($current === null || adaptivequiz_attempt_counts_before($adaptivequiz, $attempt, $current)) {
+            $chosen[$attempt->userid] = $attempt;
+            $grades[$attempt->userid]->rawgrade = $attempt->percent;
         }
     }
     return $grades;
+}
+
+/**
+ * Whether one valid attempt replaces another as the one that is graded.
+ *
+ * @param stdClass $adaptivequiz The instance, for its grading method.
+ * @param stdClass $candidate Attempt with percent and finished.
+ * @param stdClass $current Attempt with percent and finished.
+ * @return bool
+ */
+function adaptivequiz_attempt_counts_before(stdClass $adaptivequiz, stdClass $candidate, stdClass $current): bool {
+    $order = [$candidate->finished, $candidate->id] <=> [$current->finished, $current->id];
+    if ($adaptivequiz->grademethod == ADAPTIVEQUIZ_ATTEMPTFIRST) {
+        return $order < 0;
+    }
+    if ($adaptivequiz->grademethod == ADAPTIVEQUIZ_ATTEMPTLAST) {
+        return $order > 0;
+    }
+    // Highest: the better percentage; of two equal ones, the earlier attempt.
+    return $candidate->percent > $current->percent || ($candidate->percent == $current->percent && $order < 0);
 }

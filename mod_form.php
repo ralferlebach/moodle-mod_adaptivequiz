@@ -28,6 +28,8 @@ require_once($CFG->dirroot . '/course/moodleform_mod.php');
 require_once($CFG->dirroot . '/mod/adaptivequiz/locallib.php');
 
 use mod_adaptivequiz\local\repository\questions_repository;
+use mod_adaptivequiz\local\result\result_definition;
+use mod_adaptivequiz\local\result\result_service;
 
 /**
  * Module instance settings form
@@ -183,8 +185,21 @@ class mod_adaptivequiz_mod_form extends moodleform_mod {
         $mform->setDefault('standarderror', $pluginconfig->standarderror);
 
         // Grade settings.
+        // The grade item is always 0-100 % of the result range (issue #14); the maximum is not a
+        // setting. The pass mark is set in the units of the result source as a pass score and
+        // becomes the grade item's pass percentage.
         $this->standard_grading_coursemodule_elements();
         $mform->removeElement('grade');
+        $mform->removeElement('gradepass');
+        $mform->addElement('hidden', 'grade', 100);
+        $mform->setType('grade', PARAM_INT);
+
+        $mform->addElement('static', 'resultsource', get_string('resultsource', 'adaptivequiz'), $this->describe_result_source());
+        $mform->addHelpButton('resultsource', 'resultsource', 'adaptivequiz');
+
+        $mform->addElement('text', 'passscore', get_string('passscore', 'adaptivequiz'), ['size' => 8]);
+        $mform->setType('passscore', PARAM_RAW_TRIMMED);
+        $mform->addHelpButton('passscore', 'passscore', 'adaptivequiz');
 
         // Grading method.
         $mform->addElement('select', 'grademethod', get_string('grademethod', 'adaptivequiz'),
@@ -308,7 +323,26 @@ class mod_adaptivequiz_mod_form extends moodleform_mod {
      * @throws dml_exception
      */
     public function validation($data, $files) {
-        $errors = parent::validation($data, $files);
+        $passerrors = [];
+
+        // Core checks the pass mark for "receive a passing grade" against gradepass, in percent.
+        $data['gradepass'] = '';
+        $passscore = self::parse_passscore($data['passscore'] ?? '');
+        if ($passscore === false) {
+            $passerrors['passscore'] = get_string('err_numeric', 'form');
+        } else if ($passscore !== null) {
+            $settings = $this->result_settings($data);
+            $definition = result_service::definition($settings);
+            $error = result_service::passscore_error($definition, $passscore);
+            if ($error !== null) {
+                $passerrors['passscore'] = get_string($error, 'adaptivequiz', self::range_strings($definition));
+            } else {
+                $settings->passscore = $passscore;
+                $data['gradepass'] = (string) result_service::pass_percentage($settings);
+            }
+        }
+
+        $errors = array_merge(parent::validation($data, $files), $passerrors);
 
         // When there's a custom CAT model submitted, we wire up its form validation if exists and skip the default validation.
         if (!empty($data['catmodel'])) {
@@ -366,11 +400,87 @@ class mod_adaptivequiz_mod_form extends moodleform_mod {
     }
 
     /**
+     * Stores the pass score as a number and hands its percentage to core as the pass mark.
+     *
+     * @param stdClass $data Submitted data.
+     */
+    public function data_postprocessing($data) {
+        parent::data_postprocessing($data);
+
+        if (!property_exists($data, 'passscore')) {
+            return;
+        }
+        $passscore = self::parse_passscore($data->passscore);
+        $data->passscore = is_float($passscore) ? $passscore : null;
+        $data->gradepass = result_service::pass_percentage($this->result_settings((array) $data)) ?? 0.0;
+    }
+
+    /**
+     * The pass score as entered.
+     *
+     * @param mixed $value
+     * @return float|null|false The number, null when empty, false when not a number.
+     */
+    private static function parse_passscore($value) {
+        if ($value === null || trim((string) $value) === '') {
+            return null;
+        }
+        $number = unformat_float($value, true);
+        return $number === false || $number === null ? false : (float) $number;
+    }
+
+    /**
+     * The instance as it would be saved: the stored settings with the submitted ones on top.
+     *
+     * @param array $data Submitted data.
+     * @return stdClass
+     */
+    private function result_settings(array $data): stdClass {
+        $settings = (object) array_merge((array) $this->current, $data);
+        $settings->id = $data['instance'] ?? ($this->current->instance ?? null);
+        return $settings;
+    }
+
+    /**
+     * The bounds of a range, for messages.
+     *
+     * @param result_definition $definition
+     * @return stdClass lower, upper
+     */
+    private static function range_strings(result_definition $definition): stdClass {
+        return (object) [
+            'lower' => $definition->lower === null ? '-' : format_float($definition->lower, -1),
+            'upper' => $definition->upper === null ? '-' : format_float($definition->upper, -1),
+        ];
+    }
+
+    /**
+     * Where the results of this activity come from and on which range, as saved.
+     *
+     * @return string
+     */
+    private function describe_result_source(): string {
+        $settings = (object) (array) $this->current;
+        $settings->id = $this->current->instance ?? null;
+        $definition = result_service::definition($settings);
+        if (!$definition->supportsgrading) {
+            return get_string('resultsourcenotgradable', 'adaptivequiz', $definition->label);
+        }
+        $a = self::range_strings($definition);
+        $a->label = $definition->label;
+        return get_string('resultsourcerange', 'adaptivequiz', $a);
+    }
+
+    /**
      * Overriding of the parent's method, {@see moodleform_mod::data_preprocessing()}.
      *
      * @param array $defaultvalues
      */
     public function data_preprocessing(&$defaultvalues) {
+        if (isset($defaultvalues['passscore']) && is_numeric($defaultvalues['passscore'])) {
+            $defaultvalues['passscore'] = format_float((float) $defaultvalues['passscore'], -1);
+        }
+
         // The editor element expects an array; without this the stored feedback is
         // not shown when the activity is edited again.
         $defaultvalues['attemptfeedbackeditor'] = [

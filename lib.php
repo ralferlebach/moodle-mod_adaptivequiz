@@ -28,6 +28,7 @@ defined('MOODLE_INTERNAL') || die();
 require_once($CFG->dirroot.'/question/engine/lib.php');
 
 use mod_adaptivequiz\local\attempt\attempt_state;
+use mod_adaptivequiz\local\result\result_service;
 
 /**
  * Option controlling what options are offered on the quiz settings form.
@@ -699,15 +700,15 @@ function adaptivequiz_grade_item_update(stdClass $adaptivequiz, $grades = null) 
         $params = array('itemname' => $adaptivequiz->name);
     }
 
-    if (isset($adaptivequiz->highestlevel)) {
-        if ($adaptivequiz->highestlevel > 0) {
-            $params['gradetype'] = GRADE_TYPE_VALUE;
-            $params['grademax'] = $adaptivequiz->highestlevel;
-            $params['grademin'] = $adaptivequiz->lowestlevel;
-
-        } else {
-            $params['gradetype'] = GRADE_TYPE_NONE;
-        }
+    // Always 0-100: the host maps every result onto a percentage of its range (issue #14). Only a
+    // source whose results are not meant for the gradebook has no grade item value at all.
+    $definition = result_service::definition($adaptivequiz);
+    if ($definition->supportsgrading) {
+        $params['gradetype'] = GRADE_TYPE_VALUE;
+        $params['grademax'] = 100;
+        $params['grademin'] = 0;
+    } else {
+        $params['gradetype'] = GRADE_TYPE_NONE;
     }
 
     if ($grades === 'reset') {
@@ -715,7 +716,49 @@ function adaptivequiz_grade_item_update(stdClass $adaptivequiz, $grades = null) 
         $grades = null;
     }
 
-    return grade_update('mod/adaptivequiz', $adaptivequiz->course, 'mod', 'adaptivequiz', $adaptivequiz->id, 0, $grades, $params);
+    $status = grade_update(
+        'mod/adaptivequiz',
+        $adaptivequiz->course,
+        'mod',
+        'adaptivequiz',
+        $adaptivequiz->id,
+        0,
+        $grades,
+        $params
+    );
+
+    if (!empty($adaptivequiz->id) && property_exists($adaptivequiz, 'passscore')) {
+        adaptivequiz_sync_gradepass($adaptivequiz);
+    }
+
+    return $status;
+}
+
+/**
+ * Sets the pass mark of the grade item from the pass score of the activity.
+ *
+ * The pass score is set in the units of the result source and lies within its range; the
+ * gradebook needs it as a percentage. grade_update() cannot carry a pass mark, so it is written to
+ * the grade item directly. No pass score - or none that fits the range - means no pass mark.
+ *
+ * @param stdClass $adaptivequiz The instance record, with passscore.
+ */
+function adaptivequiz_sync_gradepass(stdClass $adaptivequiz): void {
+    global $CFG;
+    require_once($CFG->libdir . '/gradelib.php');
+
+    $item = grade_item::fetch([
+        'itemtype' => 'mod', 'itemmodule' => 'adaptivequiz', 'iteminstance' => $adaptivequiz->id,
+        'itemnumber' => 0, 'courseid' => $adaptivequiz->course,
+    ]);
+    if (!$item) {
+        return;
+    }
+    $gradepass = result_service::pass_percentage($adaptivequiz) ?? 0.0;
+    if (abs((float) $item->gradepass - $gradepass) > 1e-9) {
+        $item->gradepass = $gradepass;
+        $item->update('mod/adaptivequiz');
+    }
 }
 
 function adaptivequiz_update_grades(stdClass $adaptivequiz, $userid=0, $nullifnone = true) {

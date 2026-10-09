@@ -23,6 +23,9 @@
  */
 
 class restore_adaptivequiz_activity_structure_step extends restore_questions_activity_structure_step {
+    /** @var stdClass|null The attempt being restored, inserted once its question usage is known. */
+    protected $currentadatpivequizattempt = null;
+
 
     /**
      * Define the a structure for restoring the activity

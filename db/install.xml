@@ -30,6 +30,7 @@
         <FIELD NAME="completionattemptcompleted" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Stores whether a custom completion rule based on whether a user has a completed attempt enabled."/>
         <FIELD NAME="completionvalidresult" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Issue #8: custom completion rule requiring a valid CAT result, not just a technically completed attempt."/>
         <FIELD NAME="catmodel" TYPE="char" LENGTH="255" NOTNULL="false" SEQUENCE="false" COMMENT="Sub-plugin with custom CAT model to use"/>
+        <FIELD NAME="passscore" TYPE="number" LENGTH="15" NOTNULL="false" SEQUENCE="false" DECIMALS="5" COMMENT="Pass mark in the units of the result source, within its range. The grade item gets it as a percentage."/>
       </FIELDS>
       <KEYS>
         <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
@@ -62,7 +63,14 @@
         <FIELD NAME="measure" TYPE="number" LENGTH="10" NOTNULL="true" DEFAULT="0.0" SEQUENCE="false" DECIMALS="5" COMMENT="The attempt ability measure in logits"/>
         <FIELD NAME="timefinished" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="Authoritative, immutable moment the attempt was completed as unix timestamp. NULL while the attempt is running."/>
         <FIELD NAME="resultstatus" TYPE="char" LENGTH="255" NOTNULL="false" SEQUENCE="false" COMMENT="Issue #8: machine-readable status of the CAT result (e.g. valid | invalid)."/>
-        <FIELD NAME="resultvalid" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Issue #8: 1 when the attempt produced a valid CAT result (used by the completionvalidresult rule)."/>
+        <FIELD NAME="resultvalid" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="1 when the attempt produced a valid result. Set from the result snapshot; the CAT model may write it before."/>
+        <FIELD NAME="resultreason" TYPE="char" LENGTH="255" NOTNULL="false" SEQUENCE="false" COMMENT="Machine-readable reason why the result is not valid or not gradable."/>
+        <FIELD NAME="resultscore" TYPE="number" LENGTH="15" NOTNULL="false" SEQUENCE="false" DECIMALS="5" COMMENT="Score of a valid result, in the units of the result source."/>
+        <FIELD NAME="resultlower" TYPE="number" LENGTH="15" NOTNULL="false" SEQUENCE="false" DECIMALS="5" COMMENT="Lower bound of the range the score was measured on, at completion."/>
+        <FIELD NAME="resultupper" TYPE="number" LENGTH="15" NOTNULL="false" SEQUENCE="false" DECIMALS="5" COMMENT="Upper bound of the range the score was measured on, at completion."/>
+        <FIELD NAME="resultpercent" TYPE="number" LENGTH="10" NOTNULL="false" SEQUENCE="false" DECIMALS="5" COMMENT="The score as 0-100 percent of its range - the grade of the attempt."/>
+        <FIELD NAME="resultlink" TYPE="char" LENGTH="50" NOTNULL="false" SEQUENCE="false" COMMENT="Identifier of the link function that produced resultpercent."/>
+        <FIELD NAME="resulttime" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="When the result snapshot was taken; null for an attempt without one."/>
         <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Time created timestamp"/>
         <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Time modified timestamp"/>
       </FIELDS>

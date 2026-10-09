@@ -14,20 +14,25 @@
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
+namespace mod_adaptivequiz\local\result;
+
+use moodle_exception;
+
 /**
- * Plugin basic info.
+ * A result source that is configured in a way no grade can be computed from (issue #14).
  *
  * @package    mod_adaptivequiz
- * @copyright  2013 Remote-Learner {@link http://www.remote-learner.ca/}
- * @copyright  2022 onwards Vitaly Potenko <potenkov@gmail.com>
+ * @copyright  2026 onwards Ralf Erlebach
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-
-defined('MOODLE_INTERNAL') || die();
-
-$plugin->version   = 2026100902;
-$plugin->release = '3.0.0';
-$plugin->maturity = MATURITY_RC;
-$plugin->requires = 2024042200;
-$plugin->cron = 0;
-$plugin->component = 'mod_adaptivequiz';
+class result_configuration_exception extends moodle_exception {
+    /**
+     * Constructor.
+     *
+     * @param string $errorcode String identifier in mod_adaptivequiz.
+     * @param mixed $a Value for the string.
+     */
+    public function __construct(string $errorcode, $a = null) {
+        parent::__construct($errorcode, 'adaptivequiz', '', $a);
+    }
+}
