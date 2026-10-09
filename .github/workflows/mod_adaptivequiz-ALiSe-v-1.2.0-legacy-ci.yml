@@ -1,0 +1,206 @@
+name: CI
+
+# mod_adaptivequiz, Zweig ALiSe-v-1.2.0-legacy: Moodle 4.5 (LTS), PHP 8.1 bis 8.3.
+#
+# Blockierend ist, was dieser Zweig heute sauber besteht: PHP-Syntax, Plugin-Validierung,
+# Upgrade-Savepoints, PHPUnit und die Architekturgrenze zu local_catquiz.
+#
+# Beratend (continue-on-error) laufen Code-Style, PHPDoc, Mustache, Grunt und Behat. Der
+# Legacy-Zweig traegt Stil-Altlasten aus der Zeit vor der Uebernahme (Stand 2026-10-09:
+# rund 1600 phpcs-Befunde in 106 Dateien, ueberwiegend array() statt [] und Einrueckung;
+# phpcbf behebt etwa 1350 davon automatisch). Neuer Code wird lokal sauber gehalten. Sobald
+# die Altlasten bereinigt sind, wird der jeweilige Schritt durch Entfernen von
+# continue-on-error blockierend.
+#
+# Die Logs jedes Schritts landen in ci-logs/ und werden als ZIP-Artefakt angeboten.
+
+on:
+  push:
+    branches:
+      - '**'
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: ${{ matrix.moodle-branch }} · PHP ${{ matrix.php }} · ${{ matrix.database }}
+    runs-on: ubuntu-22.04
+
+    services:
+      postgres:
+        image: postgres:14
+        env:
+          POSTGRES_USER: 'postgres'
+          POSTGRES_HOST_AUTH_METHOD: 'trust'
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready" --health-interval=10s
+          --health-timeout=5s --health-retries=3
+
+      mariadb:
+        image: mariadb:10.11
+        env:
+          MYSQL_USER: 'root'
+          MYSQL_ALLOW_EMPTY_PASSWORD: "true"
+          MYSQL_CHARACTER_SET_SERVER: "utf8mb4"
+          MYSQL_COLLATION_SERVER: "utf8mb4_unicode_ci"
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping" --health-interval=10s
+          --health-timeout=5s --health-retries=3
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { moodle-branch: 'MOODLE_405_STABLE', php: '8.1', database: 'pgsql' }
+          - { moodle-branch: 'MOODLE_405_STABLE', php: '8.2', database: 'mariadb' }
+          - { moodle-branch: 'MOODLE_405_STABLE', php: '8.3', database: 'pgsql' }
+          - { moodle-branch: 'MOODLE_405_STABLE', php: '8.3', database: 'mariadb' }
+
+    steps:
+      - name: Plugin auschecken
+        uses: actions/checkout@v4
+        with:
+          path: plugin
+
+      - name: Log-Verzeichnis anlegen
+        run: mkdir -p ci-logs
+
+      - name: PHP einrichten
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: pgsql, mysqli, zip, gd, xmlrpc, soap, intl
+          ini-values: max_input_vars=5000
+          coverage: none
+
+      - name: Composer-Downloads cachen
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/composer
+          key: composer-${{ runner.os }}-${{ github.sha }}
+          restore-keys: composer-${{ runner.os }}-
+
+      - name: moodle-plugin-ci installieren
+        run: |
+          composer create-project -n --no-dev --prefer-dist moodlehq/moodle-plugin-ci ci ^4
+          echo $(cd ci/bin; pwd) >> $GITHUB_PATH
+          echo $(cd ci/vendor/bin; pwd) >> $GITHUB_PATH
+          sudo locale-gen en_AU.UTF-8
+          echo "NVM_DIR=$HOME/.nvm" >> $GITHUB_ENV
+
+      # Der Host braucht keine weiteren Plugins: CAT-Modelle sind Subplugins in eigenen
+      # Repositories und fuer die Tests dieses Zweigs nicht noetig.
+      - name: Moodle installieren
+        run: moodle-plugin-ci install --plugin ./plugin --db-host=127.0.0.1
+        env:
+          DB: ${{ matrix.database }}
+          MOODLE_BRANCH: ${{ matrix.moodle-branch }}
+
+      - name: PHP-Syntax
+        if: ${{ always() }}
+        run: set -o pipefail; moodle-plugin-ci phplint 2>&1 | tee ci-logs/phplint.log
+
+      - name: Plugin-Validierung
+        if: ${{ always() }}
+        run: set -o pipefail; moodle-plugin-ci validate 2>&1 | tee ci-logs/validate.log
+
+      - name: Upgrade-Savepoints
+        if: ${{ always() }}
+        run: set -o pipefail; moodle-plugin-ci savepoints 2>&1 | tee ci-logs/savepoints.log
+
+      - name: PHPUnit
+        if: ${{ always() }}
+        run: set -o pipefail; moodle-plugin-ci phpunit --fail-on-warning --testdox 2>&1 | tee ci-logs/phpunit.log
+
+      # Beratend - siehe Kopf. PSR1.Classes.ClassDeclaration ist ausgenommen:
+      # mod_adaptivequiz_csv_renderer muss laut Moodles renderer_factory in renderer.php stehen.
+      - name: Code-Style (beratend)
+        if: ${{ always() }}
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          moodle-plugin-ci phpcs --max-warnings 0 \
+            --exclude=PSR1.Classes.ClassDeclaration,moodle.Commenting.TodoComment 2>&1 | tee ci-logs/phpcs.log
+
+      - name: PHPDoc (beratend)
+        if: ${{ always() }}
+        continue-on-error: true
+        run: set -o pipefail; moodle-plugin-ci phpdoc --max-warnings 0 2>&1 | tee ci-logs/phpdoc.log
+
+      - name: Mustache-Templates (beratend)
+        if: ${{ always() }}
+        continue-on-error: true
+        run: set -o pipefail; moodle-plugin-ci mustache 2>&1 | tee ci-logs/mustache.log
+
+      - name: Grunt (beratend)
+        if: ${{ always() }}
+        continue-on-error: true
+        run: set -o pipefail; moodle-plugin-ci grunt --max-lint-warnings 0 2>&1 | tee ci-logs/grunt.log
+
+      - name: Behat (beratend)
+        if: ${{ always() }}
+        continue-on-error: true
+        run: set -o pipefail; moodle-plugin-ci behat --profile chrome 2>&1 | tee ci-logs/behat.log
+
+      - name: Fehlerzusammenfassung
+        if: ${{ always() }}
+        run: |
+          {
+            echo "job:    ${{ matrix.moodle-branch }} / PHP ${{ matrix.php }} / ${{ matrix.database }}"
+            echo "status: ${{ job.status }}"
+            echo "commit: ${{ github.sha }}"
+            echo "ref:    ${{ github.ref }}"
+            echo ""
+            echo "Logs (ein nicht leeres *.log eines fehlgeschlagenen Schritts enthaelt den Fehler):"
+            ls -1 ci-logs
+          } > ci-logs/summary.txt
+          cat ci-logs/summary.txt
+
+      - name: Logs hochladen (ZIP)
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-logs-${{ matrix.moodle-branch }}-php${{ matrix.php }}-${{ matrix.database }}
+          path: ci-logs
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: Behat-Screenshots sichern
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: behat-faildump-${{ matrix.moodle-branch }}-php${{ matrix.php }}-${{ matrix.database }}
+          path: |
+            moodledata_behat_faildump/**
+            moodledata/behat_faildump/**
+          if-no-files-found: ignore
+          retention-days: 14
+
+  architecture:
+    name: Architekturgrenze zu local_catquiz
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Plugin auschecken
+        uses: actions/checkout@v4
+
+      # Der Host darf keine CATquiz-Fachlichkeit kennen (Issue #10 §13); er spricht CAT-Modelle
+      # nur ueber neutrale Erweiterungspunkte an (z. B. den Ergebnisvertrag, Issue #14).
+      # Geprueft wird ausfuehrbarer Code, nicht die Dokumentation.
+      - name: Keine CATquiz-Referenzen im Host
+        run: |
+          if grep -rInE 'local_catquiz|catquiz_handler|catscale|adaptivequizcatmodel_catquiz' \
+               --include='*.php' --include='*.js' --include='*.mustache' \
+               --include='*.json' --include='*.xml' --include='*.feature' \
+               --exclude-dir=.git --exclude-dir=doc --exclude-dir=catquiz . ; then
+            echo "::error::CATquiz-Referenz im Host gefunden - siehe Issue #10 §13."
+            exit 1
+          fi
+          echo "Keine CATquiz-Referenzen im Host."
