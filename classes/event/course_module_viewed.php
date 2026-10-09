@@ -24,13 +24,8 @@
 
 namespace mod_adaptivequiz\event;
 
-/**
- * Course module viewed.
- */
 class course_module_viewed extends \core\event\course_module_viewed {
-    /**
-     * Initialises .
-     */
+
     protected function init() {
         $this->data['objecttable'] = 'adaptivequiz';
         parent::init();

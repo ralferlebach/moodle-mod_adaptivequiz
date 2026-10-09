@@ -36,6 +36,7 @@ use templatable;
  * @package mod_adaptivequiz
  */
 final class individual_user_attempt_action implements renderable, templatable {
+
     /**
      * @var moodle_url $url;
      */

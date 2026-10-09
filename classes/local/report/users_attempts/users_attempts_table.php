@@ -34,6 +34,7 @@ use table_sql;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 final class users_attempts_table extends table_sql {
+
     /**
      * @var string Unique id for the table.
      */

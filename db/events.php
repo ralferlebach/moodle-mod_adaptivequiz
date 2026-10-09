@@ -15,8 +15,6 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Event observer definitions for the adaptive quiz activity module.
- *
  * @copyright  2022 onwards Vitaly Potenko <potenkov@gmail.com>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
@@ -26,6 +24,6 @@ defined('MOODLE_INTERNAL') || die();
 $observers = [
     [
         'eventname' => '\mod_adaptivequiz\event\attempt_completed',
-        'callback' => '\mod_adaptivequiz\attempt_state_change_observers::attempt_completed',
-    ],
+        'callback' => '\mod_adaptivequiz\attempt_state_change_observers::attempt_completed'
+    ]
 ];

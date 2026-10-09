@@ -25,23 +25,20 @@
 
 require_once(__DIR__ . '/../../config.php');
 require_once($CFG->libdir . '/tablelib.php');
-require_once($CFG->dirroot . '/mod/adaptivequiz/locallib.php');
+require_once($CFG->dirroot.'/mod/adaptivequiz/locallib.php');
 
-use core\output\notification;
-use core_question\local\bank\question_bank_helper;
-use mod_adaptivequiz\item_bank;
-use mod_adaptivequiz\local\catmodel\catmodel_resolver;
 use mod_adaptivequiz\local\report\questions_difficulty_range;
 use mod_adaptivequiz\local\report\users_attempts\filter\filter;
 use mod_adaptivequiz\local\report\users_attempts\filter\filter_form;
 use mod_adaptivequiz\local\report\users_attempts\filter\filter_options;
 use mod_adaptivequiz\local\report\users_attempts\user_preferences\filter_user_preferences;
+use mod_adaptivequiz\local\user_attempts_table;
 use mod_adaptivequiz\local\report\users_attempts\users_attempts_table;
 use mod_adaptivequiz\local\report\users_attempts\user_preferences\user_preferences_form;
 use mod_adaptivequiz\local\report\users_attempts\user_preferences\user_preferences_repository;
 use mod_adaptivequiz\local\report\users_attempts\user_preferences\user_preferences;
+use mod_adaptivequiz\output\attempts_number;
 use mod_adaptivequiz\output\user_attempt_summary;
-use mod_adaptivequiz\output\user_attempts_overview;
 
 $id = optional_param('id', 0, PARAM_INT);
 $downloadusersattempts = optional_param('download', '', PARAM_ALPHA);
@@ -70,13 +67,9 @@ $PAGE->add_body_class('limitedwidth');
 /** @var mod_adaptivequiz_renderer $renderer */
 $renderer = $PAGE->get_renderer('mod_adaptivequiz');
 
+$customcatmodelinuse = !empty($adaptivequiz->catmodel);
+
 $canviewattemptsreport = has_capability('mod/adaptivequiz:viewreport', $context);
-
-// An activity driven by a CAT model does not show the built-in attempts report: its numbers come
-// from the built-in algorithm and would not match. It shows the number of attempts instead, linked
-// to the report of the CAT model when there is one.
-$customcatmodelinuse = catmodel_resolver::is_configured($adaptivequiz->catmodel ?? null);
-
 if ($canviewattemptsreport && !$customcatmodelinuse) {
     $reportuserprefs = user_preferences_repository::get();
 
@@ -127,18 +120,10 @@ if ($canviewattemptsreport && !$customcatmodelinuse) {
         }
     }
 
-    $attemptsreporttable = new users_attempts_table(
-        $renderer,
-        $cm->id,
-        questions_difficulty_range::from_activity_instance($adaptivequiz),
-        $PAGE->url,
-        $context,
-        $filter
-    );
-    $attemptsreporttable->is_downloading(
-        $downloadusersattempts,
-        get_string('reportattemptsdownloadfilename', 'adaptivequiz', format_string($adaptivequiz->name))
-    );
+    $attemptsreporttable = new users_attempts_table($renderer, $cm->id,
+        questions_difficulty_range::from_activity_instance($adaptivequiz), $PAGE->url, $context, $filter);
+    $attemptsreporttable->is_downloading($downloadusersattempts,
+        get_string('reportattemptsdownloadfilename', 'adaptivequiz', format_string($adaptivequiz->name)));
     if ($attemptsreporttable->is_downloading()) {
         $attemptsreporttable->out(1, false);
         exit;
@@ -156,77 +141,24 @@ $event->trigger();
 $PAGE->set_title(format_string($adaptivequiz->name));
 $PAGE->set_heading(format_string($course->fullname));
 
-$itembankconfigured = false;
-
-$qbankmigrated = question_bank_helper::has_bank_migration_task_completed_successfully();
-if ($qbankmigrated) {
-    // Asks the CAT model first when one is configured; see item_bank::is_ready_for_attempt().
-    $itembankconfigured = item_bank::is_ready_for_attempt($adaptivequiz);
-}
-
 echo $OUTPUT->header();
 
-if ($canviewattemptsreport) {
-    if (!$qbankmigrated) {
-        $defaultqbankmod = question_bank_helper::get_default_question_bank_activity_name();
-
-        echo $renderer->notification(
-            message: get_string('transfernotfinished', 'mod_' . $defaultqbankmod),
-            type: notification::NOTIFY_WARNING,
-            closebutton: false
-        );
-    }
-
-    if ($qbankmigrated && !$itembankconfigured) {
-        echo $renderer->notification(
-            message: get_string('itembanknotconfiguredinfomanager', 'adaptivequiz'),
-            type: notification::NOTIFY_WARNING,
-            closebutton: false
-        );
-    }
+if ($canviewattemptsreport && $customcatmodelinuse) {
+    echo $renderer->container_start('text-center');
+    echo $renderer->attempts_number($adaptivequiz, $cm);
+    echo $renderer->container_end();
 }
 
 if (has_capability('mod/adaptivequiz:attempt', $context)) {
-    $attemptallowedbycount = false;
-    if ($qbankmigrated && $itembankconfigured) {
-        // Counting attempts makes sense only when item bank is verified.
-        $completedattemptscount = adaptivequiz_count_user_previous_attempts($adaptivequiz->id, $USER->id);
-        $attemptallowedbycount = adaptivequiz_allowed_attempt($adaptivequiz->attempts, $completedattemptscount);
-    }
+    $completedattemptscount = adaptivequiz_count_user_previous_attempts($adaptivequiz->id, $USER->id);
 
-    $attempturl = null;
-    $attemptnotification = '';
+    echo $renderer->container_start('attempt-controls-or-notification-container pb-3');
+    echo $renderer->attempt_controls_or_notification($cm->id,
+        adaptivequiz_allowed_attempt($adaptivequiz->attempts, $completedattemptscount), $adaptivequiz->browsersecurity);
+    echo $renderer->container_end();
 
-    if (!$qbankmigrated) {
-        // Managers have their own message in case question bank tasks haven't completed.
-        if (!$canviewattemptsreport) {
-            $attemptnotification = get_string('itembanknotconfiguredinfostudent', 'adaptivequiz');
-        }
-    }
-
-    if ($qbankmigrated) {
-        if ($itembankconfigured && $attemptallowedbycount) {
-            $attempturl = new moodle_url('/mod/adaptivequiz/attempt.php', ['cmid' => $cm->id]);
-        }
-
-        if ($itembankconfigured && !$attemptallowedbycount) {
-            $attemptnotification = get_string('noattemptsallowed', 'adaptivequiz');
-        }
-
-        if (!$itembankconfigured) {
-            // Managers have their own message in case item bank is not configured.
-            if (!$canviewattemptsreport) {
-                $attemptnotification = get_string('itembanknotconfiguredinfostudent', 'adaptivequiz');
-            }
-        }
-    }
-
-    echo $renderer->start_attempt($attempturl, $attemptnotification);
-
-    $allattemptscount = $DB->count_records(
-        'adaptivequiz_attempt',
-        ['instance' => $adaptivequiz->id, 'userid' => $USER->id]
-    );
+    $allattemptscount = $DB->count_records('adaptivequiz_attempt',
+        ['instance' => $adaptivequiz->id, 'userid' => $USER->id]);
     if ($allattemptscount && $adaptivequiz->attempts == 1) {
         $sql = 'SELECT id, attemptstate, measure, timemodified
             FROM {adaptivequiz_attempt}
@@ -236,25 +168,19 @@ if (has_capability('mod/adaptivequiz:attempt', $context)) {
             $userattempt = $userattempts[array_key_first($userattempts)];
 
             echo $renderer->heading(get_string('attempt_summary', 'adaptivequiz'), 3, 'text-center');
-            echo $renderer->render(new user_attempt_summary($adaptivequiz, $userattempt));
+            echo $renderer->render(user_attempt_summary::from_db_records($userattempt, $adaptivequiz));
         }
     }
     if ($allattemptscount && $adaptivequiz->attempts != 1) {
         echo $renderer->heading(get_string('attemptsuserprevious', 'adaptivequiz'), 3);
 
-        $attemptstable = new user_attempts_overview($renderer);
+        $attemptstable = new user_attempts_table($renderer);
         $attemptstable->init($PAGE->url, $adaptivequiz, $USER->id);
         $attemptstable->out(10, false);
     }
     if (!$allattemptscount) {
         echo html_writer::div(get_string('attemptsusernoprevious', 'adaptivequiz'), 'alert alert-info text-center');
     }
-}
-
-if ($canviewattemptsreport && $customcatmodelinuse) {
-    echo $renderer->container_start('text-center');
-    echo $renderer->attempts_number($adaptivequiz, $cm);
-    echo $renderer->container_end();
 }
 
 if ($canviewattemptsreport && !$customcatmodelinuse) {

@@ -26,10 +26,8 @@ namespace mod_adaptivequiz\local\catmodel\form;
 
 use MoodleQuickForm;
 
-/**
- * Catmodel mod form data preprocessor.
- */
 interface catmodel_mod_form_data_preprocessor {
+
     /**
      * Called in {@see \moodleform_mod::data_preprocessing()}, used to customize populating of form fields.
      *

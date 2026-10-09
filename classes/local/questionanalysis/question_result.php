@@ -27,15 +27,13 @@ namespace mod_adaptivequiz\local\questionanalysis;
 use Exception;
 use InvalidArgumentException;
 
-/**
- * Question result.
- */
 class question_result {
-    /** @var float $measuredability The measured ability of the user who attempted this question */
-    protected $measuredability = null;
 
-    /** @var bool $correct True if the user was correct in their answer */
-    protected $correct = null;
+    /** @var float $_measuredability The measured ability of the user who attempted this question */
+    protected $_measuredability = null;
+
+    /** @var boolean $_correct True if the user was correct in their answer */
+    protected $_correct = null;
 
     /**
      * Constructor - Create a new result.
@@ -44,25 +42,26 @@ class question_result {
      * @param boolean $correct
      * @return void
      */
-    public function __construct($measuredability, $correct) {
+    public function __construct ($measuredability, $correct) {
         if (!is_numeric($measuredability) || $measuredability < 0 || $measuredability > 1) {
             throw new InvalidArgumentException('$measuredability must be a float between 0 and 1.');
         }
-        $this->measuredability = $measuredability;
-        $this->correct = (bool)$correct;
+        $this->_measuredability = $measuredability;
+        $this->_correct = (bool)$correct;
     }
 
     /**
      * Magic method to provide read-only access to our parameters
      *
-     * @param mixed $key Key.
+     * @param $key
      * @return mixed
      */
-    public function __get($key) {
-        if (isset($this->$key)) {
-            return $this->$key;
+    public function __get ($key) {
+        $param = '$_'.$key;
+        if (isset($this->$param)) {
+            return $this->$param;
         } else {
-            throw new Exception('Unknown property, ' . get_class($this) . '->' . $key . '.');
+            throw new Exception('Unknown property, '.get_class($this).'->'.$key.'.');
         }
     }
 }

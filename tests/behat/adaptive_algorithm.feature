@@ -16,12 +16,9 @@ Feature: Adaptive quiz content
       | user     | course | role           |
       | teacher1 | C1     | editingteacher |
       | student1 | C1     | student        |
-    And the following "activities" exist:
-      | activity | name    | course | idnumber |
-      | qbank    | Qbank 1 | C1     | qbank1   |
     And the following "question categories" exist:
-      | contextlevel    | reference | name                    |
-      | Activity module | qbank1    | Adaptive Quiz Questions |
+      | contextlevel | reference | name                    |
+      | Course       | C1        | Adaptive Quiz Questions |
     And the following "questions" exist:
       | questioncategory        | qtype     | name | questiontext                | answer |
       | Adaptive Quiz Questions | truefalse | Q1   | Question 1 (difficulty 1).  | True   |
@@ -61,11 +58,8 @@ Feature: Adaptive quiz content
       | maximumquestions  | 10                      |
       | standarderror     | 20                      |
       | questionpoolnamed | Adaptive Quiz Questions |
-    And the following "mod_adaptivequiz > links with question banks" exist:
-      | adaptivequiz  | idnumber |
-      | Adaptive Quiz | qbank1   |
     When I am on the "adaptivequiz1" "Activity" page logged in as "student1"
-    And I click on "Start attempt" "button"
+    And I click on "Start attempt" "link"
     Then I should see " (difficulty 2)."
     And I click on "True" "radio"
     And I press "Submit answer"
@@ -100,11 +94,8 @@ Feature: Adaptive quiz content
       | maximumquestions  | 10                      |
       | standarderror     | 20                      |
       | questionpoolnamed | Adaptive Quiz Questions |
-    And the following "mod_adaptivequiz > links with question banks" exist:
-      | adaptivequiz  | idnumber |
-      | Adaptive Quiz | qbank1   |
     When I am on the "adaptivequiz1" "Activity" page logged in as "student1"
-    And I click on "Start attempt" "button"
+    And I click on "Start attempt" "link"
     Then I should see " (difficulty 2)."
     And I click on "False" "radio"
     And I press "Submit answer"
@@ -133,11 +124,8 @@ Feature: Adaptive quiz content
       | maximumquestions  | 10                      |
       | standarderror     | 20                      |
       | questionpoolnamed | Adaptive Quiz Questions |
-    And the following "mod_adaptivequiz > links with question banks" exist:
-      | adaptivequiz  | idnumber |
-      | Adaptive Quiz | qbank1   |
     When I am on the "adaptivequiz1" "Activity" page logged in as "student1"
-    And I click on "Start attempt" "button"
+    And I click on "Start attempt" "link"
     Then I should see " (difficulty 2)."
     And I click on "True" "radio"
     And I press "Submit answer"

@@ -16,49 +16,57 @@
 
 namespace mod_adaptivequiz\output;
 
-use mod_adaptivequiz\local\catmodel\catmodel_resolver;
 use moodle_url;
 use renderable;
 use stdClass;
 
 /**
- * The number of attempts on an activity, with a link to the report of the CAT model if there is one.
+ * Output object to display the number of attempts for the given adaptive quiz activity.
  *
- * An activity driven by a CAT model does not show the built-in attempts report - the numbers there
- * come from the built-in algorithm and would not match. It shows the number of attempts instead,
- * and turns that number into a link when the CAT model offers a report of its own. Without that
- * link a teacher would have no way to reach an attempts overview at all, and with it no way to
- * close an attempt.
+ * Intended to be used for the adaptive quizzes utilizing a custom CAT model where the default attempts report cannot be displayed
+ * and a link to an alternative report is displayed instead.
  *
  * @package    mod_adaptivequiz
  * @copyright  2024 Vitaly Potenko <potenkov@gmail.com>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class attempts_number implements renderable {
-    /** @var int $number How many attempts the activity has. */
-    public int $number;
-
-    /** @var moodle_url|null $reporturl Report of the CAT model, null when there is none. */
-    public ?moodle_url $reporturl;
 
     /**
-     * Builds the object for an activity that is driven by a CAT model.
+     * @var int $number
+     */
+    public $number;
+
+    /**
+     * @var moodle_url|null $reporturl
+     */
+    public $reporturl;
+
+    /**
+     * Instantiates a proper object for the case when a custom CAT model is in use.
      *
-     * @param stdClass $adaptivequiz The activity instance record.
-     * @param stdClass $cm The course module record of that activity.
-     * @return self
+     * @param stdClass $adaptivequiz
+     * @param stdClass $cm
      */
     public static function when_custom_catmodel_in_use(stdClass $adaptivequiz, stdClass $cm): self {
         global $DB;
 
-        $attemptsnumber = new self();
+        $attemptsnumber = new self;
         $attemptsnumber->number = $DB->count_records('adaptivequiz_attempt', ['instance' => $adaptivequiz->id]);
-        $attemptsnumber->reporturl = catmodel_resolver::callback(
-            $adaptivequiz->catmodel ?? null,
-            'attempts_report_url',
-            $adaptivequiz,
-            $cm
-        );
+        $attemptsnumber->reporturl = null;
+
+        if (empty($adaptivequiz->catmodel)) {
+            return $attemptsnumber;
+        }
+
+        $pluginswithfunction = get_plugin_list_with_function('adaptivequizcatmodel', 'attempts_report_url');
+        $catmodelcomponentname = 'adaptivequizcatmodel_' . $adaptivequiz->catmodel;
+        if (!array_key_exists($catmodelcomponentname, $pluginswithfunction)) {
+            return $attemptsnumber;
+        }
+
+        $functionname = $pluginswithfunction[$catmodelcomponentname];
+        $attemptsnumber->reporturl = $functionname($adaptivequiz, $cm);
 
         return $attemptsnumber;
     }

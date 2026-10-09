@@ -27,10 +27,8 @@ namespace mod_adaptivequiz\local\catmodel\instance;
 use mod_adaptivequiz_mod_form;
 use stdClass;
 
-/**
- * Catmodel add instance handler.
- */
 interface catmodel_add_instance_handler {
+
     /**
      * Called when an instance of adaptive quiz activity is created.
      *

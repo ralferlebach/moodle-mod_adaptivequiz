@@ -14,30 +14,31 @@
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
+/**
+ * fetch question PHPUnit tests
+ *
+ * @copyright  2013 Remote-Learner {@link http://www.remote-learner.ca/}
+ * @copyright  2022 onwards Vitaly Potenko <potenkov@gmail.com>
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
+
 namespace mod_adaptivequiz\local;
 
 defined('MOODLE_INTERNAL') || die();
 
 global $CFG;
-require_once($CFG->dirroot . '/mod/adaptivequiz/locallib.php');
+require_once($CFG->dirroot.'/mod/adaptivequiz/locallib.php');
 
 use advanced_testcase;
 use coding_exception;
 use mod_adaptivequiz\local\repository\questions_number_per_difficulty;
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\DataProvider;
 use stdClass;
 
 /**
- * Fetch question PHPUnit tests.
- *
- * @package    mod_adaptivequiz
- * @copyright  2013 Remote-Learner {@link http://www.remote-learner.ca/}
- * @copyright  2022 onwards Vitaly Potenko <potenkov@gmail.com>
- * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @group mod_adaptivequiz
+ * @covers \mod_adaptivequiz\local\fetchquestion
  */
-#[CoversClass(\mod_adaptivequiz\local\fetchquestion::class)]
-final class fetchquestion_test extends advanced_testcase {
+class fetchquestion_test extends advanced_testcase {
     /** @var stdClass $activityinstance adaptivequiz activity instance object */
     protected $activityinstance = null;
 
@@ -55,7 +56,7 @@ final class fetchquestion_test extends advanced_testcase {
      */
     protected function setup_test_data_xml() {
         $this->dataset_from_files(
-            [__DIR__ . '/../fixtures/mod_adaptivequiz_findquestion.xml']
+            [__DIR__.'/../fixtures/mod_adaptivequiz_findquestion.xml']
         )->to_database();
     }
 
@@ -80,16 +81,16 @@ final class fetchquestion_test extends advanced_testcase {
 
         // Create activity.
         $generator = $this->getDataGenerator()->get_plugin_generator('mod_adaptivequiz');
-        $options = [
+        $options = array(
                 'highestlevel' => 10,
                 'lowestlevel' => 1,
                 'minimumquestions' => 2,
                 'maximumquestions' => 10,
                 'standarderror' => 1.1,
                 'startinglevel' => 5,
-                'questionpool' => [1],
-                'course' => 2,
-        ];
+                'questionpool' => array(1),
+                'course' => 2
+        );
         $this->activityinstance = $generator->create_instance($options);
 
         $this->cm = new stdClass();
@@ -117,16 +118,16 @@ final class fetchquestion_test extends advanced_testcase {
 
         // Create activity.
         $generator = $this->getDataGenerator()->get_plugin_generator('mod_adaptivequiz');
-        $options = [
+        $options = array(
                 'highestlevel' => 10,
                 'lowestlevel' => 1,
                 'minimumquestions' => 2,
                 'maximumquestions' => 10,
                 'standarderror' => 1.1,
                 'startinglevel' => 5,
-                'questionpool' => [4],
-                'course' => 2,
-        ];
+                'questionpool' => array(4),
+                'course' => 2
+        );
         $this->activityinstance = $generator->create_instance($options);
 
         $this->cm = new stdClass();
@@ -137,7 +138,7 @@ final class fetchquestion_test extends advanced_testcase {
      * This function tests the retrieval of using illegible tag ids.
      * @see setup_generator_data() for detail of activity instance.
      */
-    public function test_find_questions_fail_tag_ids(): void {
+    public function test_find_questions_fail_tag_ids() {
         $this->resetAfterTest(true);
         $this->setup_test_data_xml();
         $this->setup_generator_data();
@@ -170,7 +171,7 @@ final class fetchquestion_test extends advanced_testcase {
      * This function tests the retrieval of questions using an empty set of question categories.
      * @see setup_generator_data() for detail of activity instance.
      */
-    public function test_find_questions_fail_question_cat(): void {
+    public function test_find_questions_fail_question_cat() {
         $this->resetAfterTest(true);
         $this->setup_test_data_xml();
         $this->setup_generator_data();
@@ -206,7 +207,7 @@ final class fetchquestion_test extends advanced_testcase {
      * @see setup_generator_data() for detail of activity instance
      * @return void
      */
-    public function test_find_questions_exclude(): void {
+    public function test_find_questions_exclude() {
         $this->resetAfterTest(true);
         $this->setup_test_data_xml();
         $this->setup_generator_data();
@@ -233,7 +234,7 @@ final class fetchquestion_test extends advanced_testcase {
     /**
      * This functions tests the accessor methods for the $level class variable.
      */
-    public function test_get_set_level(): void {
+    public function test_get_set_level() {
         $this->resetAfterTest(true);
         $dummyclass = new stdClass();
 
@@ -247,21 +248,30 @@ final class fetchquestion_test extends advanced_testcase {
         $fetchquestion->set_level(-22);
     }
 
-    public function test_it_fails_when_instantiated_with_a_zero_difficulty_level(): void {
+    /**
+     * @test
+     */
+    public function it_fails_when_instantiated_with_a_zero_difficulty_level(): void {
         $this->resetAfterTest(true);
 
         $this->expectException('coding_exception');
         (new fetchquestion(new stdClass(), 0, 1, 100, ['phpunittag_']));
     }
 
-    public function test_it_fails_when_instantiated_with_a_negative_difficulty_level(): void {
+    /**
+     * @test
+     */
+    public function it_fails_when_instantiated_with_a_negative_difficulty_level(): void {
         $this->resetAfterTest(true);
 
         $this->expectException('coding_exception');
         (new fetchquestion(new stdClass(), -11, 1, 100, ['phpunittag_']));
     }
 
-    public function test_it_fails_when_instantiated_with_a_difficulty_level_as_a_string(): void {
+    /**
+     * @test
+     */
+    public function it_fails_when_instantiated_with_a_difficulty_level_as_a_string(): void {
         $this->resetAfterTest(true);
 
         $this->expectException('coding_exception');
@@ -272,7 +282,7 @@ final class fetchquestion_test extends advanced_testcase {
      * This functions tests the retrevial of tag ids with an associated difficulty level
      * but using legit data.
      */
-    public function test_retrieve_tag(): void {
+    public function test_retrieve_tag() {
         $this->resetAfterTest();
         $this->setup_test_data_xml();
 
@@ -293,7 +303,7 @@ final class fetchquestion_test extends advanced_testcase {
     /**
      * This function test output from fetch_question() where initalize_tags_with_quest_count() returns an empty array
      */
-    public function test_fetch_question_initalize_tags_with_quest_count_return_empty_array(): void {
+    public function test_fetch_question_initalize_tags_with_quest_count_return_empty_array() {
         $this->resetAfterTest(true);
 
         $mockclass = $this
@@ -320,7 +330,7 @@ final class fetchquestion_test extends advanced_testcase {
     /**
      * This function test output from fetch_question() where the initial requested level has available questions
      */
-    public function test_fetch_question_requested_level_has_questions(): void {
+    public function test_fetch_question_requested_level_has_questions() {
         $this->resetAfterTest(true);
 
         $mockclass = $this
@@ -336,7 +346,7 @@ final class fetchquestion_test extends advanced_testcase {
             ->method('initalize_tags_with_quest_count')
             ->with([], ['adpq_'], '1', '100')
             ->willReturn(
-                [5 => 2]
+                    [5 => 2]
             );
         $mockclass->expects($this->once())
             ->method('retrieve_tag')
@@ -346,7 +356,7 @@ final class fetchquestion_test extends advanced_testcase {
             );
         $mockclass->expects($this->once())
             ->method('find_questions_with_tags')
-            ->with([11], [])
+            ->with(array(11), array())
             ->willReturn(
                 [22]
             );
@@ -359,7 +369,7 @@ final class fetchquestion_test extends advanced_testcase {
      * This function test output from fetch_question() where one level higher than requested level has available
      * questions.
      */
-    public function test_fetch_question_one_level_higher_has_questions(): void {
+    public function test_fetch_question_one_level_higher_has_questions() {
         $this->resetAfterTest(true);
 
         $mockclass = $this
@@ -398,7 +408,7 @@ final class fetchquestion_test extends advanced_testcase {
      * This function test output from fetch_question() where five levels higher than requested level has available
      * questions.
      */
-    public function test_fetch_question_five_levels_higher_has_questions(): void {
+    public function test_fetch_question_five_levels_higher_has_questions() {
         $this->resetAfterTest(true);
 
         $mockclass = $this
@@ -437,7 +447,7 @@ final class fetchquestion_test extends advanced_testcase {
      * This function test output from fetch_question() where four levels lower than requested level has available
      * questions.
      */
-    public function test_fetch_question_four_levels_lower_has_questions(): void {
+    public function test_fetch_question_four_levels_lower_has_questions() {
         $this->resetAfterTest(true);
 
         $mockclass = $this
@@ -474,7 +484,7 @@ final class fetchquestion_test extends advanced_testcase {
      * This function test output from fetch_question() where searching for a question goes outside
      * the min and max boundaries and stops the searching.
      */
-    public function test_fetch_question_search_outside_min_max_bounds(): void {
+    public function test_fetch_question_search_outside_min_max_bounds() {
         $this->resetAfterTest(true);
 
         $mockclass = $this
@@ -483,7 +493,7 @@ final class fetchquestion_test extends advanced_testcase {
                 ['initalize_tags_with_quest_count', 'retrieve_tag', 'find_questions_with_tags']
             )
             ->setConstructorArgs(
-                [new stdClass(), 50, 49, 51]
+                [new stdClass(),  50, 49, 51]
             )
             ->getMock();
         $mockclass->expects($this->once())
@@ -501,7 +511,10 @@ final class fetchquestion_test extends advanced_testcase {
         $this->assertEquals([], $result);
     }
 
-    public function test_it_retrieves_all_tag_ids(): void {
+    /**
+     * @test
+     */
+    public function it_retrieves_all_tag_ids(): void {
         $this->resetAfterTest();
         $this->setup_test_data_xml();
 
@@ -514,7 +527,10 @@ final class fetchquestion_test extends advanced_testcase {
         );
     }
 
-    public function test_it_throws_an_exception_when_retrieves_all_tag_ids_for_an_empty_tag_prefix(): void {
+    /**
+     * @test
+     */
+    public function it_throws_an_exception_when_retrieves_all_tag_ids_for_an_empty_tag_prefix(): void {
         $fetchquestion = new fetchquestion(new stdClass(), 5, 1, 100);
 
         $this->expectException('invalid_parameter_exception');
@@ -522,27 +538,28 @@ final class fetchquestion_test extends advanced_testcase {
     }
 
     /**
-     * A data provider.
-     *
-     * @return array
+     * This is a data provider for
+     * @return $data - an array with arrays of data
      */
-    public static function constructor_throw_coding_exception_provider(): array {
-        return [
-            [0, 1, 100],
-            [1, 100, 100],
-            [1, 100, 99],
-        ];
+    public function constructor_throw_coding_exception_provider() {
+        $data = array(
+            array(0, 1, 100),
+            array(1, 100, 100),
+            array(1, 100, 99)
+        );
+
+        return $data;
     }
 
     /**
-     * This function tests throwing an exception by passing incorrect parameters.
+     * This function tests throwing an exception by passing incorrect parameters
      *
      * @param int $level the difficulty level
      * @param int $min the minimum level of the attempt
      * @param int $max the maximum level of the attempt
+     * @dataProvider constructor_throw_coding_exception_provider
      */
-    #[DataProvider('constructor_throw_coding_exception_provider')]
-    public function test_constructor_throw_coding_exception($level, $min, $max): void {
+    public function test_constructor_throw_coding_exception($level, $min, $max) {
         $this->resetAfterTest(true);
 
         $this->expectException('coding_exception');
@@ -552,7 +569,7 @@ final class fetchquestion_test extends advanced_testcase {
     /**
      * This function tests the output from initalize_tags_with_quest_count()
      */
-    public function test_initalize_tags_with_quest_count(): void {
+    public function test_initalize_tags_with_quest_count() {
         $this->resetAfterTest();
 
         $mockclass = $this
@@ -594,7 +611,7 @@ final class fetchquestion_test extends advanced_testcase {
      * This function tests the output from initalize_tags_with_quest_count(), passing an already built difficulty question
      * sum structure, forcing a rebuild.
      */
-    public function test_initalize_tags_with_quest_count_pre_built_quest_sum_struct_rebuild_true(): void {
+    public function test_initalize_tags_with_quest_count_pre_built_quest_sum_struct_rebuild_true() {
         $this->resetAfterTest();
 
         $mockclass = $this
@@ -635,12 +652,12 @@ final class fetchquestion_test extends advanced_testcase {
     /**
      * This function tests the output from decrement_question_sum_from_difficulty().
      */
-    public function test_decrement_question_sum_from_difficulty(): void {
+    public function test_decrement_question_sum_from_difficulty() {
         $this->resetAfterTest(true);
 
         $dummyclass = new stdClass();
-        $result = [1 => 12];
-        $expected = [1 => 11];
+        $result = array(1 => 12);
+        $expected = array(1 => 11);
 
         $fetchquestion = new fetchquestion($dummyclass, 1, 1, 2);
         $result = $fetchquestion->decrement_question_sum_from_difficulty($result, 1);
@@ -650,12 +667,12 @@ final class fetchquestion_test extends advanced_testcase {
     /**
      * This function tests the output from decrement_question_sum_from_difficulty(), using a key that doesn't exist.
      */
-    public function test_decrement_question_sum_from_difficulty_user_missing_key(): void {
+    public function test_decrement_question_sum_from_difficulty_user_missing_key() {
         $this->resetAfterTest(true);
 
         $dummyclass = new stdClass();
-        $result = [1 => 12];
-        $expected = [1 => 12];
+        $result = array(1 => 12);
+        $expected = array(1 => 12);
 
         $fetchquestion = new fetchquestion($dummyclass, 1, 1, 2);
         $result = $fetchquestion->decrement_question_sum_from_difficulty($result, 2);

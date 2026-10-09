@@ -17,28 +17,26 @@
 /**
  * Structure step to restore one adaptivequiz activity.
  *
- * @package    mod_adaptivequiz
  * @copyright  2013 onwards Remote-Learner {@link http://www.remote-learner.ca/}
  * @copyright  2022 onwards Vitaly Potenko <potenkov@gmail.com>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
+
 class restore_adaptivequiz_activity_structure_step extends restore_questions_activity_structure_step {
+
     /**
-     * Define the structure for restoring the activity.
-     *
-     * @return backup_nested_element The $activitystructure wrapped by the common 'activity' element.
+     * Define the a structure for restoring the activity
+     * @return backup_nested_element the $activitystructure wrapped by the common 'activity' element
      */
     protected function define_structure() {
-        $paths = [];
+        $paths = array();
         $userinfo = $this->get_setting_value('userinfo');
 
         $adaptivequiz = new restore_path_element('adaptivequiz', '/activity/adaptivequiz');
         $paths[] = $adaptivequiz;
 
-        $paths[] = new restore_path_element(
-            'adaptivequiz_question',
-            '/activity/adaptivequiz/adatpivequestioncats/adatpivequestioncat'
-        );
+        $paths[] = new restore_path_element('adaptivequiz_question',
+            '/activity/adaptivequiz/adatpivequestioncats/adatpivequestioncat');
 
         if ($userinfo) {
             $attempt = new restore_path_element('adaptivequiz_attempt', '/activity/adaptivequiz/adaptiveattempts/adaptiveattempt');
@@ -53,9 +51,8 @@ class restore_adaptivequiz_activity_structure_step extends restore_questions_act
     }
 
     /**
-     * Process the adaptivequiz element.
-     *
-     * @param mixed $data Data.
+     * Process the adaptivequiz element
+     * @param stdClass an object whose properties are nodes in the adatpviequiz structure
      */
     protected function process_adaptivequiz($data) {
         global $CFG, $DB;
@@ -73,9 +70,8 @@ class restore_adaptivequiz_activity_structure_step extends restore_questions_act
     }
 
     /**
-     * Process the activity instance to question categories relation structure.
-     *
-     * @param mixed $data Data.
+     * Process the activity instance to question categories relation structure\
+     * @param stdClass an object whose properties are nodes in the adatpviequiz_question structure
      */
     protected function process_adaptivequiz_question($data) {
         global $DB;
@@ -93,9 +89,8 @@ class restore_adaptivequiz_activity_structure_step extends restore_questions_act
     }
 
     /**
-     * Process the activity instance to question categories relation structure.
-     *
-     * @param mixed $data Data.
+     * Process the activity instance to question categories relation structure
+     * @param stdClass an object whose properties are nodes in the adatpviequiz_attempt structure
      */
     protected function process_adaptivequiz_attempt($data) {
         $data = (object)$data;
@@ -110,9 +105,8 @@ class restore_adaptivequiz_activity_structure_step extends restore_questions_act
     }
 
     /**
-     * This function assigns the new question usage by activity id to the attempt.
-     *
-     * @param int $newusageid A new question usage by activity id.
+     * This function assigns the new question usage by activity id to the attempt
+     * @param int $newusageid a new question usage by activity id
      */
     protected function inform_new_usage_id($newusageid) {
         global $DB;
@@ -129,12 +123,11 @@ class restore_adaptivequiz_activity_structure_step extends restore_questions_act
     }
 
     /**
-     * Overrides the parent's method.
+     * This function adds any files assocaited with the intro field after the restore process has run
      */
     protected function after_execute() {
         parent::after_execute();
-
+        // Add quiz related files, no need to match by itemname (just internally handled context).
         $this->add_related_files('mod_adaptivequiz', 'intro', null);
-        $this->add_related_files('mod_adaptivequiz', 'attemptfeedback', null);
     }
 }

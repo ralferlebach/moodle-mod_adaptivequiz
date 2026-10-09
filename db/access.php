@@ -15,61 +15,56 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Capabilities definition.
+ * Adaptive testing capabilities definition
  *
- * @package    mod_adaptivequiz
+ * @package    mod
+ * @subpackage adaptivequiz
+ * @category   access
  * @copyright  2013 onwards Remote-Learner {@link http://www.remote-learner.ca/}
- * @copyright  2026 onwards Vitaly Potenko <potenkov@gmail.com>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 defined('MOODLE_INTERNAL') || die();
 
-$capabilities = [
-    'mod/adaptivequiz:addinstance' => [
+$capabilities = array(
+    // Ability to add a new adaptivequiz to the course.
+    'mod/adaptivequiz:addinstance' => array(
         'riskbitmask' => RISK_XSS,
         'captype' => 'write',
         'contextlevel' => CONTEXT_COURSE,
-        'archetypes' => [
+        'archetypes' => array(
             'editingteacher' => CAP_ALLOW,
-            'manager' => CAP_ALLOW,
-        ],
-        'clonepermissionsfrom' => 'moodle/course:manageactivities',
-    ],
-    'mod/adaptivequiz:viewreport' => [
+            'manager' => CAP_ALLOW
+        ),
+        'clonepermissionsfrom' => 'moodle/course:manageactivities'
+    ),
+    // Ability to view adaptivequiz report.
+    'mod/adaptivequiz:viewreport' => array(
         'riskbitmask' => RISK_PERSONAL,
         'captype' => 'write',
         'contextlevel' => CONTEXT_COURSE,
-        'archetypes' => [
+        'archetypes' => array(
             'editingteacher' => CAP_ALLOW,
-            'manager' => CAP_ALLOW,
-        ],
-    ],
-    'mod/adaptivequiz:reviewattempts' => [
+            'manager' => CAP_ALLOW
+        ),
+    ),
+    // Ability to view review pervious attempts.
+    'mod/adaptivequiz:reviewattempts' => array(
         'riskbitmask' => RISK_PERSONAL,
         'captype' => 'write',
         'contextlevel' => CONTEXT_COURSE,
-        'archetypes' => [
+        'archetypes' => array(
             'editingteacher' => CAP_ALLOW,
-            'manager' => CAP_ALLOW,
-        ],
-    ],
-    'mod/adaptivequiz:attempt' => [
+            'manager' => CAP_ALLOW
+        ),
+    ),
+    // Ability to attempt the activity.
+    'mod/adaptivequiz:attempt' => array(
         'riskbitmask' => RISK_SPAM,
         'captype' => 'write',
         'contextlevel' => CONTEXT_MODULE,
-        'archetypes' => [
-            'student' => CAP_ALLOW,
-            'manager' => CAP_ALLOW,
-        ],
-    ],
-    'mod/adaptivequiz:manage' => [
-        'riskbitmask' => RISK_DATALOSS,
-        'captype' => 'write',
-        'contextlevel' => CONTEXT_MODULE,
-        'archetypes' => [
-            'editingteacher' => CAP_ALLOW,
-            'manager' => CAP_ALLOW,
-        ],
-    ],
-];
+        'archetypes' => array(
+            'student' => CAP_ALLOW
+        )
+    ),
+);

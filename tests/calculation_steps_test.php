@@ -17,301 +17,309 @@
 namespace mod_adaptivequiz;
 
 use advanced_testcase;
+use context_course;
 use context_module;
 use mod_adaptivequiz\local\attempt;
 use mod_adaptivequiz\local\attempt\attempt_state;
 use question_usage_by_activity;
-use stdClass;
 
 /**
- * Runs whole attempts against recorded reference values of the built-in algorithm.
+ * Functional tests for 'performing calculation steps' during an adaptive quiz session.
  *
- * Every row of a fixture file is one answered question with the difficulty sum, standard error and
- * ability measure the algorithm produced at that step. The test replays the answers and compares
- * step by step - the only test that pins the algorithm as a whole rather than one of its parts.
- *
- * Ported from ralferlebach/v-3.0. The recorded values are unchanged; what changed is the setup
- * (question banks instead of course-level question categories) and the call into the host, which
- * now goes through cat_session.
+ * These test don't cover a particular class, they are aimed at the entire process of taking an adaptive quiz. Perhaps, should be
+ * converted to Behat tests?
  *
  * @package    mod_adaptivequiz
- * @copyright  2022 onwards Vitaly Potenko <potenkov@gmail.com>
+ * @copyright  2024 Vitaly Potenko <potenkov@gmail.com>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-#[\PHPUnit\Framework\Attributes\CoversClass(\mod_adaptivequiz\local\catalgo::class)]
-final class calculation_steps_test extends advanced_testcase {
-    /**
-     * Reads a fixture file into a list of associative rows.
-     *
-     * @param string $filename Name of the file below tests/fixtures/calcsteps.
-     * @return array[]
-     */
-    private function fixture_rows(string $filename): array {
-        $handle = fopen(__DIR__ . '/fixtures/calcsteps/' . $filename, 'r');
-        $header = fgetcsv($handle, 0, ',', '"', '\\');
-
-        $rows = [];
-        while (($line = fgetcsv($handle, 0, ',', '"', '\\')) !== false) {
-            $rows[] = array_combine($header, $line);
-        }
-        fclose($handle);
-
-        return $rows;
-    }
+class calculation_steps_test extends advanced_testcase {
 
     /**
-     * Builds the activity and its question pool from the fixtures.
+     * Tries to simulate how an adaptive test runs and make assertions on the results of 'calculation steps'.
      *
-     * @param int $instancenumber Which row of instances.csv to use.
-     * @return array{0: stdClass, 1: stdClass} The activity instance and the user taking it.
+     * @param string $stepsfixturesfile Name of the file with fixtures to get both expectations and input data from.
+     * @param int $instance Number of instance form the relevant fixtures file.
+     * @param string $stoppagereason
+     * @param array $continueslots Slots where the test will simulate a 'continued attempt'.
+     * @dataProvider data_for_test_calculation_steps
      */
-    private function set_up_from_fixtures(int $instancenumber): array {
-        global $SESSION;
-
-        global $CFG;
-        require_once($CFG->dirroot . '/mod/adaptivequiz/locallib.php');
-
-        $coregenerator = $this->getDataGenerator();
-        /** @var \mod_adaptivequiz_generator $modgenerator */
-        $modgenerator = $coregenerator->get_plugin_generator('mod_adaptivequiz');
-        /** @var \core_question_generator $questiongenerator */
-        $questiongenerator = $coregenerator->get_plugin_generator('core_question');
-        /** @var \mod_qbank_generator $qbankgenerator */
-        $qbankgenerator = $coregenerator->get_plugin_generator('mod_qbank');
-
-        $course = $coregenerator->create_course();
-        $user = $coregenerator->create_user();
-
-        $qbank = $qbankgenerator->create_instance(['course' => $course->id]);
-        $qbankcm = get_coursemodule_from_instance('qbank', $qbank->id, 0, false, MUST_EXIST);
-        $qcategory = question_get_default_category(context_module::instance($qbankcm->id)->id);
-
-        $pool = $this->fixture_rows('questionpool.csv');
-        foreach ($pool as $row) {
-            for ($created = 0; $created < (int) $row['questionsnum']; $created++) {
-                $question = $questiongenerator->create_question('truefalse', null, ['category' => $qcategory->id]);
-                $questiongenerator->create_question_tag([
-                    'questionid' => $question->id,
-                    'tag' => \ADAPTIVEQUIZ_QUESTION_TAG . $row['difficultylevel'],
-                ]);
-            }
-        }
-
-        $settings = null;
-        foreach ($this->fixture_rows('instances.csv') as $row) {
-            if ((int) $row['instancenumber'] === $instancenumber) {
-                $settings = $row;
-                break;
-            }
-        }
-        $this->assertNotNull($settings, "No instance {$instancenumber} in instances.csv.");
-
-        $instance = $modgenerator->create_instance([
-            'course' => $course->id,
-            'lowestlevel' => $settings['lowestlevel'],
-            'highestlevel' => $settings['highestlevel'],
-            'startinglevel' => $settings['startinglevel'],
-            'minimumquestions' => $settings['minimumquestions'],
-            'maximumquestions' => $settings['maximumquestions'],
-            'standarderror' => $settings['standarderror'],
-        ]);
-        $modgenerator->create_link_with_question_bank([
-            'adaptivequizid' => $instance->id,
-            'qbankid' => $qbank->id,
-        ]);
-
-        $adaptivequiz = clone($instance);
-        $adaptivequiz->context = context_module::instance($instance->cmid);
-
-        // The fetching class keeps the number of questions per difficulty in the session. Outside a
-        // request nothing fills it, so the fixtures do.
-        $SESSION->adpqtagquestsum = [];
-        foreach ($pool as $row) {
-            $SESSION->adpqtagquestsum[$instance->id][$row['difficultylevel']] = (int) $row['questionsnum'];
-        }
-
-        $this->setUser($user);
-
-        return [$adaptivequiz, $user];
-    }
-
-    /**
-     * Replays a recorded attempt and compares every step with the recorded values.
-     *
-     * @param string $stepsfixturesfile Name of the file holding the recorded steps.
-     * @param int $instancenumber Which activity settings to use.
-     * @param string $stoppagereason The reason the attempt is expected to stop with.
-     * @param int[] $continueslots Slots at which the participant leaves and returns without answering.
-     */
-    #[\PHPUnit\Framework\Attributes\DataProvider('calculation_steps_provider')]
     public function test_calculation_steps(
         string $stepsfixturesfile,
-        int $instancenumber,
+        int $instance,
         string $stoppagereason,
         array $continueslots
     ): void {
-        global $DB;
+        global $DB, $SESSION;
 
         $this->resetAfterTest();
 
-        [$adaptivequiz, $user] = $this->set_up_from_fixtures($instancenumber);
-        $steps = $this->fixture_rows($stepsfixturesfile);
+        $dataset = $this->dataset_from_files([
+            'questionpool' => __DIR__ .'/fixtures/calcsteps/questionpool.csv',
+            'instances' => __DIR__ .'/fixtures/calcsteps/instances.csv',
+            'calcsteps' => __DIR__ ."/fixtures/calcsteps/$stepsfixturesfile",
+        ]);
 
-        $message = '';
-        $uniqueid = 0;
-        $nextdifficulty = null;
-        $answereddifficulty = null;
-        $standarderror = 0.0;
+        $datagenerator = $this->getDataGenerator();
+        $questionsgenerator = $datagenerator->get_plugin_generator('core_question');
+        $modgenerator = $datagenerator->get_plugin_generator('mod_adaptivequiz');
 
-        $index = 0;
-        while (true) {
-            // What attempt.php does before asking for the next item.
-            $attempt = new attempt($adaptivequiz, $user->id);
-            $attempt->set_level($nextdifficulty ?? (int) $adaptivequiz->startinglevel);
-            if ($answereddifficulty !== null) {
-                $attempt->set_last_difficulty_level($answereddifficulty);
+        $course = $datagenerator->create_course();
+        $user = $datagenerator->create_user();
+
+        $qcategory = $questionsgenerator->create_question_category([
+            'contextid' => context_course::instance($course->id)->id,
+        ]);
+
+        // Setup questions pool.
+        $questionfixtures = $dataset->get_rows(['questionpool'])['questionpool'];
+        foreach ($questionfixtures as $fixturesdata) {
+            $diffquestionsgenerated = 0;
+            while ($diffquestionsgenerated < $fixturesdata['questionsnum']) {
+                $question = $questionsgenerator->create_question('truefalse', null, [
+                    'category' => $qcategory->id,
+                ]);
+
+                $difftag = 'adpq_'. $fixturesdata['difficultylevel'];
+                $questionsgenerator->create_question_tag([
+                    'questionid' => $question->id,
+                    'tag' => $difftag,
+                ]);
+
+                $diffquestionsgenerated++;
             }
-            $attempt->get_attempt();
-            $attempt->initialize_quba();
+        };
 
-            $evaluation = cat_session::administer_next_item($adaptivequiz, $attempt);
-            $this->assertNotNull($evaluation);
+        $modfixturesarr = array_filter($dataset->get_rows(['instances'])['instances'], function (array $item) use ($instance) {
+            return $item['instancenumber'] == $instance;
+        });
+        $modfixtures = $modfixturesarr[array_key_first($modfixturesarr)];
 
-            if ($evaluation->item_administration_is_to_stop()) {
-                $message = $evaluation->stoppage_reason();
-                adaptivequiz_complete_attempt(
-                    $uniqueid,
-                    $adaptivequiz,
-                    $adaptivequiz->context,
-                    (int) $user->id,
-                    (string) $standarderror,
-                    $message
-                );
-                break;
-            }
+        $adaptivequiz = $modgenerator->create_instance([
+            'course' => $course->id,
+            'questionpool' => [$qcategory->id],
+            'lowestlevel' => $modfixtures['lowestlevel'],
+            'highestlevel' => $modfixtures['highestlevel'],
+            'startinglevel' => $modfixtures['startinglevel'],
+            'minimumquestions' => $modfixtures['minimumquestions'],
+            'maximumquestions' => $modfixtures['maximumquestions'],
+            'standarderror' => $modfixtures['standarderror'],
+        ]);
 
-            $this->assertArrayHasKey($index, $steps, 'The attempt administered more items than were recorded.');
-            $step = $steps[$index];
+        $cm = get_coursemodule_from_instance('adaptivequiz', $adaptivequiz->id, $course->id, false, MUST_EXIST);
+        $modcontext = context_module::instance($cm->id);
 
-            $slot = $attempt->get_question_slot_number();
-            $uniqueid = (int) $attempt->get_quba()->get_id();
+        // Load fixtures for calculation steps.
+        $calcstepsfixtures = $dataset->get_rows(['calcsteps'])['calcsteps'];
 
-            if (in_array($slot, $continueslots, true)) {
-                // The participant leaves without answering and comes back: the same item has to be
-                // administered again, not a new one.
-                $returning = new attempt($adaptivequiz, $user->id);
-                $returning->set_level($nextdifficulty ?? (int) $adaptivequiz->startinglevel);
-                if ($answereddifficulty !== null) {
-                    $returning->set_last_difficulty_level($answereddifficulty);
-                }
-                $returning->get_attempt();
-                $returning->initialize_quba();
-                cat_session::administer_next_item($adaptivequiz, $returning);
+        $this->setUser($user);
 
-                $this->assertSame($slot, $returning->get_question_slot_number());
-                $attempt = $returning;
-            }
-
-            $correct = $step['correctwrong'] === 'C';
-            $result = cat_session::process_administered_item_result(
-                $uniqueid,
-                $adaptivequiz,
-                $attempt,
-                function (question_usage_by_activity $quba) use ($slot, $correct): void {
-                    $time = time();
-                    $quba->process_all_actions($time, $quba->prepare_simulated_post_data([
-                        $slot => ['answer' => $correct],
-                    ]));
-                    $quba->finish_all_questions($time);
-                }
-            );
-
-            $nextdifficulty = $result->nextdifficulty;
-            $answereddifficulty = $result->answereddifficulty;
-            $standarderror = $result->standarderror;
-
-            $record = $DB->get_record('adaptivequiz_attempt', ['uniqueid' => $uniqueid], '*', MUST_EXIST);
-            $this->assertEquals(
-                [
-                    'difficultysum' => (float) $step['difficultysum'],
-                    'standarderror' => (float) $step['standarderrorraw'],
-                    'measure' => (float) $step['measureraw'],
-                ],
-                [
-                    'difficultysum' => (float) $record->difficultysum,
-                    'standarderror' => (float) $record->standarderror,
-                    'measure' => (float) $record->measure,
-                ],
-                'Step ' . ($index + 1) . ' does not match the recorded values.'
-            );
-
-            $index++;
-
-            if ($result->attempt_is_to_stop()) {
-                $message = $result->stoppagereason;
-                adaptivequiz_complete_attempt(
-                    $uniqueid,
-                    $adaptivequiz,
-                    $adaptivequiz->context,
-                    (int) $user->id,
-                    (string) $result->standarderror,
-                    $message
-                );
-                break;
-            }
+        // This piece simulates what's happening in the fetchquestion class' destructor.
+        $SESSION->adpqtagquestsum = [];
+        foreach ($questionfixtures as $fixturesdata) {
+            $SESSION->adpqtagquestsum[$fixturesdata['difficultylevel']] = $fixturesdata['questionsnum'];
         }
 
-        $this->assertSame($stoppagereason, $message);
+        // The test starts from here.
+        do {
+            // Emulate the page params.
+            if (!isset($uniqueid)) {
+                $uniqueid = 0;
+            }
 
-        $record = $DB->get_record('adaptivequiz_attempt', ['uniqueid' => $uniqueid], '*', MUST_EXIST);
-        $this->assertEquals(count($steps), $record->questionsattempted, 'A different number of questions was answered.');
+            // The below properties help to manage simulation of 'continued attempt'. This is the case when the user gets
+            // the question administered, but doesn't answer it and leaves the page. Then they re-open the adaptive quiz and
+            // got to the same question administered again.
+            if (!isset($incontinueattemptsimulation)) {
+                $incontinueattemptsimulation = false;
+            }
+            // This variable helps to track how many times the item was administered to user, but not answered. We want to
+            // simulate getting back to the administered question twice at least.
+            if (!isset($itemadministeredcount)) {
+                $itemadministeredcount = 0;
+            }
+            if (!isset($simulatecontinueattempt)) {
+                $simulatecontinueattempt = false;
+            }
 
-        $last = $steps[count($steps) - 1];
-        $this->assertEquals(
-            [
-                'difficultysum' => (float) $last['difficultysum'],
-                'standarderror' => (float) $last['standarderrorraw'],
-                'measure' => (float) $last['measureraw'],
-            ],
-            [
-                'difficultysum' => (float) $record->difficultysum,
-                'standarderror' => (float) $record->standarderror,
-                'measure' => (float) $record->measure,
-            ],
-            'The completed attempt does not keep the values of the last step.'
-        );
+            $attempt = new attempt($adaptivequiz, $user->id);
+
+            if (!$incontinueattemptsimulation) {
+                $simulatecontinueattempt = isset($slot) && in_array($slot, $continueslots);
+            }
+
+            if ($incontinueattemptsimulation) {
+                // Reset the simulation if the item has been administered twice already.
+                if ($itemadministeredcount == 2) {
+                    $incontinueattemptsimulation = false;
+                    $itemadministeredcount = 0;
+                    $simulatecontinueattempt = false;
+                }
+            }
+
+            if ($simulatecontinueattempt) {
+                $uniqueid = 0;
+
+                $incontinueattemptsimulation = true;
+            }
+
+            // Emulates checking of whether a question answer was submitted.
+            if (!empty($uniqueid)) {
+                // The order of rows in the fixtures file corresponds to slots sequence.
+                $calcstepsfixturesindex = $slot - 1;
+                $attemptstepfixtures = $calcstepsfixtures[$calcstepsfixturesindex];
+
+                $simulatedresponses = [
+                    $slot => ['answer' => ($attemptstepfixtures['correctwrong'] == 'C')],
+                ];
+
+                $qubahelper = function (question_usage_by_activity $quba) use ($simulatedresponses): void {
+                    $simulatedpostdata = $quba->prepare_simulated_post_data($simulatedresponses);
+
+                    $time = time();
+                    $quba->process_all_actions($time, $simulatedpostdata);
+                    $quba->finish_all_questions($time);
+                };
+
+                cat_session::process_administered_item_result($uniqueid, $adaptivequiz, $attempt, $qubahelper);
+
+                // Assertion. Reach out to the database directly.
+                // All values are being cast to handle storing specifics of the database.
+
+                $expectation = [
+                    'difficultysum' => (float) $attemptstepfixtures['difficultysum'],
+                    'standarderror' => (float) $attemptstepfixtures['standarderrorraw'],
+                    'measure' => (float) $attemptstepfixtures['measureraw'],
+                ];
+
+                $attemptrecord = $DB->get_record('adaptivequiz_attempt', ['uniqueid' => $uniqueid], '*', MUST_EXIST);
+                $stepsresult = [
+                    'difficultysum' => (float) $attemptrecord->difficultysum,
+                    'standarderror' => (float) $attemptrecord->standarderror,
+                    'measure' => (float) $attemptrecord->measure,
+                ];
+
+                self::assertEquals($expectation, $stepsresult);
+
+                $attemptcompleted = $DB->record_exists('adaptivequiz_attempt',
+                    ['uniqueid' => $uniqueid, 'attemptstate' => attempt_state::COMPLETED]);
+
+                if ($attemptcompleted) {
+                    $message = $DB->get_field('adaptivequiz_attempt', 'attemptstopcriteria', ['uniqueid' => $uniqueid],
+                        MUST_EXIST);
+
+                    break;
+                }
+            }
+
+            cat_session::run_item_administration($uniqueid, $adaptivequiz, $modcontext, $attempt);
+
+            $message = $attempt->get_status();
+
+            $attemptcompleted = !empty($message);
+            if ($attemptcompleted) {
+                break;
+            }
+
+            $slot = $attempt->get_question_slot_number();
+
+            $quba = $attempt->get_quba();
+
+            // Emulate what happens in the form?
+            $uniqueid = $quba->get_id();
+
+            if ($incontinueattemptsimulation) {
+                $itemadministeredcount++;
+            }
+
+        } while (true); // The loop ends with explicit break's inside.
+
+        self::assertEquals($stoppagereason, $message);
+
+        $attemptrecord = $DB->get_record('adaptivequiz_attempt', ['uniqueid' => $uniqueid], '*', MUST_EXIST);
+
+        $expectedquestionsattempted = count($calcstepsfixtures);
+        self::assertEquals($expectedquestionsattempted, $attemptrecord->questionsattempted);
+
+        // For a completed attempt, algorithm's parameters should be kept as the last fixture's value.
+        $lastattemptstepfixtures = $calcstepsfixtures[count($calcstepsfixtures) - 1];
+
+        // Cast the float values to eliminate the data representation issues.
+        $expectation = [
+            'difficultysum' => $lastattemptstepfixtures['difficultysum'],
+            'standarderror' => $lastattemptstepfixtures['standarderrorraw'],
+            'measure' => $lastattemptstepfixtures['measureraw'],
+        ];
+
+        $laststepsresult = [
+            'difficultysum' => (float) $attemptrecord->difficultysum,
+            'standarderror' => (float) $attemptrecord->standarderror,
+            'measure' => (float) $attemptrecord->measure,
+        ];
+
+        self::assertEquals($expectation, $laststepsresult);
     }
 
     /**
-     * The recorded attempts, one per stoppage reason worth pinning.
+     * A data provider method.
      *
-     * @return array[]
+     * @return array
      */
-    public static function calculation_steps_provider(): array {
+    public static function data_for_test_calculation_steps(): array {
         return [
-            'unable to fetch a question for level 14' => ['1.csv', 1, 'Unable to fetch a question for level 14', []],
-            'maximum number of questions attempted, instance 2' => ['3.csv', 2, 'Maximum number of questions attempted', []],
-            'maximum number of questions attempted, instance 3' => ['5.csv', 3, 'Maximum number of questions attempted', []],
-            'maximum number of questions attempted, instance 4' => ['6.csv', 4, 'Maximum number of questions attempted', []],
-            'standard error 11 within the limits' => [
-                '2.csv',
-                1,
-                'Calculated standard error of 11 is within the limits imposed by the activity 11',
-                [],
+            'unable to fetch a question for level 14' => [
+                'stepsfixturesfile' => '1.csv',
+                'instancenumber' => 1,
+                'stoppagereason' => 'Unable to fetch a question for level 14',
+                'continueslots' => [],
             ],
-            'unable to fetch a question for level 1' => ['4.csv', 1, 'Unable to fetch a question for level 1', []],
-            'standard error 8 within the limits' => [
-                '7.csv',
-                5,
-                'Calculated standard error of 8 is within the limits imposed by the activity 8',
-                [],
+            'calculated standard error 11 is within the limits' => [
+                'stepsfixturesfile' => '2.csv',
+                'instancenumber' => 1,
+                'stoppagereason' => 'Calculated standard error of 11 is within the limits imposed by the activity 11',
+                'continueslots' => [],
             ],
-            'maximum number of questions attempted, instance 6' => ['8.csv', 6, 'Maximum number of questions attempted', []],
-            'continued attempt, unable to fetch a question for level 14' => [
-                '1.csv',
-                1,
-                'Unable to fetch a question for level 14',
-                [4, 8, 14, 19],
+            'maximum number of questions attempted 1' => [
+                'stepsfixturesfile' => '3.csv',
+                'instancenumber' => 2,
+                'stoppagereason' => 'Maximum number of questions attempted',
+                'continueslots' => [],
+            ],
+            'unable to fetch a question for level 1' => [
+                'stepsfixturesfile' => '4.csv',
+                'instancenumber' => 1,
+                'stoppagereason' => 'Unable to fetch a question for level 1',
+                'continueslots' => [],
+            ],
+            'maximum number of questions attempted 2' => [
+                'stepsfixturesfile' => '5.csv',
+                'instancenumber' => 3,
+                'stoppagereason' => 'Maximum number of questions attempted',
+                'continueslots' => [],
+            ],
+            'maximum number of questions attempted 3' => [
+                'stepsfixturesfile' => '6.csv',
+                'instancenumber' => 4,
+                'stoppagereason' => 'Maximum number of questions attempted',
+                'continueslots' => [],
+            ],
+            'calculated standard error 8 is within the limits' => [
+                'stepsfixturesfile' => '7.csv',
+                'instancenumber' => 5,
+                'stoppagereason' => 'Calculated standard error of 8 is within the limits imposed by the activity 8',
+                'continueslots' => [],
+            ],
+            'maximum number of questions attempted 4' => [
+                'stepsfixturesfile' => '8.csv',
+                'instancenumber' => 6,
+                'stoppagereason' => 'Maximum number of questions attempted',
+                'continueslots' => [],
+            ],
+            'unable to fetch a question for level 15, continued attempt' => [
+                'stepsfixturesfile' => '1.csv',
+                'instancenumber' => 1,
+                'stoppagereason' => 'Unable to fetch a question for level 14',
+                'continueslots' => [4, 8, 14, 19],
             ],
         ];
     }

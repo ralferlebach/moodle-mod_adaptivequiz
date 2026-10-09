@@ -14,20 +14,20 @@
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
-namespace mod_adaptivequiz\local\report\users_attempts\user_preferences;
-
-use advanced_testcase;
-use PHPUnit\Framework\Attributes\CoversClass;
-
 /**
- * A test class.
- *
- * @package    mod_adaptivequiz
  * @copyright  2022 onwards Vitaly Potenko <potenkov@gmail.com>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-#[CoversClass(\mod_adaptivequiz\local\report\users_attempts\user_preferences\user_preferences_repository::class)]
-final class user_preferences_repository_test extends advanced_testcase {
+
+namespace mod_adaptivequiz\local\report\users_attempts\user_preferences;
+
+use advanced_testcase;
+
+/**
+ * @covers \mod_adaptivequiz\local\report\users_attempts\user_preferences\user_preferences_repository
+ */
+class user_preferences_repository_test extends advanced_testcase {
+
     public function test_it_stores_and_fetches_preferences(): void {
         $this->resetAfterTest();
 

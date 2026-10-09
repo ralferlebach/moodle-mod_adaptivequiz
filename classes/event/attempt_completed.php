@@ -27,19 +27,17 @@ use core\event\base;
 use moodle_exception;
 use moodle_url;
 
-/**
- * Attempt completed.
- */
 class attempt_completed extends base {
+
     /**
-     * Returns name.
+     * @inheritDoc
      */
     public static function get_name() {
         return get_string('eventattemptcompleted', 'adaptivequiz');
     }
 
     /**
-     * Returns description.
+     * @inheritDoc
      */
     public function get_description() {
         return "The user with id '$this->userid' has completed the attempt with id '$this->objectid' for the " .
@@ -57,14 +55,14 @@ class attempt_completed extends base {
     }
 
     /**
-     * Returns objectid mapping.
+     * @inheritDoc
      */
     public static function get_objectid_mapping() {
         return ['db' => 'adaptivequiz_attempt', 'restore' => 'adaptiveattempts'];
     }
 
     /**
-     * Initialises .
+     * @inheritDoc
      */
     protected function init() {
         $this->data['objecttable'] = 'adaptivequiz_attempt';

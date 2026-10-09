@@ -106,7 +106,6 @@ final class completion_reevaluation_test extends advanced_testcase {
             $DB->get_record('adaptivequiz', ['id' => $adaptivequiz->id]),
             $context,
             (int) $student->id,
-            '0.3',
             'done'
         );
 

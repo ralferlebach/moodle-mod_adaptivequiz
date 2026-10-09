@@ -27,10 +27,8 @@ namespace mod_adaptivequiz\local\report;
 
 use stdClass;
 
-/**
- * Questions difficulty range.
- */
 final class questions_difficulty_range {
+
     /**
      * @var int $lowestlevel
      */
@@ -41,38 +39,20 @@ final class questions_difficulty_range {
      */
     private $highestlevel;
 
-    /**
-     * Construct.
-     *
-     * @param int $lowestlevel Lowestlevel.
-     * @param int $highestlevel Highestlevel.
-     */
     private function __construct(int $lowestlevel, int $highestlevel) {
         $this->lowestlevel = $lowestlevel;
         $this->highestlevel = $highestlevel;
     }
 
-    /**
-     * Lowest level.
-     *
-     * @return int
-     */
     public function lowest_level(): int {
         return $this->lowestlevel;
     }
 
-    /**
-     * Highest level.
-     *
-     * @return int
-     */
     public function highest_level(): int {
         return $this->highestlevel;
     }
 
     /**
-     * From activity instance.
-     *
      * @param stdClass $instance A record from {adaptivequiz}.
      */
     public static function from_activity_instance(stdClass $instance): self {

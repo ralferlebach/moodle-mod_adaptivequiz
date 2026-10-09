@@ -41,6 +41,7 @@ use table_sql;
  * @package mod_adaptivequiz
  */
 final class table extends table_sql {
+
     /**
      * @var mod_adaptivequiz_renderer $renderer
      */
@@ -61,15 +62,6 @@ final class table extends table_sql {
      */
     private $cmid;
 
-    /**
-     * Construct.
-     *
-     * @param mod_adaptivequiz_renderer $renderer Renderer.
-     * @param filter $filter Filter.
-     * @param moodle_url $baseurl Baseurl.
-     * @param questions_difficulty_range $questionsdifficultyrange Questionsdifficultyrange.
-     * @param int $cmid Cmid.
-     */
     public function __construct(
         mod_adaptivequiz_renderer $renderer,
         filter $filter,
@@ -87,19 +79,10 @@ final class table extends table_sql {
         $this->init($baseurl);
     }
 
-    /**
-     * Returns sql sort.
-     */
     public function get_sql_sort() {
         return 'timemodified DESC';
     }
 
-    /**
-     * Col attemptstate.
-     *
-     * @param stdClass $row Row.
-     * @return string
-     */
     protected function col_attemptstate(stdClass $row): string {
         if (0 == strcmp(attempt_state::IN_PROGRESS, $row->attemptstate)) {
             return get_string('recentinprogress', 'adaptivequiz');
@@ -108,12 +91,6 @@ final class table extends table_sql {
         return get_string('recentcomplete', 'adaptivequiz');
     }
 
-    /**
-     * Col score.
-     *
-     * @param stdClass $row Row.
-     * @return string
-     */
     protected function col_score(stdClass $row): string {
         if ($row->measure === null || $row->stderror === null || $row->stderror == 0.0) {
             return 'n/a';
@@ -128,22 +105,10 @@ final class table extends table_sql {
             ' ' . $this->renderer->format_standard_error($row);
     }
 
-    /**
-     * Col timecreated.
-     *
-     * @param stdClass $row Row.
-     * @return string
-     */
     protected function col_timecreated(stdClass $row): string {
         return userdate($row->timecreated);
     }
 
-    /**
-     * Col timemodified.
-     *
-     * @param stdClass $row Row.
-     * @return string
-     */
     protected function col_timemodified(stdClass $row): string {
         return userdate($row->timemodified);
     }
@@ -157,11 +122,6 @@ final class table extends table_sql {
         return $this->renderer->individual_user_attempt_actions($row);
     }
 
-    /**
-     * Initialises .
-     *
-     * @param moodle_url $baseurl Baseurl.
-     */
     private function init(moodle_url $baseurl): void {
         $this->define_columns(['attemptstate', 'attemptstopcriteria', 'questionsattempted', 'score',
             'timecreated', 'timemodified', 'actions']);
@@ -190,10 +150,6 @@ final class table extends table_sql {
         );
     }
 
-    /**
-     * Sets content alignment in columns.
-     *
-     */
     private function set_content_alignment_in_columns(): void {
         foreach (array_keys($this->columns) as $column) {
             $this->column_class[$column] .= ' text-center';
