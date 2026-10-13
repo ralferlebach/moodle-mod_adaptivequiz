@@ -114,4 +114,43 @@ final class max_slots_test extends advanced_testcase {
         $this->assertLessThan($add, $guard, 'The guard must come before the slot is added.');
         $this->assertSame(1, substr_count($body, '$quba->add_question('), 'No other path adds a slot.');
     }
+
+    /**
+     * A concurrent request - a double click, a second tab - does nothing while another one administers.
+     *
+     * The lock is held as the first request would hold it. The second request must neither start a
+     * question usage nor add a slot (issue #19). Without the lock check this activity, which has no
+     * questions, would fail on its missing first question instead.
+     */
+    public function test_a_concurrent_request_does_nothing(): void {
+        global $CFG, $DB;
+        $this->resetAfterTest();
+        // A lock that one process cannot take twice, as two requests cannot.
+        $CFG->lock_factory = '\\core\\lock\\db_record_lock_factory';
+        $course = $this->getDataGenerator()->create_course();
+        $adaptivequiz = $this->getDataGenerator()->get_plugin_generator('mod_adaptivequiz')->create_instance([
+            'course' => $course->id, 'lowestlevel' => 1, 'highestlevel' => 10, 'startinglevel' => 5,
+            'minimumquestions' => 1, 'maximumquestions' => 5, 'standarderror' => 5,
+        ]);
+        $cm = get_coursemodule_from_instance('adaptivequiz', $adaptivequiz->id, $course->id, false, MUST_EXIST);
+        $context = \context_module::instance($cm->id);
+        $adaptivequiz->context = $context;
+        $user = $this->getDataGenerator()->create_user();
+        $this->setUser($user);
+        $attempt = new attempt($adaptivequiz, $user->id);
+        $record = $attempt->get_attempt();
+
+        $held = \core\lock\lock_config::get_lock_factory('mod_adaptivequiz')
+            ->get_lock('adaptivequiz_itemadministration_' . $adaptivequiz->id . '_' . $user->id, 0);
+        $this->assertNotFalse($held);
+        try {
+            cat_session::run_item_administration((int) $record->uniqueid, $adaptivequiz, $context, $attempt);
+        } finally {
+            $held->release();
+        }
+
+        $after = $DB->get_record('adaptivequiz_attempt', ['id' => $record->id], 'uniqueid, attemptstate', MUST_EXIST);
+        $this->assertEquals(0, $after->uniqueid, 'The waiting request started a question usage.');
+        $this->assertSame('inprogress', $after->attemptstate);
+    }
 }
