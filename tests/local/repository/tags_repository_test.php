@@ -23,6 +23,12 @@ use core_question_generator;
 use core_tag_tag;
 use PHPUnit\Framework\Attributes\CoversClass;
 
+defined('MOODLE_INTERNAL') || die();
+
+global $CFG;
+// ADAPTIVEQUIZ_QUESTION_TAG: run alone, no other test has loaded it.
+require_once($CFG->dirroot . '/mod/adaptivequiz/locallib.php');
+
 /**
  * A test class.
  *

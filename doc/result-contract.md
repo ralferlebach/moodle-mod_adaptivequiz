@@ -58,3 +58,29 @@ Notenelemente auf 0–100 mit den Noten aus den Snapshots neu auf.
 Folge, die man kennen muss: Bei CATquiz-Aktivitäten zählen nur Versuche, die CATquiz finalisiert
 hat und deren primäre Skala gültig ist. Ältere Versuche ohne finalisiertes Ergebnis verlieren
 ihre bisher aus `measure` berechnete Rohnote (überschriebene Noten im Gradebook bleiben).
+
+## Regrade (Issue #19)
+
+`result_service::regrade()` baut die Noten einer Aktivität aus den Snapshots neu auf; per
+Kommandozeile:
+
+    php mod/adaptivequiz/cli/regrade_results.php --instance=N   # oder --all
+    php mod/adaptivequiz/cli/regrade_results.php --instance=N --resnapshot=12,15
+
+- Wiederholbar: Ein zweiter Lauf ändert weder Snapshot noch Note.
+- Versuche ohne Snapshot bekommen einen; vorhandene bleiben, außer für die mit `--resnapshot`
+  genannten Versuche. Ein neu genommener Snapshot liest den Ergebnisbereich von heute, nicht den
+  des Abschlusses – deshalb nur gezielt.
+- Die Note folgt der Bewertungsmethode (erster, letzter, bester Versuch) und nur gültigen
+  Ergebnissen. Wer keinen gültigen Versuch hat, bekommt keine Note, nicht 0. Versuche ohne
+  gültiges Ergebnis werden mit Grund aufgelistet.
+
+Für CATquiz: Nach `local/catquiz/cli/revalidate_attempts.php --execute` (Versuche nach heutigen
+Regeln neu beurteilt, z. B. das Mindestfragen-Kriterium) gibt das Skript den passenden
+Regrade-Aufruf mit `--resnapshot` aus.
+
+## Fragenzahl (Issue #19)
+
+Die Aktivität legt keinen Fragen-Slot über `maximumquestions` an – gleich ob produktive Frage,
+Pilotfrage oder technische Wiederholung. Ein CAT-Modell, das selbst anders zählt, kann den Test
+dadurch nicht verlängern; erreicht die Nutzung das Maximum, endet der Versuch.

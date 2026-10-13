@@ -188,6 +188,13 @@ final class cat_session {
                 DEBUG_DEVELOPER
             );
         }
+        // The activity's maximum limits every question asked - productive, pilot and technical
+        // duplicates alike (issue #19). A CAT model counts in its own way (each question once,
+        // say); the usage is the host's, and it gets no slot beyond the maximum.
+        if (self::maximum_reached($adaptivequiz, $quba)) {
+            return item_administration_evaluation::with_stoppage_reason(get_string('maxquestattempted', 'adaptivequiz'));
+        }
+
         $question = request_timing::measure('load_question', fn() => question_bank::load_question($questionid));
         request_timing::start('question_usage');
         $slot = $quba->add_question($question);
@@ -205,6 +212,18 @@ final class cat_session {
         $attempt->set_question_slot_number($slot);
 
         return $evaluation;
+    }
+
+    /**
+     * Whether the usage already holds as many questions as the activity allows.
+     *
+     * @param stdClass $adaptivequiz The activity instance record.
+     * @param question_usage_by_activity $quba The question usage of the attempt.
+     * @return bool
+     */
+    public static function maximum_reached(stdClass $adaptivequiz, question_usage_by_activity $quba): bool {
+        $maximum = (int) ($adaptivequiz->maximumquestions ?? 0);
+        return $maximum > 0 && count($quba->get_slots()) >= $maximum;
     }
 
     /**

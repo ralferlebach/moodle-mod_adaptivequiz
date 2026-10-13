@@ -403,4 +403,59 @@ final class cat_session_test extends advanced_testcase {
         $this->assertCount(2, $slots, 'The test did not go on with the item.');
         $this->assertEquals($this->questionids[0], $attempt->get_quba()->get_question(end($slots))->id);
     }
+
+    /**
+     * The maximum limits every question asked: with 3, no fourth slot - whatever the CAT model
+     * names (issue #19). In production a test with a maximum of 25 asked 33 questions, the CAT
+     * model counting each repeated item once.
+     */
+    public function test_no_slot_beyond_the_maximum(): void {
+        global $DB;
+        $this->resetAfterTest();
+        $this->set_up_activity('testcatmodel');
+        $DB->set_field('adaptivequiz', 'maximumquestions', 3, ['id' => $this->adaptivequiz->id]);
+        $this->adaptivequiz->maximumquestions = 3;
+
+        // The CAT model names questions without ever stopping on its own.
+        serve_fixed_question_administration::$questionid = $this->questionids[3];
+        serve_fixed_question_administration::$questionsequence = array_slice($this->questionids, 0, 3);
+        for ($asked = 1; $asked <= 3; $asked++) {
+            $attempt = $this->new_request();
+            $evaluation = cat_session::administer_next_item($this->adaptivequiz, $attempt);
+            $this->assertFalse($evaluation->item_administration_is_to_stop(), "Question $asked must be asked.");
+            cat_session::process_administered_item_result(
+                (int) $attempt->get_quba()->get_id(),
+                $this->adaptivequiz,
+                $attempt,
+                $this->answer_helper($attempt, true)
+            );
+        }
+
+        $attempt = $this->new_request();
+        $evaluation = cat_session::administer_next_item($this->adaptivequiz, $attempt);
+
+        $this->assertTrue($evaluation->item_administration_is_to_stop(), 'A fourth question was administered.');
+        $this->assertSame(get_string('maxquestattempted', 'adaptivequiz'), $evaluation->stoppage_reason());
+        $this->assertCount(3, $attempt->get_quba()->get_slots());
+    }
+
+    /**
+     * Repeated requests after the maximum - a reload, a double click - add nothing either.
+     */
+    public function test_repeated_requests_after_the_maximum_add_no_slot(): void {
+        global $DB;
+        $this->resetAfterTest();
+        $this->set_up_activity('testcatmodel');
+        $DB->set_field('adaptivequiz', 'maximumquestions', 1, ['id' => $this->adaptivequiz->id]);
+        $this->adaptivequiz->maximumquestions = 1;
+        serve_fixed_question_administration::$questionid = $this->questionids[0];
+        $attempt = $this->after_answering_the_first_item();
+
+        serve_fixed_question_administration::$questionid = $this->questionids[1];
+        for ($request = 0; $request < 3; $request++) {
+            $attempt = $this->new_request();
+            $this->assertTrue(cat_session::administer_next_item($this->adaptivequiz, $attempt)->item_administration_is_to_stop());
+        }
+        $this->assertCount(1, $attempt->get_quba()->get_slots());
+    }
 }
