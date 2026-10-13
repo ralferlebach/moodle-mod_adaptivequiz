@@ -458,4 +458,34 @@ final class cat_session_test extends advanced_testcase {
         }
         $this->assertCount(1, $attempt->get_quba()->get_slots());
     }
+
+    /**
+     * A concurrent request - a double click, a second tab - adds no slot while another one administers.
+     *
+     * The lock is held as the first request would hold it; the second request gets nothing and
+     * leaves the usage alone. Once the lock is free, the next request administers as usual (issue #19).
+     */
+    public function test_a_concurrent_request_adds_no_slot(): void {
+        global $CFG;
+        $this->resetAfterTest();
+        // A lock that one process cannot take twice, as two requests cannot.
+        $CFG->lock_factory = '\\core\\lock\\db_record_lock_factory';
+        $this->set_up_activity('testcatmodel');
+        serve_fixed_question_administration::$questionid = $this->questionids[0];
+
+        $held = \core\lock\lock_config::get_lock_factory('mod_adaptivequiz')
+            ->get_lock('adaptivequiz_itemadministration_' . $this->adaptivequiz->id . '_' . $this->user->id, 0);
+        $this->assertNotFalse($held);
+        try {
+            $attempt = $this->new_request();
+            $this->assertNull(cat_session::administer_next_item($this->adaptivequiz, $attempt), 'The lock was not respected.');
+            $this->assertCount(0, $attempt->get_quba()->get_slots());
+        } finally {
+            $held->release();
+        }
+
+        $attempt = $this->new_request();
+        $this->assertNotNull(cat_session::administer_next_item($this->adaptivequiz, $attempt));
+        $this->assertCount(1, $attempt->get_quba()->get_slots());
+    }
 }
