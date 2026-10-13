@@ -261,4 +261,45 @@ final class result_service {
         }
         return count($attempts);
     }
+
+    /**
+     * Rebuilds the grades of an activity from its result snapshots - explicitly, and safe to repeat (issue #19).
+     *
+     * Completed attempts without a snapshot get one. A snapshot is only retaken for the attempts
+     * named in $resnapshot - after the CAT model has judged them again, say: a retaken snapshot reads
+     * the result range of today, not of the moment of completion. Every grade then follows the
+     * grading method from the valid snapshots alone; a participant without one gets no grade, never 0.
+     *
+     * @param stdClass $adaptivequiz The activity instance record.
+     * @param int[] $resnapshot Attempts (adaptivequiz_attempt.id) whose snapshot is retaken.
+     * @return stdClass attempts, snapshots, valid, ungraded (reason by attempt id).
+     */
+    public static function regrade(stdClass $adaptivequiz, array $resnapshot = []): stdClass {
+        global $CFG, $DB;
+        require_once($CFG->dirroot . '/mod/adaptivequiz/lib.php');
+
+        $report = (object) ['attempts' => 0, 'snapshots' => 0, 'valid' => 0, 'ungraded' => []];
+        $resnapshot = array_flip(array_map('intval', $resnapshot));
+        $attempts = $DB->get_records(
+            'adaptivequiz_attempt',
+            ['instance' => $adaptivequiz->id, 'attemptstate' => attempt_state::COMPLETED],
+            'id'
+        );
+        foreach ($attempts as $attempt) {
+            $force = isset($resnapshot[(int) $attempt->id]);
+            if ($force || empty($attempt->resulttime)) {
+                $attempt = self::snapshot($adaptivequiz, $attempt, $force);
+                $report->snapshots++;
+            }
+            $report->attempts++;
+            if (!empty($attempt->resultvalid) && $attempt->resultpercent !== null) {
+                $report->valid++;
+            } else {
+                $report->ungraded[(int) $attempt->id] = (string) ($attempt->resultreason ?? '');
+            }
+        }
+
+        adaptivequiz_update_grades($adaptivequiz);
+        return $report;
+    }
 }

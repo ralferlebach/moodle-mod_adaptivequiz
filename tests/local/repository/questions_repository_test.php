@@ -32,6 +32,12 @@ use dml_missing_record_exception;
 use question_bank;
 use stdClass;
 
+defined('MOODLE_INTERNAL') || die();
+
+global $CFG;
+// ADAPTIVEQUIZ_QUESTION_TAG: run alone, no other test has loaded it.
+require_once($CFG->dirroot . '/mod/adaptivequiz/locallib.php');
+
 /**
  * @covers \mod_adaptivequiz\local\repository\questions_repository
  */

@@ -32,7 +32,7 @@ jobs:
 
     services:
       postgres:
-        image: postgres:14
+        image: mirror.gcr.io/library/postgres:14
         env:
           POSTGRES_USER: 'postgres'
           POSTGRES_HOST_AUTH_METHOD: 'trust'
@@ -43,7 +43,7 @@ jobs:
           --health-timeout=5s --health-retries=3
 
       mariadb:
-        image: mariadb:10.11
+        image: mirror.gcr.io/library/mariadb:10.11
         env:
           MYSQL_USER: 'root'
           MYSQL_ALLOW_EMPTY_PASSWORD: "true"
@@ -144,6 +144,23 @@ jobs:
         if: ${{ always() }}
         continue-on-error: true
         run: set -o pipefail; moodle-plugin-ci grunt --max-lint-warnings 0 2>&1 | tee ci-logs/grunt.log
+
+      # Docker Hub begrenzt anonyme Pulls (toomanyrequests). moodle-plugin-ci startet Selenium
+      # per docker run und holt das Image sonst von Docker Hub; liegt es lokal vor, wird nicht
+      # gezogen. Deshalb zuerst ueber den Google-Mirror, erst danach Docker Hub, mit Wiederholung.
+      - name: Selenium-Image vorladen (Docker-Hub-Ratenlimit)
+        if: ${{ always() }}
+        run: |
+          for src in mirror.gcr.io/selenium/standalone-chrome:4 selenium/standalone-chrome:4; do
+            for attempt in 1 2 3; do
+              if docker pull "$src"; then
+                docker tag "$src" selenium/standalone-chrome:4
+                exit 0
+              fi
+              sleep $((attempt * 15))
+            done
+          done
+          echo "::warning::Selenium-Image konnte nicht vorab geladen werden."
 
       - name: Behat (beratend)
         if: ${{ always() }}
