@@ -248,6 +248,14 @@ function adaptivequiz_update_instance(stdClass $adaptivequiz, ?mod_adaptivequiz_
         adaptivequiz_grade_item_update($adaptivequiz);
     }
 
+    // The attempts that already exist follow the settings just saved - switching grading on, another
+    // grading method, other result settings - in a background task: the grades are rebuilt from the
+    // result snapshots, missing snapshots are taken. Without it they stayed as they were until someone
+    // ran cli/regrade_results.php.
+    if ($DB->record_exists('adaptivequiz_attempt', ['instance' => $adaptivequiz->id, 'attemptstate' => 'complete'])) {
+        \mod_adaptivequiz\task\regrade_activity::queue((int) $adaptivequiz->id);
+    }
+
     // When a custom CAT model is submitted, wire up its callback for instance update (if exists).
     if (!empty($adaptivequiz->catmodel)) {
         adaptivequiz_catmodel_update_instance_callback($adaptivequiz, $mform);

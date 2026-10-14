@@ -224,5 +224,14 @@ function xmldb_adaptivequiz_upgrade($oldversion) {
         upgrade_mod_savepoint(true, 2026100905, 'adaptivequiz');
     }
 
+    if ($oldversion < 2026100906) {
+        // Completed attempts of activities whose grading was switched on, or whose settings changed,
+        // before the settings themselves queued a regrade: one pass over every activity brings their
+        // grades in line with the result snapshots, taking the snapshots that are missing.
+        \core\task\manager::queue_adhoc_task(new \mod_adaptivequiz\task\snapshot_results(), true);
+
+        upgrade_mod_savepoint(true, 2026100906, 'adaptivequiz');
+    }
+
     return true;
 }

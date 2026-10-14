@@ -10,5 +10,5 @@
 /.gitignore             export-ignore
 /.gitattributes         export-ignore
 /erpnext.yml            export-ignore
-/cli/	export-ignore
+# cli/regrade_results.php ist ein Betriebswerkzeug und wird ausgeliefert.
 /tests/a11y export-ignore
