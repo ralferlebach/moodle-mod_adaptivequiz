@@ -20,6 +20,7 @@ use adaptivequizcatmodel_testcatmodel\local\catmodel\itemadministration\serve_fi
 use advanced_testcase;
 use context_module;
 use mod_adaptivequiz\local\attempt;
+use mod_adaptivequiz\local\attempt\stop_reason;
 use stdClass;
 
 /**
@@ -436,6 +437,7 @@ final class cat_session_test extends advanced_testcase {
 
         $this->assertTrue($evaluation->item_administration_is_to_stop(), 'A fourth question was administered.');
         $this->assertSame(get_string('maxquestattempted', 'adaptivequiz'), $evaluation->stoppage_reason());
+        $this->assertSame(stop_reason::MAXIMUM, $evaluation->stop_code(), 'The regular end, without a notice (issue #20).');
         $this->assertCount(3, $attempt->get_quba()->get_slots());
     }
 

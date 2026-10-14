@@ -36,6 +36,9 @@ final class item_administration_evaluation {
      */
     private $stoppagereason;
 
+    /** @var string|null Why the administration stops, as a code (issue #20). */
+    private ?string $stopcode = null;
+
     /**
      * The constructor.
      *
@@ -74,12 +77,24 @@ final class item_administration_evaluation {
     }
 
     /**
+     * Why the administration stops, as a code (issue #20), or null when nobody said.
+     *
+     * @return string|null One of the \mod_adaptivequiz\local\attempt\stop_reason constants, or a CAT model's own.
+     */
+    public function stop_code(): ?string {
+        return $this->stopcode;
+    }
+
+    /**
      * A named constructor to quickly instantiate an evaluation object for the 'stoppage' result of evaluation.
      *
-     * @param string $reason
+     * @param string $reason The message, as the participant reads it.
+     * @param string|null $code Why, as a code (issue #20); see \mod_adaptivequiz\local\attempt\stop_reason.
      */
-    public static function with_stoppage_reason(string $reason): self {
-        return new self(null, $reason);
+    public static function with_stoppage_reason(string $reason, ?string $code = null): self {
+        $evaluation = new self(null, $reason);
+        $evaluation->stopcode = $code;
+        return $evaluation;
     }
 
     /**

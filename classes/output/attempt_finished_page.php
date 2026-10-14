@@ -16,6 +16,8 @@
 
 namespace mod_adaptivequiz\output;
 
+use mod_adaptivequiz\local\attempt\attempt_state;
+use mod_adaptivequiz\local\attempt\stop_reason;
 use moodle_url;
 use renderable;
 use renderer_base;
@@ -50,6 +52,9 @@ class attempt_finished_page implements renderable, templatable {
      */
     private $debuginfo = null;
 
+    /** @var \stdClass|null The notice about how the attempt ended, for its participant (issue #20). */
+    private $stopnotice = null;
+
     /**
      * Empty and closed, the factory method must be used instead.
      */
@@ -64,6 +69,8 @@ class attempt_finished_page implements renderable, templatable {
      * @param stdClass $attempt
      */
     public static function create(stdClass $adaptivequiz, stdClass $cm, stdClass $attempt): self {
+        global $USER;
+
         $page = new self();
         $page->browsersecurityenabled = $adaptivequiz->browsersecurity;
         $page->attemptfeedback = attempt_feedback::create($adaptivequiz, $cm, $attempt);
@@ -71,6 +78,18 @@ class attempt_finished_page implements renderable, templatable {
 
         if ($adaptivequiz->debuginfoenable) {
             $page->debuginfo = new attempt_debug_info($attempt);
+        }
+
+        // Only the participant is told how the attempt ended, and only once it is complete: the
+        // notice explains an end, it does not announce one.
+        if ((int) $attempt->userid === (int) $USER->id && $attempt->attemptstate === attempt_state::COMPLETED) {
+            $notice = stop_reason::notice($attempt);
+            if ($notice !== null) {
+                $notice->attemptid = (int) $attempt->id;
+                $notice->acknowledged = !empty($attempt->stopnoticeack);
+                $notice->iserror = $notice->kind === stop_reason::NOTICE_ERROR;
+                $page->stopnotice = $notice;
+            }
         }
 
         return $page;
@@ -87,6 +106,7 @@ class attempt_finished_page implements renderable, templatable {
             'browsersecurityenabled' => $this->browsersecurityenabled,
             'continuebutton' => $output->continue_button($this->continueurl),
             'debuginfo' => $this->debuginfo ? $output->render($this->debuginfo) : null,
+            'stopnotice' => $this->stopnotice ? (array) $this->stopnotice : null,
         ], $this->attemptfeedback->export_for_template($output));
     }
 }

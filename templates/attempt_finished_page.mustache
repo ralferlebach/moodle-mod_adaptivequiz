@@ -25,15 +25,39 @@
     * browsersecurityenabled - whether the 'secure' mode is requested
     * debuginfo - pre-rendered debugging info (when avaialble)
 
+    * stopnotice - how the attempt ended, when the participant may not expect it (issue #20):
+      title, text, iserror, attemptid, acknowledged
+
     Example context (json):
     {
         "feedbacktext": "Thank you for an attempt!",
         "continuebutton": "<a class=\"..\">..</a>",
         "browsersecurityenabled": true,
-        "debuginfo": "<div>..</div>"
+        "debuginfo": "<div>..</div>",
+        "stopnotice": {
+            "title": "Your test has ended",
+            "text": "The time for this test is up.",
+            "iserror": false,
+            "attemptid": 3,
+            "acknowledged": false
+        }
     }
 }}
-<div class="text-center">
+{{#stopnotice}}
+    <div class="alert {{#iserror}}alert-warning{{/iserror}}{{^iserror}}alert-info{{/iserror}}"
+            data-region="adaptivequiz-stopnotice" tabindex="-1" aria-labelledby="adaptivequiz-stopnotice-title">
+        <h3 class="h5" id="adaptivequiz-stopnotice-title" data-region="title">{{title}}</h3>
+        <p class="mb-0" data-region="text">{{text}}</p>
+    </div>
+    {{^acknowledged}}
+        {{#js}}
+            require(['mod_adaptivequiz/stop_notice'], function(notice) {
+                notice.init({{attemptid}});
+            });
+        {{/js}}
+    {{/acknowledged}}
+{{/stopnotice}}
+<div class="text-center" data-region="adaptivequiz-attempt-feedback">
     <p class="adaptivequizfeedback">{{{feedbacktext}}}</p>
 
     {{#showabilitymeasure}}

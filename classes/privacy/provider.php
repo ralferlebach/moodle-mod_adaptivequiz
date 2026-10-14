@@ -66,6 +66,8 @@ class provider implements
             'resultreason' => 'privacy:metadata:adaptivequiz_attempt:resultreason',
             'resultscore' => 'privacy:metadata:adaptivequiz_attempt:resultscore',
             'resultpercent' => 'privacy:metadata:adaptivequiz_attempt:resultpercent',
+            'stopcode' => 'privacy:metadata:adaptivequiz_attempt:stopcode',
+            'stopnoticeack' => 'privacy:metadata:adaptivequiz_attempt:stopnoticeack',
         ], 'privacy:metadata:adaptivequiz_attempt');
 
         // The answers given during an attempt live in the question subsystem.
@@ -378,6 +380,8 @@ class provider implements
             'resultreason' => $attempt->resultreason ?? null,
             'resultscore' => $attempt->resultscore ?? null,
             'resultpercent' => $attempt->resultpercent ?? null,
+            'stopcode' => $attempt->stopcode ?? null,
+            'stopnoticeack' => empty($attempt->stopnoticeack) ? null : transform::datetime($attempt->stopnoticeack),
         ];
     }
 

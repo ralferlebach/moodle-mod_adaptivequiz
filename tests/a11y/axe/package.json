@@ -1,0 +1,13 @@
+{
+    "name": "mod-adaptivequiz-a11y-axe",
+    "private": true,
+    "version": "0.0.0",
+    "description": "Accessibility suite of mod_adaptivequiz: axe-core, keyboard and focus, driven with Playwright.",
+    "scripts": {
+        "test": "playwright test"
+    },
+    "devDependencies": {
+        "@axe-core/playwright": "4.13.0",
+        "@playwright/test": "1.49.1"
+    }
+}

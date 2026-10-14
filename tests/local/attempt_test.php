@@ -154,6 +154,11 @@ final class attempt_test extends advanced_testcase {
             $this->assertNull($data->$field, $field);
             unset($data->$field);
         }
+        // Why the attempt ended is recorded at its end (issue #20); a started attempt has none.
+        foreach (['stopcode', 'stopnoticeack'] as $field) {
+            $this->assertNull($data->$field, $field);
+            unset($data->$field);
+        }
 
         // Cast the float values to eliminate the data representation issues.
         $data->difficultysum = (float) $data->difficultysum;

@@ -83,7 +83,8 @@ if ($confirm) {
         $context,
         $attempt->userid,
         $attempt->standarderror,
-        $statusmessage
+        $statusmessage,
+        \mod_adaptivequiz\local\attempt\stop_reason::MANUAL
     );
     redirect($returnurl, $closemessage, 4);
 }

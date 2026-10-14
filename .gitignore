@@ -4,3 +4,7 @@
 !/catmodel/README.md
 !/catmodel/upgrade.txt
 !/catmodel/testcatmodel
+# Node-Pakete und Laufergebnisse der Browser-Suiten (tests/a11y, tests/playwright).
+node_modules/
+test-results/
+playwright-report/

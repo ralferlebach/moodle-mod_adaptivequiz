@@ -84,6 +84,8 @@ Feature: Adaptive quiz content
     And I should see " (difficulty 2)."
     And I click on "True" "radio"
     And I press "Submit answer"
+    # Issue #20: an end by precision or by an exhausted pool is explained first.
+    And I click on "OK" "button" in the "Your test has ended" "dialogue"
     And "Continue" "button" should be visible
 
   @javascript
@@ -117,6 +119,8 @@ Feature: Adaptive quiz content
     And I should see " (difficulty 2)."
     And I click on "False" "radio"
     And I press "Submit answer"
+    # Issue #20: an end by precision or by an exhausted pool is explained first.
+    And I click on "OK" "button" in the "Your test has ended" "dialogue"
     And "Continue" "button" should be visible
 
   @javascript
@@ -153,4 +157,6 @@ Feature: Adaptive quiz content
     And I should see " (difficulty 4)."
     And I click on "True" "radio"
     And I press "Submit answer"
+    # Issue #20: an end by precision or by an exhausted pool is explained first.
+    And I click on "OK" "button" in the "Your test has ended" "dialogue"
     And "Continue" "button" should be visible

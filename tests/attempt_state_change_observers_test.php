@@ -79,6 +79,8 @@ final class attempt_state_change_observers_test extends advanced_testcase {
         foreach (['resultreason', 'resultscore', 'resultlower', 'resultupper', 'resultpercent', 'resultlink', 'resulttime'] as $f) {
             $attemptrecordsnapshot->$f = null;
         }
+        $attemptrecordsnapshot->stopcode = null;
+        $attemptrecordsnapshot->stopnoticeack = null;
 
         $cm = get_coursemodule_from_instance('adaptivequiz', $adaptivequiz->id, $adaptivequiz->course);
         $context = context_module::instance($cm->id);

@@ -13,3 +13,4 @@
 /.gitattributes export-ignore
 /.gitignore     export-ignore
 /PORTING_MATRIX.md export-ignore
+/tests/a11y export-ignore

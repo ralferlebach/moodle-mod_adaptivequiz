@@ -145,7 +145,7 @@ final class provider_test extends provider_testcase {
         $this->assertEqualsCanonicalizing(
             ['userid', 'uniqueid', 'attemptstate', 'attemptstopcriteria', 'questionsattempted',
                 'difficultysum', 'standarderror', 'measure', 'timecreated', 'timemodified',
-                'resultvalid', 'resultreason', 'resultscore', 'resultpercent'],
+                'resultvalid', 'resultreason', 'resultscore', 'resultpercent', 'stopcode', 'stopnoticeack'],
             $tables['adaptivequiz_attempt']
         );
     }

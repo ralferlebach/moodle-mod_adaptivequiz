@@ -20,6 +20,7 @@ use coding_exception;
 use core\lock\lock_config;
 use core_tag_tag;
 use mod_adaptivequiz\local\attempt;
+use mod_adaptivequiz\local\attempt\stop_reason;
 use mod_adaptivequiz\local\catalgo;
 use mod_adaptivequiz\local\fetchquestion;
 use moodle_exception;
@@ -192,7 +193,10 @@ final class cat_session {
         // duplicates alike (issue #19). A CAT model counts in its own way (each question once,
         // say); the usage is the host's, and it gets no slot beyond the maximum.
         if (self::maximum_reached($adaptivequiz, $quba)) {
-            return item_administration_evaluation::with_stoppage_reason(get_string('maxquestattempted', 'adaptivequiz'));
+            return item_administration_evaluation::with_stoppage_reason(
+                get_string('maxquestattempted', 'adaptivequiz'),
+                stop_reason::MAXIMUM
+            );
         }
 
         $question = request_timing::measure('load_question', fn() => question_bank::load_question($questionid));
@@ -345,6 +349,7 @@ final class cat_session {
         }
 
         $result->stoppagereason = (string) $algorithm->get_status();
+        $result->stopcode = $algorithm->get_stop_code();
 
         if ($result->attempt_is_to_stop()) {
             return $result;

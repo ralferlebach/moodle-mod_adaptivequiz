@@ -31,4 +31,10 @@ $functions = [
         'type' => 'read',
         'ajax' => true,
     ],
+    'mod_adaptivequiz_acknowledge_stop_notice' => [
+        'classname' => '\mod_adaptivequiz\external\acknowledge_stop_notice',
+        'description' => 'Stores that the participant confirmed the notice about how the attempt ended.',
+        'type' => 'write',
+        'ajax' => true,
+    ],
 ];

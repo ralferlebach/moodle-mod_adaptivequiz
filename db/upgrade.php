@@ -330,5 +330,21 @@ function xmldb_adaptivequiz_upgrade($oldversion) {
         upgrade_mod_savepoint(true, 2026100902, 'adaptivequiz');
     }
 
+    if ($oldversion < 2026100906) {
+        // Issue #20: why an attempt ended, as a code, and whether the participant confirmed the notice.
+        $table = new xmldb_table('adaptivequiz_attempt');
+        $fields = [
+            new xmldb_field('stopcode', XMLDB_TYPE_CHAR, '64', null, null, null, null, 'resulttime'),
+            new xmldb_field('stopnoticeack', XMLDB_TYPE_INTEGER, '10', null, null, null, null, 'stopcode'),
+        ];
+        foreach ($fields as $field) {
+            if (!$dbman->field_exists($table, $field)) {
+                $dbman->add_field($table, $field);
+            }
+        }
+
+        upgrade_mod_savepoint(true, 2026100906, 'adaptivequiz');
+    }
+
     return true;
 }

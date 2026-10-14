@@ -50,7 +50,10 @@ final class default_item_administration implements item_administration {
      */
     public function evaluate_ability_to_administer_next_item(?int $previousquestionslot): item_administration_evaluation {
         if (empty($this->attempt->start_attempt())) {
-            return item_administration_evaluation::with_stoppage_reason($this->attempt->get_status());
+            return item_administration_evaluation::with_stoppage_reason(
+                $this->attempt->get_status(),
+                $this->attempt->get_stop_code()
+            );
         }
 
         return item_administration_evaluation::with_next_item(

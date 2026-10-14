@@ -138,7 +138,8 @@ if (!empty($uniqueid) && confirm_sesskey()) {
                 $context,
                 $USER->id,
                 $standarderror,
-                $itemresult->stoppagereason
+                $itemresult->stoppagereason,
+                $itemresult->stopcode
             );
 
             $param = ['cmid' => $cm->id, 'id' => $cm->instance, 'uattid' => $uniqueid];
@@ -206,7 +207,15 @@ if ($evaluation->item_administration_is_to_stop()) {
         );
     }
 
-    adaptivequiz_complete_attempt($uniqueid, $adaptivequiz, $context, $USER->id, $standarderror, $message);
+    adaptivequiz_complete_attempt(
+        $uniqueid,
+        $adaptivequiz,
+        $context,
+        $USER->id,
+        $standarderror,
+        $message,
+        $evaluation->stop_code()
+    );
     // Redirect the user to the attemptfeedback page.
     $param = ['cmid' => $cm->id, 'id' => $cm->instance, 'uattid' => $uniqueid];
     $url = new moodle_url('/mod/adaptivequiz/attemptfinished.php', $param);

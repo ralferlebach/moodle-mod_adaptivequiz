@@ -51,6 +51,8 @@ Feature: View students results in adaptive quiz
     And I press "Submit answer"
     And I click on "True" "radio" in the "Second question" "question"
     And I press "Submit answer"
+    # Issue #20: an end by precision or by an exhausted pool is explained first.
+    And I click on "OK" "button" in the "Your test has ended" "dialogue"
     And I press "Continue"
     And I log out
 
@@ -78,6 +80,8 @@ Feature: View students results in adaptive quiz
     And I press "Submit answer"
     And I click on "True" "radio" in the "Second question" "question"
     And I press "Submit answer"
+    # Issue #20: an end by precision or by an exhausted pool is explained first.
+    And I click on "OK" "button" in the "Your test has ended" "dialogue"
     And I press "Continue"
     And I log out
     And I log in as "admin"

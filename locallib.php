@@ -299,6 +299,7 @@ function adaptivequiz_delete_attempt(stdClass $adaptivequiz, stdClass $attempt):
  * @param int $userid Userid.
  * @param string $standarderror Standarderror.
  * @param string $statusmessage Statusmessage.
+ * @param string|null $stopcode Why, as a code (issue #20); see \mod_adaptivequiz\local\attempt\stop_reason.
  */
 function adaptivequiz_complete_attempt(
     int $uniqueid,
@@ -306,7 +307,8 @@ function adaptivequiz_complete_attempt(
     context_module $context,
     int $userid,
     string $standarderror,
-    string $statusmessage
+    string $statusmessage,
+    ?string $stopcode = null
 ): void {
     global $DB;
 
@@ -320,6 +322,10 @@ function adaptivequiz_complete_attempt(
     $now = time();
     $attempt->attemptstate = attempt_state::COMPLETED;
     $attempt->attemptstopcriteria = $statusmessage;
+    // The first code given stays (issue #20): a later, repeated completion does not rewrite why it ended.
+    if ($stopcode !== null && $stopcode !== '' && empty($attempt->stopcode)) {
+        $attempt->stopcode = $stopcode;
+    }
 
     // The completion time is set exactly once, at the transition to completed, and never touched
     // again. The reports used to show timemodified instead, which drifts with every later change

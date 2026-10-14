@@ -95,6 +95,8 @@
         <FIELD NAME="resultpercent" TYPE="number" LENGTH="10" NOTNULL="false" SEQUENCE="false" DECIMALS="5" COMMENT="The score as 0-100 percent of its range - the grade of the attempt."/>
         <FIELD NAME="resultlink" TYPE="char" LENGTH="50" NOTNULL="false" SEQUENCE="false" COMMENT="Identifier of the link function that produced resultpercent."/>
         <FIELD NAME="resulttime" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="When the result snapshot was taken; null for an attempt without one."/>
+        <FIELD NAME="stopcode" TYPE="char" LENGTH="64" NOTNULL="false" SEQUENCE="false" COMMENT="Why the attempt ended, as a code (see local\attempt\stop_reason); null for attempts ended before codes were stored."/>
+        <FIELD NAME="stopnoticeack" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="When the participant confirmed the notice about how the attempt ended; null while not confirmed."/>
       </FIELDS>
       <KEYS>
         <KEY NAME="primary" TYPE="primary" FIELDS="id" NEXT="instance_foreign"/>

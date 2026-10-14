@@ -40,6 +40,9 @@ final class item_result_processing {
     /** @var string Why the attempt is to stop, empty when it continues. */
     public string $stoppagereason = '';
 
+    /** @var string|null Why, as a code (issue #20); see \mod_adaptivequiz\local\attempt\stop_reason. */
+    public ?string $stopcode = null;
+
     /**
      * Returns whether the attempt is to stop after this answer.
      *
