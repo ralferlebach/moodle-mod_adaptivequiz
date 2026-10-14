@@ -21,8 +21,7 @@ yarn.lock
 vendor/
 composer.lock
 
-# AMD build artefacts (keep src, ignore build output)
-amd/build/
+# AMD build output is committed: Moodle loads amd/build, and moodle-plugin-ci checks that it is current.
 amd/Gruntfile.js
 amd/package.json
 amd/package-lock.json
