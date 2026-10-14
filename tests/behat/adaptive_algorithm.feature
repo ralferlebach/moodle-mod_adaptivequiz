@@ -78,7 +78,9 @@ Feature: Adaptive quiz content
     And I should see " (difficulty 2)."
     And I click on "True" "radio"
     And I press "Submit answer"
-    And "Continue" "button" should be visible
+    # Issue #20: an end by precision or by an exhausted pool is explained first.
+    And I click on "OK" "button" in the "Your test has ended" "dialogue"
+    And "Return to test" "button" should be visible
 
   @javascript
   Scenario: 20% standard error, user performs on the lowest level
@@ -108,7 +110,9 @@ Feature: Adaptive quiz content
     And I should see " (difficulty 2)."
     And I click on "False" "radio"
     And I press "Submit answer"
-    And "Continue" "button" should be visible
+    # Issue #20: an end by precision or by an exhausted pool is explained first.
+    And I click on "OK" "button" in the "Your test has ended" "dialogue"
+    And "Return to test" "button" should be visible
 
   @javascript
   Scenario: 20% standard error, user performs on the highest level
@@ -141,4 +145,6 @@ Feature: Adaptive quiz content
     And I should see " (difficulty 4)."
     And I click on "True" "radio"
     And I press "Submit answer"
-    And "Continue" "button" should be visible
+    # Issue #20: an end by precision or by an exhausted pool is explained first.
+    And I click on "OK" "button" in the "Your test has ended" "dialogue"
+    And "Return to test" "button" should be visible

@@ -77,7 +77,14 @@ if ($confirm) {
     $statusmessage = get_string('attemptclosedstatus', 'adaptivequiz', $a);
     $closemessage = get_string('attemptclosed', 'adaptivequiz', $a);
 
-    adaptivequiz_complete_attempt($attempt->uniqueid, $adaptivequiz, $context, $attempt->userid, $statusmessage);
+    adaptivequiz_complete_attempt(
+        $attempt->uniqueid,
+        $adaptivequiz,
+        $context,
+        $attempt->userid,
+        $statusmessage,
+        \mod_adaptivequiz\local\attempt\stop_reason::MANUAL
+    );
     redirect($returnurl, $closemessage, 4);
 }
 

@@ -107,7 +107,14 @@ class cat_session {
         $message = $adaptiveattempt->get_status();
         if (!empty($message)) {
             // The attempt has been flagged as having a stoppage reason, complete it and exit here.
-            adaptivequiz_complete_attempt($uniqueid, $adaptivequiz, $context, $USER->id, $message);
+            adaptivequiz_complete_attempt(
+                $uniqueid,
+                $adaptivequiz,
+                $context,
+                $USER->id,
+                $message,
+                $adaptiveattempt->get_stop_code()
+            );
 
             return;
         }
@@ -137,12 +144,21 @@ class cat_session {
                 throw new moodle_exception('attemptnofirstquestion', 'adaptivequiz');
             }
 
-            adaptivequiz_complete_attempt($uniqueid, $adaptivequiz, $context, $USER->id,
-                $itemadministrationevaluation->stoppage_reason());
+            adaptivequiz_complete_attempt(
+                $uniqueid,
+                $adaptivequiz,
+                $context,
+                $USER->id,
+                $itemadministrationevaluation->stoppage_reason(),
+                $itemadministrationevaluation->stop_code()
+            );
 
             // In case it was an alternative CAT implementation set the attempt status.
             if (empty($adaptiveattempt->get_status())) {
-                $adaptiveattempt->set_status($itemadministrationevaluation->stoppage_reason());
+                $adaptiveattempt->set_status(
+                    $itemadministrationevaluation->stoppage_reason(),
+                    $itemadministrationevaluation->stop_code()
+                );
             }
 
             return;
@@ -190,9 +206,16 @@ class cat_session {
                 $asked++;
                 if ($again->item_administration_is_to_stop()) {
                     // A regular stop by the CAT model's own criteria, not because of the repetition.
-                    adaptivequiz_complete_attempt($uniqueid, $adaptivequiz, $context, $USER->id, $again->stoppage_reason());
+                    adaptivequiz_complete_attempt(
+                        $uniqueid,
+                        $adaptivequiz,
+                        $context,
+                        $USER->id,
+                        $again->stoppage_reason(),
+                        $again->stop_code()
+                    );
                     if (empty($adaptiveattempt->get_status())) {
-                        $adaptiveattempt->set_status($again->stoppage_reason());
+                        $adaptiveattempt->set_status($again->stoppage_reason(), $again->stop_code());
                     }
                     return;
                 }
@@ -213,9 +236,16 @@ class cat_session {
             // say); the usage is the host's, and it gets no slot beyond the maximum.
             if (self::maximum_reached($adaptivequiz, $quba)) {
                 $reason = get_string('maxquestattempted', 'adaptivequiz');
-                adaptivequiz_complete_attempt($uniqueid, $adaptivequiz, $context, $USER->id, $reason);
+                adaptivequiz_complete_attempt(
+                    $uniqueid,
+                    $adaptivequiz,
+                    $context,
+                    $USER->id,
+                    $reason,
+                    \mod_adaptivequiz\local\attempt\stop_reason::MAXIMUM
+                );
                 if (empty($adaptiveattempt->get_status())) {
-                    $adaptiveattempt->set_status($reason);
+                    $adaptiveattempt->set_status($reason, \mod_adaptivequiz\local\attempt\stop_reason::MAXIMUM);
                 }
                 return;
             }
@@ -401,7 +431,7 @@ class cat_session {
         // Check whether the status property is empty.
         $message = $algo->get_status();
         if (!empty($message)) {
-            $adaptiveattempt->set_status($message);
+            $adaptiveattempt->set_status($message, $algo->get_stop_code());
 
             return;
         }

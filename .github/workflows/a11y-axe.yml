@@ -1,0 +1,138 @@
+name: Accessibility (axe-core)
+
+# axe-core, keyboard and focus of the dialogs of mod_adaptivequiz (tests/a11y/axe), on every Moodle
+# line the plugin supports. The suite builds its own site: a fresh installation, the stop notice
+# fixture from tests/a11y/seed_stop_notice.php, PHP's built-in server.
+#
+# What a screen reader SAYS is checked by a11y-screenreader.yml (NVDA, Windows, manual).
+#
+# EVERY run uploads one artefact per Moodle line, passed or failed: the axe results as JSON, video
+# and screenshots. For an accessibility review the record of a green run is evidence, not noise.
+#
+# NOTE: workflow_dispatch only appears in the Actions UI once this file is on the default branch.
+"on":
+  workflow_dispatch:
+  push:
+    paths:
+      - 'amd/**'
+      - 'templates/**'
+      - 'classes/output/**'
+      - 'attemptfinished.php'
+      - 'tests/a11y/**'
+      - '.github/workflows/a11y-axe.yml'
+  schedule:
+    - cron: '30 4 * * 1'
+
+permissions:
+  contents: read
+
+jobs:
+  axe:
+    name: axe-core (${{ matrix.moodle }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        moodle: [MOODLE_405_STABLE]
+
+    services:
+      postgres:
+        # The line of this branch: Moodle 4.5.
+        image: mirror.gcr.io/library/postgres:17
+        env:
+          POSTGRES_USER: moodle
+          POSTGRES_PASSWORD: moodle
+          POSTGRES_DB: moodle
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready" --health-interval=10s --health-timeout=5s --health-retries=5
+
+    env:
+      MOODLE_WWWROOT: http://127.0.0.1:8000
+      A11Y_BASE_URL: http://127.0.0.1:8000
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Check out plugin
+        uses: actions/checkout@v4
+        with:
+          path: plugin
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pgsql, gd, intl, zip, soap, mbstring, curl, xml, exif
+          ini-values: max_input_vars=5000
+          coverage: none
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Check out Moodle and put the plugin in
+        run: |
+          git clone --depth 1 --branch "${{ matrix.moodle }}" https://github.com/moodle/moodle.git moodle
+          webroot=moodle
+          [ -d moodle/public ] && webroot=moodle/public
+          cp -a plugin "$webroot/mod/adaptivequiz"
+          rm -rf "$webroot/mod/adaptivequiz/.git"
+          # The seed builds its questions with the helpers of the question tests, which need PHPUnit.
+          (cd moodle && composer install --no-interaction --no-progress --prefer-dist)
+
+      # install.php writes config.php itself and needs a writable dataroot outside the tree.
+      - name: Install Moodle
+        run: |
+          mkdir -p /tmp/moodledata
+          cd moodle
+          php admin/cli/install.php --non-interactive --agree-license \
+            --dbtype=pgsql --dbhost=127.0.0.1 --dbport=5432 --dbname=moodle --dbuser=moodle --dbpass=moodle \
+            --wwwroot="$MOODLE_WWWROOT" --dataroot=/tmp/moodledata \
+            --fullname="A11y" --shortname="A11y" --adminpass="Admin!23" --adminemail=ci@example.invalid
+
+      - name: Seed the stop notice fixture
+        run: |
+          php plugin/tests/a11y/seed_stop_notice.php --moodle="$(cd moodle; pwd)" | tee /tmp/a11y.env
+          cat /tmp/a11y.env >> "$GITHUB_ENV"
+          echo "A11Y_EXPORT_DIR=$RUNNER_TEMP/a11y-export" >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP/a11y-export"
+
+      - name: Start the web server
+        run: |
+          cd moodle
+          root=$( [ -d public ] && echo public || echo . )
+          # One worker stalls as soon as a page pulls its subresources in parallel.
+          PHP_CLI_SERVER_WORKERS=4 php -S 127.0.0.1:8000 -t "$root" > /tmp/webserver.log 2>&1 &
+          for i in $(seq 1 30); do
+            curl -sf "$MOODLE_WWWROOT/login/index.php" > /dev/null && break
+            sleep 1
+          done
+
+      - name: Install the suite
+        run: |
+          cd plugin/tests/a11y/axe
+          npm ci
+          npx playwright install --with-deps chromium
+
+      - name: Run the axe-core suite
+        run: |
+          cd plugin/tests/a11y/axe
+          npx playwright test 2>&1 | tee "$A11Y_EXPORT_DIR/run.log"
+          exit "${PIPESTATUS[0]}"
+
+      - name: Upload report, axe results and videos
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: a11y-axe-${{ matrix.moodle }}-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/a11y-export
+            /tmp/webserver.log
+          retention-days: 30
+          if-no-files-found: warn

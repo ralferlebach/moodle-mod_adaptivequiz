@@ -103,6 +103,9 @@ class attempt {
     /** @var array $status status message storing the reason why the attempt was stopped */
     protected $status = '';
 
+    /** @var string|null Why it stops, as a code (issue #20); see \mod_adaptivequiz\local\attempt\stop_reason. */
+    protected ?string $stopcode = null;
+
     /** @var int $level the difficulty level the attempt is currently set at */
     protected $level = 0;
 
@@ -218,16 +221,29 @@ class attempt {
     }
 
     /**
+     * Why it stops, as a code (issue #20), or null.
+     *
+     * @return string|null
+     */
+    public function get_stop_code(): ?string {
+        return $this->stopcode;
+    }
+
+    /**
      * Sets the status value, may be used when alternative CAT implementation is used.
      *
      * @param string $status
+     * @param string|null $code Why, as a code (issue #20); see \mod_adaptivequiz\local\attempt\stop_reason.
      */
-    public function set_status(string $status): void {
+    public function set_status(string $status, ?string $code = null): void {
         if (empty(trim($status))) {
             throw new coding_exception('the status value must be a meaningful string');
         }
 
         $this->status = $status;
+        if ($code !== null) {
+            $this->stopcode = $code;
+        }
     }
 
     /**
@@ -245,12 +261,14 @@ class attempt {
             $var = new stdClass();
             $var->level = $this->level;
             $this->status = get_string('leveloutofbounds', 'adaptivequiz', $var);
+            $this->stopcode = \mod_adaptivequiz\local\attempt\stop_reason::NO_ELIGIBLE;
             return false;
         }
 
         // Check if the attempt has reached the maximum number of questions attempted.
         if ($this->max_questions_answered()) {
             $this->status = get_string('maxquestattempted', 'adaptivequiz');
+            $this->stopcode = \mod_adaptivequiz\local\attempt\stop_reason::MAXIMUM;
             return false;
         }
 
@@ -322,6 +340,7 @@ class attempt {
             $this->print_debug('start_attempt() - something went horribly wrong since the quba has no slot number AND the number '.
                     'of question answered is greater than 0');
             $this->status = get_string('errorattemptstate', 'adaptivequiz');
+            $this->stopcode = \mod_adaptivequiz\local\attempt\stop_reason::ERROR;
 
             $fetchquestion->store_tagquestsum_in_session();
 
@@ -346,6 +365,7 @@ class attempt {
             $var = new stdClass();
             $var->level = $this->level;
             $this->status = get_string('errorfetchingquest', 'adaptivequiz', $var);
+            $this->stopcode = \mod_adaptivequiz\local\attempt\stop_reason::NO_ELIGIBLE;
             return false;
         }
 

@@ -91,7 +91,7 @@ Feature: Attempt feedback
     And I press "Submit answer"
     And I click on "True" "radio" in the "Second question" "question"
     And I press "Submit answer"
-    And I press "Continue"
+    And I press "Return to test"
     Then I should see "Attempt Summary"
     And "attemptsummarytable" "table" should exist
     And I should see "Completed" in the "#attemptstatecell" "css_element"
@@ -105,13 +105,13 @@ Feature: Attempt feedback
     And I press "Submit answer"
     And I click on "True" "radio" in the "Second question" "question"
     And I press "Submit answer"
-    And I press "Continue"
+    And I press "Return to test"
     And I click on "Start attempt" "link"
     And I click on "True" "radio" in the "First question" "question"
     And I press "Submit answer"
     And I click on "True" "radio" in the "Second question" "question"
     And I press "Submit answer"
-    And I press "Continue"
+    And I press "Return to test"
     When I am on the "adaptivequiz1" "Activity" page
     Then I should see "Your previous attempts"
     And "userattemptstable" "table" should exist
@@ -152,7 +152,7 @@ Feature: Attempt feedback
     And I press "Submit answer"
     And I click on "True" "radio" in the "Second question" "question"
     And I press "Submit answer"
-    And I press "Continue"
+    And I press "Return to test"
     When I am on the "adaptivequiz1" "Activity" page
     Then "#abilitymeasurecell" "css_element" should not exist
 
@@ -170,12 +170,12 @@ Feature: Attempt feedback
     And I press "Submit answer"
     And I click on "True" "radio" in the "Second question" "question"
     And I press "Submit answer"
-    And I press "Continue"
+    And I press "Return to test"
     And I click on "Start attempt" "link"
     And I click on "True" "radio" in the "First question" "question"
     And I press "Submit answer"
     And I click on "True" "radio" in the "Second question" "question"
     And I press "Submit answer"
-    And I press "Continue"
+    And I press "Return to test"
     When I am on the "adaptivequiz1" "Activity" page
     Then ".abilitymeasurecol" "css_element" should not exist

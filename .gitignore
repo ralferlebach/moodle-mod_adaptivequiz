@@ -65,3 +65,7 @@ project.properties
 
 # Unbundled subplugins
 /catmodel/catquiz
+# Node-Pakete und Laufergebnisse der Browser-Suiten (tests/a11y).
+node_modules/
+test-results/
+playwright-report/

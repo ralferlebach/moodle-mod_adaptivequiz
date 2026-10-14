@@ -134,6 +134,9 @@ class attempt_test extends advanced_testcase {
         }
         $expected->timemodified = '0';
         $expected->timecreated = '0';
+        // Why the attempt ended is recorded at its end (issue #20); a started attempt has none.
+        $expected->stopcode = null;
+        $expected->stopnoticeack = null;
 
         $this->assertEquals($expected, $data);
     }

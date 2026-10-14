@@ -103,7 +103,9 @@ Feature: User may leave the adaptive quiz page and return to the current in-prog
     And I press "Submit answer"
     And I click on "True" "radio" in the "TF3" "question"
     And I press "Submit answer"
-    And I press "Continue"
+    # Issue #20: an end by precision or by an exhausted pool is explained first.
+    And I click on "OK" "button" in the "Your test has ended" "dialogue"
+    And I press "Return to test"
     And I log out
 
   @javascript

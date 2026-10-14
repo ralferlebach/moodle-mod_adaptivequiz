@@ -87,6 +87,9 @@ class catalgo {
     /** @var string $status status message storing the reason why the attempt needs to be stopped */
     protected $status = '';
 
+    /** @var string|null Why it stops, as a code (issue #20); see \mod_adaptivequiz\local\attempt\stop_reason. */
+    protected ?string $stopcode = null;
+
     /**
      * Constructor to initialize the parameters needed by the adaptive alrogithm
      * @throws moodle_exception - exception is thrown if first argument is not an instance of question_usage_by_activity class or
@@ -356,6 +359,7 @@ class catalgo {
             $this->nextdifficulty = $this->compute_next_difficulty($this->level, $this->questattempted, false, $record);
         } else {
             $this->status = get_string('errorlastattpquest', 'adaptivequiz');
+            $this->stopcode = \mod_adaptivequiz\local\attempt\stop_reason::ERROR;
             $this->print_debug('perform_calculation_steps() - Last question attempted returned a null as an answer');
             return 0;
         }
@@ -372,6 +376,7 @@ class catalgo {
 
         if (0 == $this->questattempted) {
             $this->status = get_string('errornumattpzero', 'adaptivequiz');
+            $this->stopcode = \mod_adaptivequiz\local\attempt\stop_reason::ERROR;
             $this->print_debug('perform_calculation_steps() - number of questions attempted equals zero');
             return 0;
         }
@@ -381,6 +386,7 @@ class catalgo {
 
         if ($validatenumbers != $this->questattempted) {
             $this->status = get_string('errorsumrightwrong', 'adaptivequiz');
+            $this->stopcode = \mod_adaptivequiz\local\attempt\stop_reason::ERROR;
             $this->print_debug('perform_calculation_steps() - Sum of correct and incorrect answers ('.$validatenumbers.') '.
                     'doesn\'t equals the total number of questions attempted ('.$this->questattempted.')');
             return 0;
@@ -413,6 +419,7 @@ class catalgo {
             $val->definederror = self::convert_logit_to_percent($quizdefinederror);
             $val->definederror = 100 * round($val->definederror, 2);
             $this->status = get_string('calcerrorwithinlimits', 'adaptivequiz', $val);
+            $this->stopcode = \mod_adaptivequiz\local\attempt\stop_reason::TARGET_PRECISION;
         }
 
         $this->print_debug('perform_calculation_steps() - measure: '.$this->measure.' standard error: '.$this->standarderror);
@@ -426,6 +433,15 @@ class catalgo {
      */
     public function get_status() {
         return $this->status;
+    }
+
+    /**
+     * Why it stops, as a code (issue #20), or null.
+     *
+     * @return string|null
+     */
+    public function get_stop_code(): ?string {
+        return $this->stopcode;
     }
 
     /**

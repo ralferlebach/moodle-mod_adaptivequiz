@@ -261,13 +261,15 @@ function adaptivequiz_update_attempt_data($uniqueid, $instance, $userid, $level,
  * @param context_module $context
  * @param int $userid
  * @param string $statusmessage
+ * @param string|null $stopcode Why, as a code (issue #20); see \mod_adaptivequiz\local\attempt\stop_reason.
  */
 function adaptivequiz_complete_attempt(
     int $uniqueid,
     stdClass $adaptivequiz,
     context_module $context,
     int $userid,
-    string $statusmessage
+    string $statusmessage,
+    ?string $stopcode = null
 ): void {
     global $DB;
 
@@ -277,6 +279,10 @@ function adaptivequiz_complete_attempt(
     $now = time();
     $attempt->attemptstate = attempt_state::COMPLETED;
     $attempt->attemptstopcriteria = $statusmessage;
+    // The first code given stays (issue #20): a later, repeated completion does not rewrite why it ended.
+    if ($stopcode !== null && $stopcode !== '' && empty($attempt->stopcode)) {
+        $attempt->stopcode = $stopcode;
+    }
     // Issue #5: the completion timestamp is authoritative and immutable. Set it
     // exactly once, at the transition to COMPLETED; never overwrite it on a
     // repeated completion (which keeps the whole finalisation idempotent).

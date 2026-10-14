@@ -36,3 +36,12 @@ defined('MOODLE_INTERNAL') || die();
 
 $string['btnbacktotest'] = 'Zurück zum Test';
 $string['btncontinuetocourse'] = 'Weiter zum Kurs';
+$string['stopnotice_error'] = 'Ihr Test konnte wegen eines technischen Problems nicht fortgesetzt werden. Ihre abgeschickten Antworten sind gespeichert. Bitte wenden Sie sich an die für den Test verantwortliche Person.';
+$string['stopnotice_manual'] = 'Ihr Versuch wurde von einer Lehrperson beendet. Ihre abgeschickten Antworten sind gespeichert.';
+$string['stopnotice_noeligiblequestions'] = 'Für Sie stehen derzeit keine weiteren passenden Fragen zur Verfügung, deshalb wurde der Test beendet. Ihre abgeschickten Antworten sind gespeichert.';
+$string['stopnotice_targetprecision'] = 'Ihre Antworten reichten aus, um Ihr Ergebnis mit der geforderten Genauigkeit zu bestimmen; weitere Fragen waren nicht nötig.';
+$string['stopnotice_timelimit'] = 'Die für diesen Test verfügbare Bearbeitungszeit ist abgelaufen, deshalb wurde der Test automatisch beendet. Die vorher abgeschickten Antworten sind gespeichert; eine noch nicht abgeschickte Frage zählt nicht.';
+$string['stopnotice_timelimit_duration'] = 'Ihr Versuch dauerte {$a->duration}.';
+$string['stopnotice_unknown'] = 'Ihr Test wurde automatisch beendet. Ihre abgeschickten Antworten sind gespeichert.';
+$string['stopnoticetitle_error'] = 'Ihr Test wurde wegen eines technischen Problems beendet';
+$string['stopnoticetitle_info'] = 'Ihr Test wurde beendet';

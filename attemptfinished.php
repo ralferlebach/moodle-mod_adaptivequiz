@@ -114,6 +114,24 @@ if (!empty($adaptivequiz->catmodel)) {
     }
 }
 
+// Issue #20: an end the participant may not expect is explained before the feedback.
+$stopnotice = null;
+$ownattempt = (int) $attempt->userid === (int) $USER->id;
+if ($ownattempt && $attempt->attemptstate === \mod_adaptivequiz\local\attempt\attempt_state::COMPLETED) {
+    $stopnotice = \mod_adaptivequiz\local\attempt\stop_reason::notice($attempt);
+}
+
 echo $output->header();
+if ($stopnotice !== null) {
+    echo $output->render_from_template('mod_adaptivequiz/stop_notice', [
+        'title' => $stopnotice->title,
+        'text' => $stopnotice->text,
+        'iserror' => $stopnotice->kind === \mod_adaptivequiz\local\attempt\stop_reason::NOTICE_ERROR,
+        'attemptid' => (int) $attempt->id,
+        'acknowledged' => !empty($attempt->stopnoticeack),
+    ]);
+}
+echo html_writer::start_div('', ['data-region' => 'adaptivequiz-attempt-feedback']);
 echo $output->attempt_feedback($attemptfeedback, $cm->id, $abilitymeasurerenderable, $popup);
+echo html_writer::end_div();
 echo $output->footer();

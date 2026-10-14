@@ -1,0 +1,43 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+}}
+{{!
+    @template mod_adaptivequiz/stop_notice
+
+    How the attempt ended, when the participant may not expect it (issue #20). On the page as text,
+    so it is there without JavaScript; with JavaScript it opens as a dialog the feedback waits for.
+
+    Example context (json):
+    {
+        "title": "Your test has ended",
+        "text": "The time for this test is up.",
+        "iserror": false,
+        "attemptid": 3,
+        "acknowledged": false
+    }
+}}
+<div class="alert {{#iserror}}alert-warning{{/iserror}}{{^iserror}}alert-info{{/iserror}}"
+        data-region="adaptivequiz-stopnotice" tabindex="-1" aria-labelledby="adaptivequiz-stopnotice-title">
+    <h3 class="h5" id="adaptivequiz-stopnotice-title" data-region="title">{{title}}</h3>
+    <p class="mb-0" data-region="text">{{text}}</p>
+</div>
+{{^acknowledged}}
+    {{#js}}
+        require(['mod_adaptivequiz/stop_notice'], function(notice) {
+            notice.init({{attemptid}});
+        });
+    {{/js}}
+{{/acknowledged}}

@@ -11,3 +11,4 @@
 /.gitattributes         export-ignore
 /erpnext.yml            export-ignore
 /cli/	export-ignore
+/tests/a11y export-ignore
