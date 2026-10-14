@@ -1,7 +1,7 @@
 name: CI
 
 # Zielversion ist Moodle 5.3 (LTS). 5.1 und 5.2 laufen als Absicherung mit,
-# 5.3 bis zur Verzweigung von MOODLE_503_STABLE gegen main.
+# 5.3 als MOODLE_503_STABLE (seit dem 5. Oktober verzweigt; main ist 5.4dev).
 #
 # PHP: 8.3 ist die von Moodle 5.3 geforderte Mindestversion, 8.4 laeuft auf allen
 # Zweigen mit. PHP 8.5 laesst sich derzeit nicht fahren - Moodles composer.lock
@@ -51,7 +51,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        moodle-branch: ['MOODLE_501_STABLE', 'MOODLE_502_STABLE', 'main']
+        moodle-branch: ['MOODLE_501_STABLE', 'MOODLE_502_STABLE', 'MOODLE_503_STABLE']
         php: ['8.3']
         database: ['pgsql', 'mariadb']
         include:
@@ -63,7 +63,7 @@ jobs:
           - moodle-branch: 'MOODLE_502_STABLE'
             php: '8.4'
             database: 'pgsql'
-          - moodle-branch: 'main'
+          - moodle-branch: 'MOODLE_503_STABLE'
             php: '8.4'
             database: 'pgsql'
 

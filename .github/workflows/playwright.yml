@@ -18,7 +18,7 @@ on:
         options:
           - MOODLE_501_STABLE
           - MOODLE_502_STABLE
-          - main
+          - MOODLE_503_STABLE
       scope:
         description: Welche Geschichten
         required: true

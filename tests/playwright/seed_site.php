@@ -86,7 +86,10 @@ function story_user(string $username, string $firstname, string $lastname, strin
         'mnethostid' => $CFG->mnet_localhost_id,
         'auth' => 'manual',
     ];
-    $user->id = user_create_user($user, true, false);
+    // Moodle 5.3 deprecates user_create_user() in favour of \core\user::create_user().
+    $user->id = method_exists(\core\user::class, 'create_user')
+        ? \core\user::create_user($user, true, false)
+        : user_create_user($user, true, false);
 
     return $DB->get_record('user', ['id' => $user->id], '*', MUST_EXIST);
 }
