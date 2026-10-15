@@ -27,6 +27,9 @@ final class linear_link_function implements link_function {
     /** @var string Identifier of this function. */
     public const ID = 'linear';
 
+    /** @var int Version of the mapping. */
+    public const VERSION = 1;
+
     /**
      * The identifier an engine uses to ask for this function.
      *
@@ -34,6 +37,15 @@ final class linear_link_function implements link_function {
      */
     public function get_id(): string {
         return self::ID;
+    }
+
+    /**
+     * The version of the mapping behind the identifier.
+     *
+     * @return int
+     */
+    public function get_version(): int {
+        return self::VERSION;
     }
 
     /**

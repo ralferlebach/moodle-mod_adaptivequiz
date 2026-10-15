@@ -75,7 +75,9 @@ class attempt_state_change_observers_test extends advanced_testcase {
         $attemptrecordsnapshot->timefinished = 1658525029;
         $attemptrecordsnapshot->resultstatus = 'valid';
         $attemptrecordsnapshot->resultvalid = 1;
-        foreach (['resultreason', 'resultscore', 'resultlower', 'resultupper', 'resultpercent', 'resultlink', 'resulttime'] as $f) {
+        $snapshotfields = ['resultreason', 'resultscore', 'resultlower', 'resultupper', 'resultpercent', 'resultlink',
+            'resultlinkversion', 'resulttime'];
+        foreach ($snapshotfields as $f) {
             $attemptrecordsnapshot->$f = null;
         }
         $attemptrecordsnapshot->stopcode = null;

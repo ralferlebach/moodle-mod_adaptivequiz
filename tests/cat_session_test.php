@@ -598,4 +598,71 @@ class cat_session_test extends advanced_testcase {
 
         self::assertNull($anyslot->invoke(null, $quba));
     }
+
+    /**
+     * A fixed-length test (minimum = maximum) ends with an estimate (issue #14).
+     *
+     * The attempt record counts the answer being processed only afterwards, so the algorithm was
+     * never ready on the last answer: the attempt ended at measure 0, standard error 0 - graded
+     * as the middle of the range, whatever was answered.
+     */
+    public function test_fixed_length_test_ends_with_an_estimate(): void {
+        global $DB;
+
+        $this->resetAfterTest();
+
+        $datagenerator = $this->getDataGenerator();
+        $questionsgenerator = $datagenerator->get_plugin_generator('core_question');
+        $course = $datagenerator->create_course();
+        $qcategory = $questionsgenerator->create_question_category([
+            'contextid' => context_course::instance($course->id)->id,
+        ]);
+        $questions = [];
+        foreach (['adpq_5', 'adpq_6'] as $tag) {
+            $question = $questionsgenerator->create_question('truefalse', null, ['category' => $qcategory->id]);
+            $questionsgenerator->create_question_tag(['questionid' => $question->id, 'tag' => $tag]);
+            $questions[] = $question;
+        }
+        $adaptivequiz = $datagenerator->get_plugin_generator('mod_adaptivequiz')->create_instance([
+            'course' => $course->id, 'questionpool' => [$qcategory->id], 'lowestlevel' => 1, 'highestlevel' => 10,
+            'startinglevel' => 5, 'minimumquestions' => 2, 'maximumquestions' => 2, 'standarderror' => 5,
+        ]);
+        $adaptivequiz->context = context_module::instance($adaptivequiz->cmid);
+
+        $measures = [];
+        foreach ([true, false] as $correct) {
+            $this->setUser($datagenerator->create_user());
+            $uniqueid = null;
+            foreach ($questions as $question) {
+                // One request per answer, as attempt.php makes them.
+                $attempt = new attempt($adaptivequiz, $GLOBALS['USER']->id);
+                $attemptrecord = $attempt->get_attempt();
+                $attempt->initialize_quba($adaptivequiz->context);
+                $quba = $attempt->get_quba();
+                $slot = $quba->add_question(question_bank::load_question($question->id));
+                $quba->start_question($slot);
+                question_engine::save_questions_usage_by_activity($quba);
+                if ($uniqueid === null) {
+                    // Set quba id for the attempt in a hacky way, no public API for this historically.
+                    $uniqueid = (int) $quba->get_id();
+                    $DB->set_field('adaptivequiz_attempt', 'uniqueid', $uniqueid, ['id' => $attemptrecord->id]);
+                }
+
+                cat_session::process_administered_item_result(
+                    $uniqueid,
+                    $adaptivequiz,
+                    $attempt,
+                    function (question_usage_by_activity $quba) use ($slot, $correct): void {
+                        $quba->process_all_actions(time(), $quba->prepare_simulated_post_data([$slot => ['answer' => $correct]]));
+                        $quba->finish_all_questions(time());
+                    }
+                );
+            }
+
+            $record = $DB->get_record('adaptivequiz_attempt', ['uniqueid' => $uniqueid]);
+            $this->assertGreaterThan(0.0, (float) $record->standarderror, 'The last answer leaves an estimate.');
+            $measures[$correct ? 'right' : 'wrong'] = (float) $record->measure;
+        }
+        $this->assertGreaterThan($measures['wrong'], $measures['right'], 'The estimate follows the answers.');
+    }
 }

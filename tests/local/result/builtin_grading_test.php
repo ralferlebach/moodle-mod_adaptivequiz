@@ -69,16 +69,17 @@ final class builtin_grading_test extends advanced_testcase {
      *
      * @param float $measure Ability measure in logits.
      * @param int $questions Number of answered questions.
+     * @param float $standarderror Standard error of the estimate; 0 = the algorithm never estimated.
      * @return stdClass The completed attempt.
      */
-    private function complete(float $measure, int $questions = 5): stdClass {
+    private function complete(float $measure, int $questions = 5, float $standarderror = 0.3): stdClass {
         global $DB;
 
         $uniqueid = ++$this->uniqueid;
         $DB->insert_record('adaptivequiz_attempt', (object) [
             'instance' => $this->adaptivequiz->id, 'userid' => $this->user->id, 'uniqueid' => $uniqueid,
             'attemptstate' => attempt_state::IN_PROGRESS, 'attemptstopcriteria' => '', 'questionsattempted' => $questions,
-            'difficultysum' => 0, 'standarderror' => 0.3, 'measure' => $measure,
+            'difficultysum' => 0, 'standarderror' => $standarderror, 'measure' => $measure,
             'timecreated' => time(), 'timemodified' => time(), 'timefinished' => 1000 + $uniqueid,
         ]);
         adaptivequiz_complete_attempt(
@@ -157,6 +158,24 @@ final class builtin_grading_test extends advanced_testcase {
 
         $this->assertEquals(0, $attempt->resultvalid);
         $this->assertSame(builtin_result_provider::REASON_NO_ANSWER, $attempt->resultreason);
+        $this->assertNull($attempt->resultpercent);
+        $this->assertNull($this->grade());
+    }
+
+    /**
+     * An attempt that ended before the algorithm estimated anything has no grade (issue #14).
+     *
+     * The algorithm leaves measure 0 and standard error 0 until it estimates. Read as a result,
+     * measure 0 is the middle of the range: every participant got 50 %, whatever they answered.
+     */
+    public function test_attempt_without_estimate_has_no_grade(): void {
+        $this->resetAfterTest();
+        $this->activity();
+
+        $attempt = $this->complete(0.0, 2, 0.0);
+
+        $this->assertEquals(0, $attempt->resultvalid);
+        $this->assertSame(builtin_result_provider::REASON_NO_ESTIMATE, $attempt->resultreason);
         $this->assertNull($attempt->resultpercent);
         $this->assertNull($this->grade());
     }

@@ -194,12 +194,25 @@ class mod_adaptivequiz_mod_form extends moodleform_mod {
         $mform->addElement('hidden', 'grade', 100);
         $mform->setType('grade', PARAM_INT);
 
-        $mform->addElement('static', 'resultsource', get_string('resultsource', 'adaptivequiz'), $this->describe_result_source());
+        $mform->addElement(
+            'static',
+            'resultsource',
+            get_string('resultsource', 'adaptivequiz'),
+            self::describe_result_source_for($this->current_settings())
+        );
         $mform->addHelpButton('resultsource', 'resultsource', 'adaptivequiz');
 
         $mform->addElement('text', 'passscore', get_string('passscore', 'adaptivequiz'), ['size' => 8]);
         $mform->setType('passscore', PARAM_RAW_TRIMMED);
         $mform->addHelpButton('passscore', 'passscore', 'adaptivequiz');
+        // Issue #14: the pass score is entered in the units of the result source; the gradebook
+        // gets the percentage. Shown for the stored pass score, so a teacher sees what it means.
+        $mform->addElement(
+            'static',
+            'passpercentage',
+            get_string('passpercentage', 'adaptivequiz'),
+            self::describe_pass_percentage($this->current_settings())
+        );
 
         // Grading method.
         $mform->addElement('select', 'grademethod', get_string('grademethod', 'adaptivequiz'),
@@ -455,13 +468,23 @@ class mod_adaptivequiz_mod_form extends moodleform_mod {
     }
 
     /**
-     * Where the results of this activity come from and on which range, as saved.
+     * The settings the form was opened with, as an activity record.
      *
-     * @return string
+     * @return stdClass
      */
-    private function describe_result_source(): string {
+    private function current_settings(): stdClass {
         $settings = (object) (array) $this->current;
         $settings->id = $this->current->instance ?? null;
+        return $settings;
+    }
+
+    /**
+     * Where the results come from and on which range (issue #14).
+     *
+     * @param stdClass $settings Activity record (catmodel, levels, id).
+     * @return string
+     */
+    public static function describe_result_source_for(stdClass $settings): string {
         $definition = result_service::definition($settings);
         if (!$definition->supportsgrading) {
             return get_string('resultsourcenotgradable', 'adaptivequiz', $definition->label);
@@ -469,6 +492,26 @@ class mod_adaptivequiz_mod_form extends moodleform_mod {
         $a = self::range_strings($definition);
         $a->label = $definition->label;
         return get_string('resultsourcerange', 'adaptivequiz', $a);
+    }
+
+    /**
+     * What the stored pass score means in the gradebook: its percentage of the range.
+     *
+     * @param stdClass $settings Activity record (passscore, catmodel, levels, id).
+     * @return string
+     */
+    public static function describe_pass_percentage(stdClass $settings): string {
+        if (!isset($settings->passscore) || $settings->passscore === '' || !is_numeric($settings->passscore)) {
+            return get_string('passpercentagenone', 'adaptivequiz');
+        }
+        $percent = result_service::pass_percentage($settings);
+        if ($percent === null) {
+            return get_string('passpercentageinvalid', 'adaptivequiz');
+        }
+        return get_string('passpercentagevalue', 'adaptivequiz', (object) [
+            'score' => format_float((float) $settings->passscore, -1),
+            'percent' => format_float($percent, 2),
+        ]);
     }
 
     /**

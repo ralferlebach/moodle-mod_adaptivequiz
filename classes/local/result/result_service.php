@@ -135,6 +135,7 @@ final class result_service {
             'resultupper' => null,
             'resultpercent' => null,
             'resultlink' => null,
+            'resultlinkversion' => null,
             'resultreason' => null,
             'resulttime' => time(),
         ];
@@ -166,6 +167,7 @@ final class result_service {
             'resultstatus' => attempt_result::STATUS_INVALID,
             'resultreason' => $result->reason !== '' ? $result->reason : null,
             'resultlink' => $result->linkfunction,
+            'resultlinkversion' => null,
         ];
         if (!$result->valid) {
             return $fields;
@@ -177,6 +179,7 @@ final class result_service {
 
         try {
             $percent = self::percentage($result->score, $result->lower, $result->upper, $result->linkfunction);
+            $fields->resultlinkversion = link_function_registry::get($result->linkfunction)->get_version();
         } catch (result_configuration_exception $e) {
             debugging($e->getMessage(), DEBUG_DEVELOPER);
             $fields->resultreason = self::REASON_LINK_UNKNOWN;

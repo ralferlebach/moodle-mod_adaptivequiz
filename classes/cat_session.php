@@ -410,7 +410,13 @@ class cat_session {
 
         $difflevel = substr($questiontag->name, strlen(ADAPTIVEQUIZ_QUESTION_TAG));
 
-        $minattemptreached = adaptivequiz_min_attempts_reached($uniqueid, $adaptivequiz->id, $USER->id);
+        // Issue #14: the algorithm only estimates from the answer that reaches the minimum on, and
+        // the attempt record does not count the answer being processed yet. The last answer the
+        // maximum allows ends the attempt in any case, so it has to leave an estimate behind - a
+        // fixed-length test (minimum = maximum) would otherwise end without one, at measure 0.
+        $lastallowedanswer = (int) $attemptrec->questionsattempted + 1 >= (int) $adaptivequiz->maximumquestions;
+        $minattemptreached = $lastallowedanswer
+            || adaptivequiz_min_attempts_reached($uniqueid, $adaptivequiz->id, $USER->id);
 
         $algo = new catalgo($quba, (int) $attemptrec->id, $minattemptreached, (int) $difflevel);
         $nextdiff = $algo->perform_calculation_steps();

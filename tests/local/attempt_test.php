@@ -128,7 +128,8 @@ class attempt_test extends advanced_testcase {
         $expected->resultstatus = null;
         $expected->resultvalid = '0';
         // The result snapshot is taken at completion (issue #14); a started attempt has none.
-        $snapshot = ['resultreason', 'resultscore', 'resultlower', 'resultupper', 'resultpercent', 'resultlink', 'resulttime'];
+        $snapshot = ['resultreason', 'resultscore', 'resultlower', 'resultupper', 'resultpercent', 'resultlink',
+            'resultlinkversion', 'resulttime'];
         foreach ($snapshot as $field) {
             $expected->$field = null;
         }
