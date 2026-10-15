@@ -63,6 +63,35 @@ foreach ([dirname($CFG->dirroot) . '/vendor/autoload.php', $CFG->dirroot . '/ven
 }
 
 \core\session\manager::set_user(get_admin());
+
+/**
+ * Sends cron output to STDERR: STDOUT of this script is the environment for the suites.
+ *
+ * @param string $string
+ * @param string $eol
+ */
+function a11y_seed_mtrace(string $string, string $eol): void {
+    fwrite(STDERR, $string . $eol);
+}
+
+// Moodle 5.0+ moves question banks into qbank activities with ad-hoc tasks after install. Until
+// they have run, question_bank_helper::has_bank_migration_task_completed_successfully() is false
+// and view.php tells the participant that the item bank is not configured - no "Start attempt".
+// A fresh CI site never runs cron, so the seed runs them. Moodle 4.5 has no such tasks.
+$CFG->mtrace_wrapper = 'a11y_seed_mtrace';
+$defaultbank = $CFG->corequestion_defaultqbankmod ?? 'qbank';
+foreach (['transfer_question_categories', 'transfer_questions'] as $taskname) {
+    $classname = "\\mod_{$defaultbank}\\task\\{$taskname}";
+    if (class_exists($classname) && \core\task\manager::get_adhoc_tasks($classname)) {
+        \core\cron::run_adhoc_tasks(time(), 0, false, null, null, $classname);
+    }
+}
+$bankhelper = \core_question\local\bank\question_bank_helper::class;
+$migrationcheck = class_exists($bankhelper) && method_exists($bankhelper, 'has_bank_migration_task_completed_successfully');
+if ($migrationcheck && !$bankhelper::has_bank_migration_task_completed_successfully()) {
+    fwrite(STDERR, "The question bank migration tasks did not complete; the activity will not be attemptable.\n");
+    exit(1);
+}
 $generator = new testing_data_generator();
 $questions = $generator->get_plugin_generator('core_question');
 
