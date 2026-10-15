@@ -123,4 +123,28 @@ final class backup_restore_result_test extends advanced_testcase {
         $this->assertSame('linear', $attempt->resultlink);
         $this->assertEquals(200, $attempt->resulttime);
     }
+
+    /**
+     * The CAT model of the activity arrives as well (issue #14).
+     *
+     * Without it the restored activity fell back to the host's own algorithm and was graded from
+     * adaptivequiz_attempt.measure - which an activity with an external result provider must never be.
+     */
+    public function test_catmodel_is_restored(): void {
+        global $DB;
+        $this->resetAfterTest();
+        $this->setAdminUser();
+
+        $course = $this->getDataGenerator()->create_course();
+        $adaptivequiz = $this->getDataGenerator()->create_module('adaptivequiz', [
+            'course' => $course->id, 'catmodel' => 'testcatmodel', 'passscore' => 1.0,
+        ]);
+        $this->assertSame('testcatmodel', $DB->get_field('adaptivequiz', 'catmodel', ['id' => $adaptivequiz->id]));
+
+        $newcourseid = $this->backup_and_restore((int) $course->id);
+
+        $restored = $DB->get_record('adaptivequiz', ['course' => $newcourseid], '*', MUST_EXIST);
+        $this->assertSame('testcatmodel', $restored->catmodel);
+        $this->assertEqualsWithDelta(1.0, (float) $restored->passscore, 1e-9);
+    }
 }

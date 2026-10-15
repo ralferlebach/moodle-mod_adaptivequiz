@@ -490,4 +490,42 @@ final class cat_session_test extends advanced_testcase {
         $this->assertNotNull(cat_session::administer_next_item($this->adaptivequiz, $attempt));
         $this->assertCount(1, $attempt->get_quba()->get_slots());
     }
+
+    /**
+     * A fixed-length test (minimum = maximum) ends with an estimate (issue #14).
+     *
+     * The attempt record counts the answer being processed only afterwards, so the algorithm was
+     * never ready on the last answer: the attempt ended at measure 0, standard error 0 - graded
+     * as the middle of the range, whatever was answered.
+     */
+    public function test_fixed_length_test_ends_with_an_estimate(): void {
+        global $DB;
+        $this->resetAfterTest();
+        $this->set_up_activity();
+        $DB->set_field('adaptivequiz', 'minimumquestions', 2, ['id' => $this->adaptivequiz->id]);
+        $DB->set_field('adaptivequiz', 'maximumquestions', 2, ['id' => $this->adaptivequiz->id]);
+        $this->adaptivequiz->minimumquestions = 2;
+        $this->adaptivequiz->maximumquestions = 2;
+
+        $measures = [];
+        foreach ([true, false] as $correct) {
+            $this->user = $this->getDataGenerator()->create_user();
+            $this->setUser($this->user);
+            for ($answered = 0; $answered < 2; $answered++) {
+                $attempt = $this->new_request();
+                $evaluation = cat_session::administer_next_item($this->adaptivequiz, $attempt);
+                $this->assertFalse($evaluation->item_administration_is_to_stop());
+                cat_session::process_administered_item_result(
+                    (int) $attempt->get_quba()->get_id(),
+                    $this->adaptivequiz,
+                    $attempt,
+                    $this->answer_helper($attempt, $correct)
+                );
+            }
+            $record = $DB->get_record('adaptivequiz_attempt', ['uniqueid' => $attempt->get_quba()->get_id()]);
+            $this->assertGreaterThan(0.0, (float) $record->standarderror, 'The last answer leaves an estimate.');
+            $measures[$correct ? 'right' : 'wrong'] = (float) $record->measure;
+        }
+        $this->assertGreaterThan($measures['wrong'], $measures['right'], 'The estimate follows the answers.');
+    }
 }

@@ -351,4 +351,153 @@ final class result_contract_test extends advanced_testcase {
             (new \mod_adaptivequiz\completion\custom_completion($cm(), (int) $this->user->id))->get_state('completionvalidresult')
         );
     }
+
+    /**
+     * Saves the activity settings the way the activity form does, and runs the regrade it queues.
+     *
+     * @param array $changes Settings to change.
+     */
+    private function save_settings(array $changes): void {
+        global $DB;
+        $data = $DB->get_record('adaptivequiz', ['id' => $this->adaptivequiz->id]);
+        foreach ($changes as $field => $value) {
+            $data->$field = $value;
+        }
+        $data->coursemodule = $this->adaptivequiz->cmid;
+        $data->instance = $this->adaptivequiz->id;
+        adaptivequiz_update_instance($data);
+        ob_start();
+        $this->runAdhocTasks(\mod_adaptivequiz\task\regrade_activity::class);
+        ob_end_clean();
+    }
+
+    /**
+     * The completion state of the participant.
+     *
+     * @return int
+     */
+    private function completion_state(): int {
+        $cm = get_fast_modinfo($this->course)->get_cm($this->adaptivequiz->cmid);
+        return (int) (new completion_info($this->course))->get_data($cm, false, $this->user->id)->completionstate;
+    }
+
+    /**
+     * 'linear' resolves to the same function, under the same identifier and version, every time.
+     */
+    public function test_registry_resolves_linear_stably(): void {
+        $this->resetAfterTest();
+        $first = \mod_adaptivequiz\local\result\link\link_function_registry::get('linear');
+        $second = \mod_adaptivequiz\local\result\link\link_function_registry::get('linear');
+        $this->assertInstanceOf(\mod_adaptivequiz\local\result\link\linear_link_function::class, $first);
+        $this->assertSame('linear', $first->get_id());
+        $this->assertSame(1, $first->get_version());
+        $this->assertSame($first->get_id(), $second->get_id());
+        $this->assertEqualsWithDelta(65.0, $first->percentage(1.2, -4.0, 4.0), 1e-9);
+    }
+
+    /**
+     * A CAT model brings its own link function; grade and pass mark use it without grading code of
+     * their own.
+     */
+    public function test_catmodel_brings_its_own_link_function(): void {
+        $this->resetAfterTest();
+        set_config('resultdefinition', json_encode(['link' => 'testsquare']), 'adaptivequizcatmodel_testcatmodel');
+        $this->activity(['passscore' => 0.0]);
+
+        $ids = array_map(fn($f) => $f->get_id(), \mod_adaptivequiz\local\result\link\link_function_registry::all());
+        $this->assertContains('testsquare', $ids);
+
+        // Pass mark: 0 on -4..4 is half the range, squared 25 %.
+        $item = grade_item::fetch(['itemtype' => 'mod', 'itemmodule' => 'adaptivequiz', 'iteminstance' => $this->adaptivequiz->id]);
+        $this->assertEqualsWithDelta(25.0, (float) $item->gradepass, 1e-5);
+
+        $attempt = $this->complete(attempt_result::valid(0.0, -4.0, 4.0, 'testsquare'));
+        $this->assertEqualsWithDelta(25.0, (float) $attempt->resultpercent, 1e-9);
+        $this->assertSame('testsquare', $attempt->resultlink);
+        $this->assertEquals(1, $attempt->resultlinkversion);
+        $this->assertEqualsWithDelta(25.0, $this->grade(), 1e-5);
+    }
+
+    /**
+     * A new version of the mapping behind an identifier changes no finalised result: the snapshot
+     * keeps its percentage and the version it was computed with. Only an explicit new snapshot
+     * applies the new version.
+     */
+    public function test_changed_link_version_does_not_reinterpret_snapshots(): void {
+        global $DB;
+        $this->resetAfterTest();
+        set_config('resultdefinition', json_encode(['link' => 'testsquare']), 'adaptivequizcatmodel_testcatmodel');
+        $this->activity();
+        $attempt = $this->complete(attempt_result::valid(0.0, -4.0, 4.0, 'testsquare'));
+        $this->assertEqualsWithDelta(25.0, (float) $attempt->resultpercent, 1e-9);
+
+        set_config('linkversion', 2, 'adaptivequizcatmodel_testcatmodel');
+        $adaptivequiz = $DB->get_record('adaptivequiz', ['id' => $this->adaptivequiz->id]);
+        result_service::regrade($adaptivequiz);
+
+        $kept = $DB->get_record('adaptivequiz_attempt', ['id' => $attempt->id]);
+        $this->assertEqualsWithDelta(25.0, (float) $kept->resultpercent, 1e-9, 'No silent reinterpretation.');
+        $this->assertEquals(1, $kept->resultlinkversion);
+        $this->assertEqualsWithDelta(25.0, $this->grade(), 1e-5);
+
+        result_service::regrade($adaptivequiz, [(int) $attempt->id]);
+        $renewed = $DB->get_record('adaptivequiz_attempt', ['id' => $attempt->id]);
+        $this->assertEqualsWithDelta(sqrt(0.5) * 100, (float) $renewed->resultpercent, 1e-5, 'Explicit re-snapshot.');
+        $this->assertEquals(2, $renewed->resultlinkversion);
+    }
+
+    /**
+     * An engine whose results are not meant for the gradebook: no grade item value, no grade.
+     */
+    public function test_engine_without_numeric_result_gives_no_grade(): void {
+        $this->resetAfterTest();
+        set_config('resultdefinition', json_encode(['supportsgrading' => false]), 'adaptivequizcatmodel_testcatmodel');
+        $this->activity();
+
+        $item = grade_item::fetch(['itemtype' => 'mod', 'itemmodule' => 'adaptivequiz', 'iteminstance' => $this->adaptivequiz->id]);
+        $this->assertTrue($item === false || (int) $item->gradetype === GRADE_TYPE_NONE, 'No numeric grade item.');
+        $this->complete(attempt_result::valid(1.0, -4.0, 4.0));
+        $this->assertNull($this->grade());
+    }
+
+    /**
+     * Changing the pass score in the settings re-evaluates pass/fail and completion of results that
+     * already exist.
+     */
+    public function test_changed_pass_score_reevaluates_completion(): void {
+        $this->resetAfterTest();
+        $this->activity([
+            'passscore' => 1.0,
+            'completion' => COMPLETION_TRACKING_AUTOMATIC,
+            'completionusegrade' => 1,
+            'completionpassgrade' => 1,
+        ]);
+        $this->complete(attempt_result::valid(0.0, -4.0, 4.0));
+        $this->assertSame(COMPLETION_COMPLETE_FAIL, $this->completion_state(), '0 is below the pass score 1.');
+
+        $this->save_settings(['passscore' => -1.0]);
+        $item = grade_item::fetch(['itemtype' => 'mod', 'itemmodule' => 'adaptivequiz', 'iteminstance' => $this->adaptivequiz->id]);
+        $this->assertEqualsWithDelta(37.5, (float) $item->gradepass, 1e-5);
+        $this->assertSame(COMPLETION_COMPLETE_PASS, $this->completion_state(), 'Now 0 passes.');
+
+        $this->save_settings(['passscore' => 2.0]);
+        $this->assertSame(COMPLETION_COMPLETE_FAIL, $this->completion_state(), 'And fails again.');
+    }
+
+    /**
+     * Changing the grading method in the settings regrades the existing attempts.
+     */
+    public function test_changed_grading_method_regrades(): void {
+        $this->resetAfterTest();
+        $this->activity(['grademethod' => ADAPTIVEQUIZ_ATTEMPTLAST]);
+        $this->complete(attempt_result::valid(2.0, -4.0, 4.0));
+        $this->complete(attempt_result::valid(0.0, -4.0, 4.0));
+        $this->assertEqualsWithDelta(50.0, $this->grade(), 1e-5, 'Last.');
+
+        $this->save_settings(['grademethod' => ADAPTIVEQUIZ_GRADEHIGHEST]);
+        $this->assertEqualsWithDelta(75.0, $this->grade(), 1e-5, 'Highest.');
+
+        $this->save_settings(['grademethod' => ADAPTIVEQUIZ_ATTEMPTFIRST]);
+        $this->assertEqualsWithDelta(75.0, $this->grade(), 1e-5, 'First.');
+    }
 }

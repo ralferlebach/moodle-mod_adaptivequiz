@@ -355,5 +355,22 @@ function xmldb_adaptivequiz_upgrade($oldversion) {
         upgrade_mod_savepoint(true, 2026100907, 'adaptivequiz');
     }
 
+    if ($oldversion < 2026100910) {
+        // Issue #14: a snapshot records the version of the link function it was computed with, so a
+        // later change of the mapping behind an identifier is visible and never applied silently.
+        $table = new xmldb_table('adaptivequiz_attempt');
+        $field = new xmldb_field('resultlinkversion', XMLDB_TYPE_INTEGER, '10', null, null, null, null, 'resultlink');
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+        // Every snapshot so far was computed with the only function there was: linear, version 1.
+        $DB->execute(
+            "UPDATE {adaptivequiz_attempt} SET resultlinkversion = 1 WHERE resultlink = :link AND resultpercent IS NOT NULL",
+            ['link' => 'linear']
+        );
+
+        upgrade_mod_savepoint(true, 2026100910, 'adaptivequiz');
+    }
+
     return true;
 }

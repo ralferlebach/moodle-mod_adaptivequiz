@@ -35,6 +35,16 @@ interface link_function {
     public function get_id(): string;
 
     /**
+     * The version of the mapping behind the identifier.
+     *
+     * Raised whenever the same identifier would map a score differently. A snapshot records the
+     * version it was taken with, so a later change is visible and never applied to it silently.
+     *
+     * @return int
+     */
+    public function get_version(): int;
+
+    /**
      * The share of the range the score reaches, in percent, before clamping.
      *
      * @param float $score

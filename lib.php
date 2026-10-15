@@ -756,6 +756,33 @@ function adaptivequiz_sync_gradepass(stdClass $adaptivequiz): void {
     if (abs((float) $item->gradepass - $gradepass) > 1e-9) {
         $item->gradepass = $gradepass;
         $item->update('mod/adaptivequiz');
+        adaptivequiz_reevaluate_pass_completion($adaptivequiz, $item);
+    }
+}
+
+/**
+ * Re-evaluates the completion of everyone with a grade after the pass mark changed (issue #14).
+ *
+ * Moodle evaluates "receive a passing grade" when a grade changes, not when the pass mark does: a
+ * participant who failed at the old mark stayed "failed" at a new, lower one. The grades
+ * themselves do not change, so nothing else would ever ask again.
+ *
+ * @param stdClass $adaptivequiz The activity instance record.
+ * @param grade_item $item Its grade item, with the new pass mark.
+ */
+function adaptivequiz_reevaluate_pass_completion(stdClass $adaptivequiz, grade_item $item): void {
+    global $CFG, $DB;
+    require_once($CFG->libdir . '/completionlib.php');
+
+    $course = get_course($adaptivequiz->course);
+    $completion = new completion_info($course);
+    $cm = get_coursemodule_from_instance('adaptivequiz', $adaptivequiz->id, $course->id);
+    if (!$cm || !$completion->is_enabled($cm) || empty($cm->completionpassgrade)) {
+        return;
+    }
+    $userids = $DB->get_fieldset_select('grade_grades', 'userid', 'itemid = ? AND finalgrade IS NOT NULL', [$item->id]);
+    foreach ($userids as $userid) {
+        $completion->update_state($cm, COMPLETION_UNKNOWN, (int) $userid);
     }
 }
 

@@ -21,9 +21,13 @@ use mod_adaptivequiz\local\result\result_configuration_exception;
 /**
  * The link functions the host knows (issue #14).
  *
- * For now there is one, 'linear'. An identifier the host does not know is a configuration error:
- * there is no fallback to linear, because a silently substituted mapping would put wrong grades
- * into the gradebook without anyone noticing.
+ * The host brings 'linear'. A CAT model can add its own: every class in its namespace
+ * local\catmodel\result\link that implements link_function is offered, under its identifier, to
+ * the gradebook and the pass decision alike - without a line of grading code of its own. An
+ * identifier offered twice is a configuration error (identifiers are stable; a CAT model cannot
+ * redefine 'linear'), and so is an identifier the host does not know: there is no fallback to
+ * linear, because a silently substituted mapping would put wrong grades into the gradebook
+ * without anyone noticing.
  *
  * @package    mod_adaptivequiz
  * @copyright  2026 onwards Ralf Erlebach
@@ -47,11 +51,32 @@ final class link_function_registry {
     }
 
     /**
-     * All link functions, keyed by nothing in particular.
+     * All link functions: the host's own and those the installed CAT models offer.
      *
      * @return link_function[]
+     * @throws result_configuration_exception When two of them use the same identifier.
      */
     public static function all(): array {
-        return [new linear_link_function()];
+        $functions = [new linear_link_function()];
+        foreach (array_keys(\core_component::get_plugin_list('adaptivequizcatmodel')) as $catmodel) {
+            $classes = \core_component::get_component_classes_in_namespace(
+                'adaptivequizcatmodel_' . $catmodel,
+                'local\\catmodel\\result\\link'
+            );
+            foreach (array_keys($classes) as $classname) {
+                if (is_subclass_of($classname, link_function::class) && !(new \ReflectionClass($classname))->isAbstract()) {
+                    $functions[] = new $classname();
+                }
+            }
+        }
+
+        $ids = [];
+        foreach ($functions as $function) {
+            if (isset($ids[$function->get_id()])) {
+                throw new result_configuration_exception('resulterrorlinkfunctionduplicate', $function->get_id());
+            }
+            $ids[$function->get_id()] = true;
+        }
+        return $functions;
     }
 }

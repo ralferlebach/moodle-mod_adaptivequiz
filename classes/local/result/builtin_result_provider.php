@@ -35,6 +35,9 @@ final class builtin_result_provider implements result_provider {
     /** @var string Reason for an attempt without any answered question. */
     public const REASON_NO_ANSWER = 'no_answer';
 
+    /** @var string The attempt ended before the algorithm estimated an ability (issue #14). */
+    public const REASON_NO_ESTIMATE = 'no_estimate';
+
     /**
      * Lowest to highest difficulty level of the activity.
      *
@@ -59,6 +62,11 @@ final class builtin_result_provider implements result_provider {
     public function get_attempt_result(stdClass $adaptivequiz, stdClass $attempt): attempt_result {
         if ((int) ($attempt->questionsattempted ?? 0) <= 0 || !is_numeric($attempt->measure ?? null)) {
             return attempt_result::invalid(self::REASON_NO_ANSWER);
+        }
+        // The algorithm leaves measure 0 and standard error 0 until it has estimated; its standard
+        // error is positive whenever it did. Measure 0 alone would read as the middle of the range.
+        if (!is_numeric($attempt->standarderror ?? null) || (float) $attempt->standarderror <= 0.0) {
+            return attempt_result::invalid(self::REASON_NO_ESTIMATE);
         }
 
         $lower = (float) $adaptivequiz->lowestlevel;
