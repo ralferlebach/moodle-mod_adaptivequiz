@@ -83,6 +83,13 @@ export const init = async(attemptid) => {
             body: notice.querySelector('[data-region="text"]').outerHTML,
             removeOnClose: true,
         });
+        // The dialog is named by its title; it is described by the reason, so a screen reader reads both.
+        const dialog = modal.getRoot()[0].querySelector('[role="dialog"]');
+        const reason = modal.getBody()[0].querySelector('[data-region="text"]');
+        if (dialog && reason) {
+            reason.id = 'adaptivequiz-stopnotice-dialog-text';
+            dialog.setAttribute('aria-describedby', reason.id);
+        }
         modal.getRoot().on(ModalEvents.hidden, release);
         modal.show();
     } catch (error) {

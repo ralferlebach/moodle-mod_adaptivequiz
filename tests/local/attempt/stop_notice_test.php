@@ -88,14 +88,20 @@ final class stop_notice_test extends advanced_testcase {
     }
 
     /**
-     * The time-limit notice says how long the attempt lasted.
+     * The time-limit notice names the configured limit - not "finished minus started", which for an attempt closed
+     * by the scheduled task three hours later was "3 hours" at a limit of one.
      */
-    public function test_time_limit_notice_names_the_duration(): void {
+    public function test_time_limit_notice_names_the_limit_not_the_closing_time(): void {
         $this->resetAfterTest();
-        $notice = stop_reason::notice((object) [
-            'stopcode' => stop_reason::TIMELIMIT, 'timecreated' => 1000, 'timefinished' => 1000 + 25 * 60,
-        ]);
-        $this->assertStringContainsString(format_time(25 * 60), $notice->text);
+        $attempt = (object) ['stopcode' => stop_reason::TIMELIMIT, 'timecreated' => 1000, 'timefinished' => 1000 + 3 * HOURSECS];
+
+        $text = stop_reason::notice($attempt, HOURSECS)->text;
+        $this->assertStringContainsString(get_string('stopnotice_timelimit_limit', 'adaptivequiz', format_time(HOURSECS)), $text);
+        $this->assertStringNotContainsString(format_time(3 * HOURSECS), $text);
+
+        $nolimit = stop_reason::notice($attempt)->text;
+        $this->assertSame(get_string('stopnotice_timelimit', 'adaptivequiz'), $nolimit, 'No limit known.');
+        $this->assertNull(stop_reason::time_limit((object) ['catmodel' => ''], $attempt), 'The built-in algorithm has none.');
     }
 
     /**
@@ -198,5 +204,69 @@ final class stop_notice_test extends advanced_testcase {
         $DB->set_field('adaptivequiz_attempt', 'attemptstate', attempt_state::IN_PROGRESS, ['id' => $attempt->id]);
         $this->expectException(\moodle_exception::class);
         acknowledge_stop_notice::execute((int) $attempt->id);
+    }
+
+    /**
+     * The confirmation works while completion hides the activity: the result page is readable then, and its
+     * notice must not come back on every visit (issue #20).
+     */
+    public function test_confirmation_while_the_activity_is_hidden(): void {
+        global $DB;
+        $this->resetAfterTest();
+        $this->activity();
+        $attempt = $this->complete(stop_reason::NO_ELIGIBLE);
+        $DB->set_field('course_modules', 'visible', 0, ['id' => $this->adaptivequiz->cmid]);
+        rebuild_course_cache($this->adaptivequiz->course, true);
+        $this->setUser($this->user);
+
+        $this->assertTrue(acknowledge_stop_notice::execute((int) $attempt->id)['acknowledged']);
+        $this->assertNotEmpty($DB->get_field('adaptivequiz_attempt', 'stopnoticeack', ['id' => $attempt->id]));
+    }
+
+    /**
+     * Notice and confirmation change nothing of the result: same snapshot and grade with or without a code, and
+     * the confirmation touches only its own field.
+     */
+    public function test_notice_changes_no_result(): void {
+        global $DB;
+        $this->resetAfterTest();
+        $this->activity();
+        $regular = $this->complete(stop_reason::MAXIMUM);
+        $stopped = $this->complete(stop_reason::NO_ELIGIBLE);
+        $result = ['resultstatus', 'resultvalid', 'resultscore', 'resultlower', 'resultupper', 'resultpercent', 'measure'];
+        foreach ($result as $field) {
+            $this->assertEquals($regular->$field, $stopped->$field, $field);
+        }
+
+        $this->setUser($this->user);
+        acknowledge_stop_notice::execute((int) $stopped->id);
+        $after = $DB->get_record('adaptivequiz_attempt', ['id' => $stopped->id]);
+        $this->assertNotEmpty($after->stopnoticeack);
+        unset($after->stopnoticeack, $stopped->stopnoticeack);
+        $this->assertEquals($stopped, $after, 'The confirmation changed nothing else of the attempt.');
+    }
+
+    /**
+     * Every notice string exists in English and German, with the same placeholders.
+     */
+    public function test_notice_strings_in_english_and_german(): void {
+        global $CFG;
+        $strings = [];
+        foreach (['en', 'de'] as $lang) {
+            $string = [];
+            include($CFG->dirroot . '/mod/adaptivequiz/lang/' . $lang . '/adaptivequiz.php');
+            $strings[$lang] = array_filter($string, fn($key) => str_starts_with($key, 'stopnotice'), ARRAY_FILTER_USE_KEY);
+        }
+        $this->assertNotEmpty($strings['en']);
+        ksort($strings['en']);
+        ksort($strings['de']);
+        $this->assertSame(array_keys($strings['en']), array_keys($strings['de']), 'The same strings in both languages.');
+        foreach ($strings['en'] as $key => $text) {
+            preg_match_all('~\{\$a[^}]*\}~', $text, $en);
+            preg_match_all('~\{\$a[^}]*\}~', $strings['de'][$key], $de);
+            $this->assertSame($en[0], $de[0], "Placeholders of $key.");
+        }
+        // The limit is Moodle's own duration: singular and plural.
+        $this->assertNotSame(format_time(MINSECS), format_time(2 * MINSECS));
     }
 }

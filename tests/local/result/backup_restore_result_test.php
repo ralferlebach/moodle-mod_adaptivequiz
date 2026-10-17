@@ -106,6 +106,7 @@ final class backup_restore_result_test extends advanced_testcase {
             'difficultysum' => 0, 'standarderror' => 0.3, 'measure' => 0.1, 'timecreated' => 100, 'timemodified' => 200,
             'timefinished' => 200, 'resultstatus' => 'valid', 'resultvalid' => 1, 'resultscore' => 6.25,
             'resultlower' => 1, 'resultupper' => 11, 'resultpercent' => 52.5, 'resultlink' => 'linear', 'resulttime' => 200,
+            'stopcode' => 'timelimit', 'stopnoticeack' => 300,
         ]);
 
         $newcourseid = $this->backup_and_restore((int) $course->id);
@@ -122,5 +123,8 @@ final class backup_restore_result_test extends advanced_testcase {
         $this->assertEqualsWithDelta(52.5, (float) $attempt->resultpercent, 1e-9);
         $this->assertSame('linear', $attempt->resultlink);
         $this->assertEquals(200, $attempt->resulttime);
+        // Issue #20: why it ended, and that the participant was told - not asked again after a restore.
+        $this->assertSame('timelimit', $attempt->stopcode);
+        $this->assertEquals(300, $attempt->stopnoticeack);
     }
 }

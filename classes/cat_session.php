@@ -40,6 +40,9 @@ use stdClass;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class cat_session {
+    /** @var int Seconds a request waits for the lock of its attempt (mod_adaptivequiz #17: settable for tests). */
+    public static int $locktimeout = 10;
+
     /** @var int How often the CAT model is asked when it names an item already answered. */
     private const MAX_ASKS = 3;
 
@@ -70,7 +73,7 @@ class cat_session {
         // How long the request waited for the lock is measured on its own: up to ten seconds of it
         // would otherwise look like slow item selection.
         request_timing::start('lock_wait');
-        $lock = $lockfactory->get_lock($lockkey, 10);
+        $lock = $lockfactory->get_lock($lockkey, self::$locktimeout);
         request_timing::stop('lock_wait', ['acquired' => (bool) $lock]);
         if (!$lock) {
             // A concurrent request for the same attempt is already administering

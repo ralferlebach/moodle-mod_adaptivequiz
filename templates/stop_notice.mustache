@@ -30,7 +30,8 @@
     }
 }}
 <div class="alert {{#iserror}}alert-warning{{/iserror}}{{^iserror}}alert-info{{/iserror}}"
-        data-region="adaptivequiz-stopnotice" tabindex="-1" aria-labelledby="adaptivequiz-stopnotice-title">
+        data-region="adaptivequiz-stopnotice" tabindex="-1" role="region"
+        aria-labelledby="adaptivequiz-stopnotice-title">
     <h3 class="h5" id="adaptivequiz-stopnotice-title" data-region="title">{{title}}</h3>
     <p class="mb-0" data-region="text">{{text}}</p>
 </div>

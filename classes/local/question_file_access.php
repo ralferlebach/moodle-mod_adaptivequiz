@@ -85,6 +85,80 @@ final class question_file_access {
     }
 
     /**
+     * The file a request of pluginfile.php asks for, after every check; null when there is none.
+     *
+     * Throws when the user has no access to the attempt; returns null when the file does not belong to
+     * the question in the slot, its question type keeps it back, or it does not exist.
+     *
+     * @param \context $context Context named in the path.
+     * @param string $component Component of the file.
+     * @param string $filearea File area of the file.
+     * @param int $qubaid The question usage named in the path.
+     * @param int $slot The slot named in the path.
+     * @param array $args The rest of the path: item id, file path and name.
+     * @param bool $forcedownload
+     * @return \stored_file|null
+     * @throws moodle_exception When access to the attempt is refused.
+     */
+    public static function file_for_request(
+        \context $context,
+        string $component,
+        string $filearea,
+        int $qubaid,
+        int $slot,
+        array $args,
+        bool $forcedownload
+    ): ?\stored_file {
+        global $DB;
+        $attemptrec = $DB->get_record('adaptivequiz_attempt', ['uniqueid' => $qubaid], '*', MUST_EXIST);
+        // A running attempt and the review of a finished one follow different rules.
+        self::require_access($attemptrec);
+        if (!self::file_of_attempt($qubaid, $slot, $component, $filearea, $args, $forcedownload)) {
+            return null;
+        }
+        $fullpath = '/' . $context->id . '/' . $component . '/' . $filearea . '/' . implode('/', $args);
+        $file = get_file_storage()->get_file_by_hash(sha1($fullpath));
+        if (!$file || $file->is_directory()) {
+            return null;
+        }
+        return $file;
+    }
+
+    /**
+     * Whether a file belongs to the question in a slot of the usage and its question type releases it.
+     *
+     * The access to the attempt is checked by require_access(); this ties the file to it. The path of a
+     * question file names the question, not the attempt - without this check, access to any attempt
+     * would open the files of every question whose context and id were guessed.
+     *
+     * @param int $qubaid The question usage of the attempt.
+     * @param int $slot The slot named in the path.
+     * @param string $component Component of the file.
+     * @param string $filearea File area of the file.
+     * @param array $args The rest of the path: item id, file path and name.
+     * @param bool $forcedownload
+     * @return bool
+     */
+    public static function file_of_attempt(
+        int $qubaid,
+        int $slot,
+        string $component,
+        string $filearea,
+        array $args,
+        bool $forcedownload
+    ): bool {
+        global $CFG;
+        require_once($CFG->libdir . '/questionlib.php');
+
+        $quba = \question_engine::load_questions_usage_by_activity($qubaid);
+        if (!in_array($slot, array_map('intval', $quba->get_slots()), true)) {
+            return false;
+        }
+        // The options of the attempt and review pages: the question shows its feedback there.
+        return $quba->check_file_access($slot, new \question_display_options(), $component, $filearea, $args, $forcedownload);
+    }
+
+    /**
      * Whether a user may load the question files of a finished attempt.
      *
      * Logging in to the course is checked by the caller.

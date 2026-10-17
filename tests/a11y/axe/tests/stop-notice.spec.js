@@ -65,6 +65,8 @@ test.describe('A11Y-AQ-01 - the stop notice is accessible', () => {
         await test.step('the dialog opens, named by its title, with the reason in it', async() => {
             await expect(dialog).toBeVisible();
             await expect(dialog).toContainText('There are no further suitable questions for you at the moment');
+            // Described by the reason, so a screen reader announces it with the title (issue #20, C1).
+            await expect(dialog).toHaveAccessibleDescription(/There are no further suitable questions for you at the moment/);
             await testInfo.attach('dialog.png', {body: await page.screenshot(), contentType: 'image/png'});
         });
 

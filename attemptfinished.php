@@ -101,7 +101,9 @@ if (!empty($adaptivequiz->browsersecurity)) {
     $PAGE->set_heading(format_string($course->fullname));
 }
 
-$attemptfeedback = $adaptivequiz->attemptfeedback;
+// Issue #21: the activity's own feedback, cleaned unless a trusted author wrote it. The feedback of a CAT
+// model below is that model's output and passes as it is.
+$attemptfeedback = adaptivequiz_format_attempt_feedback($adaptivequiz, $context);
 if (!empty($adaptivequiz->catmodel)) {
     // Try wire up the custom feedback from the sub-plugin being used. If it's implemented in a sub-plugin, it always has
     // a precedence over the default feedback provided by the activity.
@@ -118,7 +120,10 @@ if (!empty($adaptivequiz->catmodel)) {
 $stopnotice = null;
 $ownattempt = (int) $attempt->userid === (int) $USER->id;
 if ($ownattempt && $attempt->attemptstate === \mod_adaptivequiz\local\attempt\attempt_state::COMPLETED) {
-    $stopnotice = \mod_adaptivequiz\local\attempt\stop_reason::notice($attempt);
+    $stopnotice = \mod_adaptivequiz\local\attempt\stop_reason::notice(
+        $attempt,
+        \mod_adaptivequiz\local\attempt\stop_reason::time_limit($adaptivequiz, $attempt)
+    );
 }
 
 echo $output->header();

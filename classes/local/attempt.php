@@ -487,6 +487,15 @@ class attempt {
         $param = ['instance' => $this->adaptivequiz->id, 'userid' => $this->userid, 'attemptstate' => attempt_state::IN_PROGRESS];
         $attempt = $DB->get_records(self::TABLE, $param, 'timemodified DESC', '*', 0, 1);
 
+        // Issue #5: two first requests at once - a double click on "Start" - each created an attempt. The
+        // check and the insert run under a lock, and the second request finds the attempt of the first.
+        $lock = null;
+        if (empty($attempt)) {
+            $lock = \core\lock\lock_config::get_lock_factory('mod_adaptivequiz')
+                ->get_lock('adaptivequiz_attemptcreate_' . $this->adaptivequiz->id . '_' . $this->userid, 10);
+            $attempt = $DB->get_records(self::TABLE, $param, 'timemodified DESC', '*', 0, 1);
+        }
+
         if (empty($attempt)) {
             $time = time();
             $attempt = new stdClass();
@@ -521,6 +530,9 @@ class attempt {
             $this->adpqattempt = $attempt;
 
             $this->print_debug('get_attempt() - previous attempt loaded: '.$this->vardump($attempt));
+        }
+        if ($lock) {
+            $lock->release();
         }
 
         return $attempt;
@@ -640,7 +652,8 @@ class attempt {
         $quest = array_pop($quest);
 
         // Create the question_definition object.
-        $question = question_bank::load_question($quest->id);
+        // Measured as on the path of a CAT model (mod_adaptivequiz #17).
+        $question = request_timing::measure('load_question', fn() => question_bank::load_question($quest->id));
         // Add the question to the usage question_usable_by_activity object.
         $this->slot = $this->quba->add_question($question);
         // Start the question attempt.

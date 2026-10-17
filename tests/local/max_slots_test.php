@@ -143,11 +143,23 @@ final class max_slots_test extends advanced_testcase {
         $held = \core\lock\lock_config::get_lock_factory('mod_adaptivequiz')
             ->get_lock('adaptivequiz_itemadministration_' . $adaptivequiz->id . '_' . $user->id, 0);
         $this->assertNotFalse($held);
+        // The lock factory counts in whole seconds: two seconds wait at least one.
+        cat_session::$locktimeout = 2;
+        \mod_adaptivequiz\local\request_timing::reset();
         try {
             cat_session::run_item_administration((int) $record->uniqueid, $adaptivequiz, $context, $attempt);
         } finally {
             $held->release();
+            cat_session::$locktimeout = 10;
         }
+        // The wait shows as such in the timeline, not as slow item selection (issue #17).
+        $waits = array_values(array_filter(
+            \mod_adaptivequiz\local\request_timing::get_spans(),
+            fn($span) => $span['name'] === 'lock_wait'
+        ));
+        $this->assertCount(1, $waits);
+        $this->assertFalse($waits[0]['meta']['acquired']);
+        $this->assertGreaterThanOrEqual(900, $waits[0]['ms'], 'The time the request waited for the lock.');
 
         $after = $DB->get_record('adaptivequiz_attempt', ['id' => $record->id], 'uniqueid, attemptstate', MUST_EXIST);
         $this->assertEquals(0, $after->uniqueid, 'The waiting request started a question usage.');

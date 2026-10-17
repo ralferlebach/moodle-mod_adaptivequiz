@@ -86,6 +86,59 @@ class mod_adaptivequiz_renderer extends plugin_renderer_base {
     }
 
     /**
+     * The choice for an open attempt (issue #5): start anew - the primary action - or continue.
+     *
+     * @param stdClass $cm
+     * @param stdClass $attempt The open attempt.
+     * @param string $state resume_state::RESUMABLE or resume_state::ITEM_EXPIRED.
+     * @param bool $canrestart Whether one more attempt is allowed after this one.
+     * @return string
+     */
+    public function resume_attempt(stdClass $cm, stdClass $attempt, string $state, bool $canrestart): string {
+        $attempturl = new moodle_url('/mod/adaptivequiz/attempt.php', ['cmid' => $cm->id]);
+        $text = get_string('resumeattemptinfo', 'adaptivequiz', userdate((int) $attempt->timecreated));
+        if ($state === \mod_adaptivequiz\local\attempt\resume_state::ITEM_EXPIRED) {
+            $text .= ' ' . get_string('resumeattemptitemexpired', 'adaptivequiz');
+        }
+        if (!$canrestart) {
+            $text .= ' ' . get_string('restartnotallowed', 'adaptivequiz');
+        }
+
+        $buttons = '';
+        if ($canrestart) {
+            $restart = new single_button(
+                url: new moodle_url($attempturl, ['resume' => 'restart', 'attemptid' => $attempt->id]),
+                label: get_string('restartattemptbtn', 'adaptivequiz'),
+                method: 'post',
+                type: single_button::BUTTON_PRIMARY
+            );
+            $restart->add_confirm_action(get_string('restartattemptconfirm', 'adaptivequiz'));
+            $buttons .= $this->render($restart);
+        }
+        $continue = $state === \mod_adaptivequiz\local\attempt\resume_state::ITEM_EXPIRED
+            ? new single_button(
+                url: new moodle_url($attempturl, ['resume' => 'newquestion', 'attemptid' => $attempt->id]),
+                label: get_string('resumenewquestionbtn', 'adaptivequiz'),
+                method: 'post',
+                type: $canrestart ? single_button::BUTTON_SECONDARY : single_button::BUTTON_PRIMARY
+            )
+            : new single_button(
+                url: $attempturl,
+                label: get_string('resumeattemptbtn', 'adaptivequiz'),
+                method: 'get',
+                type: $canrestart ? single_button::BUTTON_SECONDARY : single_button::BUTTON_PRIMARY
+            );
+        $buttons .= $this->render($continue);
+
+        return html_writer::div(
+            $this->notification($text, \core\output\notification::NOTIFY_INFO, false)
+                . html_writer::div($buttons, 'd-flex flex-wrap justify-content-center'),
+            'mod-adaptivequiz-resume-attempt',
+            ['data-region' => 'resume-attempt', 'data-state' => $state]
+        );
+    }
+
+    /**
      * This function sets up the javascript required by the page
      * @return array a standard jsmodule structure.
      */
@@ -185,7 +238,8 @@ class mod_adaptivequiz_renderer extends plugin_renderer_base {
         if (empty(trim($attemptfeedback))) {
             $attemptfeedback = get_string('attemptfeedbackdefaulttext', 'adaptivequiz');
         }
-        $output .= html_writer::tag('p', $attemptfeedback, ['class' => 'submitbtns adaptivequizfeedback']);
+        // A div, not a p: the feedback holds block markup (lists, tables), which a paragraph cannot contain.
+        $output .= html_writer::div($attemptfeedback, 'submitbtns adaptivequizfeedback');
 
         if ($abilitymeasure) {
             $output .= $this->render($abilitymeasure);

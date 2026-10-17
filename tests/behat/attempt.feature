@@ -83,7 +83,7 @@ Feature: Attempt an adaptive quiz
     And I click on "True" "radio"
     And I press "Submit answer"
     And I am on the "adaptivequiz1" "Activity" page
-    And I click on "Start attempt" "link"
+    And I click on "Continue attempt" "button"
     And I click on "True" "radio"
     And I press "Submit answer"
     Then I should see "Fourth question"

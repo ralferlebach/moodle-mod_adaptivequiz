@@ -38,6 +38,17 @@ $capabilities = array(
         ),
         'clonepermissionsfrom' => 'moodle/course:manageactivities'
     ),
+    // Issue #21: author attempt feedback with scripts and markup that is not cleaned when shown.
+    'mod/adaptivequiz:trustedfeedback' => [
+        'riskbitmask' => RISK_XSS,
+        'captype' => 'write',
+        'contextlevel' => CONTEXT_MODULE,
+        'archetypes' => [
+            'editingteacher' => CAP_ALLOW,
+            'manager' => CAP_ALLOW,
+        ],
+        'clonepermissionsfrom' => 'moodle/course:manageactivities',
+    ],
     // Ability to view adaptivequiz report.
     'mod/adaptivequiz:viewreport' => array(
         'riskbitmask' => RISK_PERSONAL,

@@ -21,7 +21,6 @@
  * @copyright  2022 onwards Vitaly Potenko <potenkov@gmail.com>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-
 class restore_adaptivequiz_activity_structure_step extends restore_questions_activity_structure_step {
     /** @var stdClass|null The attempt being restored, inserted once its question usage is known. */
     protected $currentadatpivequizattempt = null;
@@ -32,14 +31,18 @@ class restore_adaptivequiz_activity_structure_step extends restore_questions_act
      * @return backup_nested_element the $activitystructure wrapped by the common 'activity' element
      */
     protected function define_structure() {
-        $paths = array();
+        $paths = [];
         $userinfo = $this->get_setting_value('userinfo');
 
         $adaptivequiz = new restore_path_element('adaptivequiz', '/activity/adaptivequiz');
         $paths[] = $adaptivequiz;
+        // The CAT model's own data, see the backup step (adaptivequizcatmodel_catquiz #1).
+        $this->add_subplugin_structure('adaptivequizcatmodel', $adaptivequiz);
 
-        $paths[] = new restore_path_element('adaptivequiz_question',
-            '/activity/adaptivequiz/adatpivequestioncats/adatpivequestioncat');
+        $paths[] = new restore_path_element(
+            'adaptivequiz_question',
+            '/activity/adaptivequiz/adatpivequestioncats/adatpivequestioncat'
+        );
 
         if ($userinfo) {
             $attempt = new restore_path_element('adaptivequiz_attempt', '/activity/adaptivequiz/adaptiveattempts/adaptiveattempt');
@@ -66,6 +69,11 @@ class restore_adaptivequiz_activity_structure_step extends restore_questions_act
 
         $data->timecreated = $this->apply_date_offset($data->timecreated);
         $data->timemodified = $this->apply_date_offset($data->timemodified);
+        // Issue #21: the feedback stays trusted only if the restoring user is trusted in the target course.
+        $data->attemptfeedbacktrusted = \mod_adaptivequiz\local\feedback\feedback_trust::restored_mark(
+            $data,
+            \context_course::instance($this->get_courseid())
+        );
         // Insert the quiz record.
         $newitemid = $DB->insert_record('adaptivequiz', $data);
         // Immediately after inserting "activity" record, call this.

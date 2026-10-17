@@ -27,6 +27,7 @@ defined('MOODLE_INTERNAL') || die();
 require_once($CFG->dirroot . '/course/moodleform_mod.php');
 require_once($CFG->dirroot . '/mod/adaptivequiz/locallib.php');
 
+use mod_adaptivequiz\local\feedback\feedback_trust;
 use mod_adaptivequiz\local\repository\questions_repository;
 use mod_adaptivequiz\local\result\result_definition;
 use mod_adaptivequiz\local\result\result_service;
@@ -146,6 +147,7 @@ class mod_adaptivequiz_mod_form extends moodleform_mod {
         );
         $mform->addHelpButton('attemptfeedbackeditor', 'attemptfeedback', 'adaptivequiz');
         $mform->setType('attemptfeedbackeditor', PARAM_RAW);
+        $this->add_feedback_trust_notice();
 
         $mform->addElement('select', 'showabilitymeasure', get_string('showabilitymeasure', 'adaptivequiz'),
             [get_string('no'), get_string('yes')]);
@@ -284,7 +286,16 @@ class mod_adaptivequiz_mod_form extends moodleform_mod {
             }
 
             foreach ($formelements as $formelement) {
-                $form->insertElementBefore($form->removeElement($formelement->getName(), false), 'catmodelfieldsmarker');
+                // Inserting lets the element take its value from the submission again, which undid what the
+                // CAT model set on a reload - the values of a chosen template (local_catquiz #123). Keep them.
+                // No loop variable is handed to insertElementBefore(): it keeps a reference to what it gets, and
+                // the next iteration would overwrite every element inserted so far through that variable.
+                $current = $form->elementExists($formelement->getName()) ? $form->getElement($formelement->getName()) : null;
+                $value = $current instanceof \HTML_QuickForm_element ? $current->getValue() : null;
+                $moved = $form->insertElementBefore($form->removeElement($formelement->getName(), false), 'catmodelfieldsmarker');
+                if ($value !== null && $moved instanceof \HTML_QuickForm_element) {
+                    $moved->setValue($value);
+                }
             }
 
             break;
@@ -468,6 +479,28 @@ class mod_adaptivequiz_mod_form extends moodleform_mod {
     }
 
     /**
+     * Tells the author what the trust contract of the feedback means for them (issue #21).
+     *
+     * @return void
+     */
+    private function add_feedback_trust_notice(): void {
+        global $CFG;
+        if (!feedback_trust::is_trusted_author($this->context)) {
+            $notice = get_string('attemptfeedbackuntrusted', 'adaptivequiz');
+        } else if (!empty($CFG->forceclean)) {
+            $notice = get_string('attemptfeedbackforceclean', 'adaptivequiz');
+        } else {
+            return;
+        }
+        $this->_form->addElement(
+            'static',
+            'attemptfeedbacktrustnotice',
+            '',
+            \html_writer::div($notice, 'alert alert-info mb-0')
+        );
+    }
+
+    /**
      * The settings the form was opened with, as an activity record.
      *
      * @return stdClass
@@ -526,9 +559,11 @@ class mod_adaptivequiz_mod_form extends moodleform_mod {
 
         // The editor element expects an array; without this the stored feedback is
         // not shown when the activity is edited again.
+        // Issue #21: always as HTML - the page shows it as HTML, and in any other format the editor falls back
+        // to a text area.
         $defaultvalues['attemptfeedbackeditor'] = [
             'text' => $defaultvalues['attemptfeedback'] ?? '',
-            'format' => $defaultvalues['attemptfeedbackformat'] ?? FORMAT_HTML,
+            'format' => FORMAT_HTML,
         ];
 
         parent::data_preprocessing($defaultvalues);

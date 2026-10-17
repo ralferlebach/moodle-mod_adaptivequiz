@@ -275,6 +275,59 @@ function adaptivequiz_complete_attempt(
 
     $attempt = $DB->get_record('adaptivequiz_attempt',
         ['uniqueid' => $uniqueid, 'instance' => $adaptivequiz->id, 'userid' => $userid], '*', MUST_EXIST);
+    adaptivequiz_complete_attempt_record($attempt, $adaptivequiz, $context, $userid, $statusmessage, $stopcode);
+}
+
+/**
+ * Completes an attempt given by its id (issue #5).
+ *
+ * The same completion as any other end - time, stop code, CAT model, grades, event - for an attempt the
+ * question usage cannot name: one without a question has uniqueid 0, and several of those exist side by
+ * side. An attempt completed already stays as it is.
+ *
+ * @param int $attemptid adaptivequiz_attempt.id
+ * @param stdClass $adaptivequiz
+ * @param context_module $context
+ * @param string $statusmessage
+ * @param string|null $stopcode One of the stop_reason codes.
+ * @return bool Whether the attempt was completed now.
+ */
+function adaptivequiz_complete_attempt_by_id(
+    int $attemptid,
+    stdClass $adaptivequiz,
+    context_module $context,
+    string $statusmessage,
+    ?string $stopcode = null
+): bool {
+    global $DB;
+
+    $attempt = $DB->get_record('adaptivequiz_attempt', ['id' => $attemptid, 'instance' => $adaptivequiz->id], '*', MUST_EXIST);
+    if ($attempt->attemptstate === attempt_state::COMPLETED) {
+        return false;
+    }
+    adaptivequiz_complete_attempt_record($attempt, $adaptivequiz, $context, (int) $attempt->userid, $statusmessage, $stopcode);
+    return true;
+}
+
+/**
+ * Completes an attempt record: the part shared by every way an attempt ends.
+ *
+ * @param stdClass $attempt adaptivequiz_attempt record.
+ * @param stdClass $adaptivequiz
+ * @param context_module $context
+ * @param int $userid
+ * @param string $statusmessage
+ * @param string|null $stopcode
+ */
+function adaptivequiz_complete_attempt_record(
+    stdClass $attempt,
+    stdClass $adaptivequiz,
+    context_module $context,
+    int $userid,
+    string $statusmessage,
+    ?string $stopcode = null
+): void {
+    global $DB;
 
     $now = time();
     $attempt->attemptstate = attempt_state::COMPLETED;
@@ -462,4 +515,23 @@ function adaptivequiz_attempt_counts_before(stdClass $adaptivequiz, stdClass $ca
     }
     // Highest: the better percentage; of two equal ones, the earlier attempt.
     return $candidate->percent > $current->percent || ($candidate->percent == $current->percent && $order < 0);
+}
+
+/**
+ * The activity's own attempt feedback as HTML for the page (issue #21): cleaned unless a trusted author wrote it.
+ *
+ * @param stdClass $adaptivequiz The activity record.
+ * @param context $context Its module context.
+ * @return string Empty when the activity has no feedback.
+ */
+function adaptivequiz_format_attempt_feedback(stdClass $adaptivequiz, context $context): string {
+    if (trim((string) ($adaptivequiz->attemptfeedback ?? '')) === '') {
+        return '';
+    }
+    return \mod_adaptivequiz\local\feedback\feedback_trust::format(
+        $adaptivequiz->attemptfeedback,
+        (int) $adaptivequiz->attemptfeedbackformat,
+        !empty($adaptivequiz->attemptfeedbacktrusted),
+        $context
+    );
 }
