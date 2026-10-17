@@ -66,6 +66,9 @@ $renderer = $PAGE->get_renderer('mod_adaptivequiz');
 
 echo $renderer->print_header();
 echo $renderer->heading($title);
+// Issue #22: the way back, on the page itself - launched through LTI or embedded there are no breadcrumbs.
+$reviewactions = \mod_adaptivequiz\output\attempt_review_actions::for_attempt($attempt, $cm, $user, $PAGE->pagelayout);
+echo $renderer->render($reviewactions);
 
 echo $renderer->attempt_review_tabs($PAGE->url, $tab);
 echo $renderer->attempt_report_page_by_tab($tab, $adaptivequiz, $attempt, $user, $quba, $PAGE->url, $page);

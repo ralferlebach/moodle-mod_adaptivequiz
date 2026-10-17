@@ -1854,7 +1854,7 @@ Feature: Debug calculation steps
       | difficultysum | standarderrorraw | measureraw | attemptstopcriteria |
       | 3.2764457     | 0.00000          | 0.00000    | none                |
     And I click on "Adaptive Quiz" "link"
-    And I click on "Start attempt" "button"
+    And I click on "Continue attempt" "button"
     And I click on "False" "radio"
     And I press "Submit answer"
     And I should see the following debugging info for the attempt:
@@ -1876,7 +1876,7 @@ Feature: Debug calculation steps
       | difficultysum | standarderrorraw | measureraw | attemptstopcriteria |
       | 15.7289058    | 0.00000          | 0.00000    | none                |
     And I click on "Adaptive Quiz" "link"
-    And I click on "Start attempt" "button"
+    And I click on "Continue attempt" "button"
     And I click on "False" "radio"
     And I press "Submit answer"
     And I should see the following debugging info for the attempt:
@@ -1933,7 +1933,7 @@ Feature: Debug calculation steps
       | difficultysum | standarderrorraw | measureraw | attemptstopcriteria |
       | 49.0172593    | 0.56695          | 3.97594    | none                |
     And I click on "Adaptive Quiz" "link"
-    And I click on "Start attempt" "button"
+    And I click on "Continue attempt" "button"
     And I click on "True" "radio"
     And I press "Submit answer"
     And I should see the following debugging info for the attempt:

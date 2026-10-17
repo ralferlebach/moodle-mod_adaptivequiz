@@ -30,6 +30,7 @@ require_once($CFG->dirroot . '/mod/adaptivequiz/locallib.php');
 
 use mod_adaptivequiz\attempt_feedback_placeholders_helper;
 use mod_adaptivequiz\local\catmodel\form\mod_form_extension;
+use mod_adaptivequiz\local\feedback\feedback_trust;
 use mod_adaptivequiz\local\result\result_definition;
 use mod_adaptivequiz\local\result\result_service;
 use mod_adaptivequiz\output\editor_placeholders;
@@ -132,6 +133,7 @@ class mod_adaptivequiz_mod_form extends moodleform_mod {
         $mform->setType('attemptfeedbackeditor', PARAM_RAW);
         $mform->addHelpButton('attemptfeedbackeditor', 'attemptfeedback', 'adaptivequiz');
         $mform->disabledIf('attemptfeedbackeditor', 'attemptfeedbackenable', 'notchecked');
+        $this->add_feedback_trust_notice();
 
         $feedbackplaceholders = new editor_placeholders(attempt_feedback_placeholders_helper::configured()->placeholder_options());
         $feedbackplaceholderscontent = $OUTPUT->render_from_template(
@@ -330,6 +332,28 @@ class mod_adaptivequiz_mod_form extends moodleform_mod {
     }
 
     /**
+     * Tells the author what the trust contract of the feedback means for them (issue #21).
+     *
+     * @return void
+     */
+    private function add_feedback_trust_notice(): void {
+        global $CFG;
+        if (!feedback_trust::is_trusted_author($this->context)) {
+            $notice = get_string('attemptfeedbackuntrusted', 'adaptivequiz');
+        } else if (!empty($CFG->forceclean)) {
+            $notice = get_string('attemptfeedbackforceclean', 'adaptivequiz');
+        } else {
+            return;
+        }
+        $this->_form->addElement(
+            'static',
+            'attemptfeedbacktrustnotice',
+            '',
+            \html_writer::div($notice, 'alert alert-info mb-0')
+        );
+    }
+
+    /**
      * The settings the form was opened with, as an activity record.
      *
      * @return stdClass
@@ -482,7 +506,9 @@ class mod_adaptivequiz_mod_form extends moodleform_mod {
                     $defaultvalues['attemptfeedback']
                 ),
                 'itemid' => $feedbackdraftitemid,
-                'format' => $defaultvalues['attemptfeedbackformat'],
+                // Issue #21: the feedback is HTML; edited as anything else the editor falls back to a text
+                // area and the page turns its line breaks into <br>, also inside a script.
+                'format' => FORMAT_HTML,
             ];
         }
     }

@@ -183,3 +183,25 @@ function adaptivequizcatmodel_testcatmodel_created_attempts(): int {
 function adaptivequizcatmodel_testcatmodel_completed_attempt_review_allowed(stdClass $adaptivequiz, stdClass $attempt): bool {
     return (bool) get_config('adaptivequizcatmodel_testcatmodel', 'reviewallowed');
 }
+
+/**
+ * The attempt's time limit in seconds, as a test sets it (mod_adaptivequiz #5).
+ *
+ * @param stdClass $adaptivequiz
+ * @param stdClass $attempt
+ * @return int|null
+ */
+function adaptivequizcatmodel_testcatmodel_attempt_time_limit(stdClass $adaptivequiz, stdClass $attempt): ?int {
+    return $GLOBALS['adaptivequizcatmodel_testcatmodel_limits']['attempt'] ?? null;
+}
+
+/**
+ * The time for one question in seconds, as a test sets it (mod_adaptivequiz #5).
+ *
+ * @param stdClass $adaptivequiz
+ * @param stdClass $attempt
+ * @return int|null
+ */
+function adaptivequizcatmodel_testcatmodel_item_time_limit(stdClass $adaptivequiz, stdClass $attempt): ?int {
+    return $GLOBALS['adaptivequizcatmodel_testcatmodel_limits']['item'] ?? null;
+}

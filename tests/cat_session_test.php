@@ -23,6 +23,11 @@ use mod_adaptivequiz\local\attempt;
 use mod_adaptivequiz\local\attempt\stop_reason;
 use stdClass;
 
+defined('MOODLE_INTERNAL') || die();
+
+global $CFG;
+require_once($CFG->dirroot . '/mod/adaptivequiz/locallib.php');
+
 /**
  * Tests of the item administration step of a running attempt.
  *
@@ -478,13 +483,29 @@ final class cat_session_test extends advanced_testcase {
         $held = \core\lock\lock_config::get_lock_factory('mod_adaptivequiz')
             ->get_lock('adaptivequiz_itemadministration_' . $this->adaptivequiz->id . '_' . $this->user->id, 0);
         $this->assertNotFalse($held);
+        // The lock factory counts in whole seconds: two seconds wait at least one.
+        cat_session::$locktimeout = 2;
         try {
             $attempt = $this->new_request();
+            \mod_adaptivequiz\local\request_timing::reset();
             $this->assertNull(cat_session::administer_next_item($this->adaptivequiz, $attempt), 'The lock was not respected.');
             $this->assertCount(0, $attempt->get_quba()->get_slots());
         } finally {
             $held->release();
+            cat_session::$locktimeout = 10;
         }
+        // The wait shows as such in the timeline, not as slow item selection (issue #17).
+        $waits = array_values(array_filter(
+            \mod_adaptivequiz\local\request_timing::get_spans(),
+            fn($span) => $span['name'] === 'lock_wait'
+        ));
+        $this->assertCount(1, $waits);
+        $this->assertFalse($waits[0]['meta']['acquired']);
+        $this->assertGreaterThanOrEqual(900, $waits[0]['ms'], 'The time the request waited for the lock.');
+        $this->assertSame([], array_filter(
+            \mod_adaptivequiz\local\request_timing::get_spans(),
+            fn($span) => $span['name'] === 'select_item'
+        ), 'Nothing was selected while waiting.');
 
         $attempt = $this->new_request();
         $this->assertNotNull(cat_session::administer_next_item($this->adaptivequiz, $attempt));
@@ -527,5 +548,40 @@ final class cat_session_test extends advanced_testcase {
             $measures[$correct ? 'right' : 'wrong'] = (float) $record->measure;
         }
         $this->assertGreaterThan($measures['wrong'], $measures['right'], 'The estimate follows the answers.');
+    }
+
+    /**
+     * An answer is stored before the test can end (issue #20, DoD 3): what the notice of an automatic end says -
+     * "the answers you submitted are saved" - holds for the answer that was being processed when the time ran out.
+     */
+    public function test_answer_is_stored_before_the_test_ends(): void {
+        global $DB;
+        $this->resetAfterTest();
+        $this->set_up_activity();
+        $attempt = $this->new_request();
+        cat_session::administer_next_item($this->adaptivequiz, $attempt);
+        $uniqueid = (int) $attempt->get_quba()->get_id();
+
+        $answer = $this->answer_helper($attempt, true);
+        cat_session::process_administered_item_result($uniqueid, $this->adaptivequiz, $attempt, $answer);
+        adaptivequiz_complete_attempt(
+            $uniqueid,
+            $this->adaptivequiz,
+            $this->adaptivequiz->context,
+            (int) $this->user->id,
+            '0.3',
+            'The time limit was reached.',
+            stop_reason::TIMELIMIT
+        );
+
+        $quba = \question_engine::load_questions_usage_by_activity($uniqueid);
+        $this->assertTrue($quba->get_question_state(1)->is_finished(), 'The answer is stored.');
+        $this->assertSame('gradedright', (string) $quba->get_question_state(1));
+        $record = $DB->get_record('adaptivequiz_attempt', ['uniqueid' => $uniqueid]);
+        $this->assertSame(stop_reason::TIMELIMIT, $record->stopcode);
+        $this->assertStringContainsString(
+            get_string('stopnotice_timelimit', 'adaptivequiz'),
+            \mod_adaptivequiz\local\attempt\stop_reason::notice($record)->text
+        );
     }
 }

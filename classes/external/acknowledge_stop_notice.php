@@ -16,7 +16,6 @@
 
 namespace mod_adaptivequiz\external;
 
-use context_module;
 use core_external\external_api;
 use core_external\external_function_parameters;
 use core_external\external_single_structure;
@@ -57,8 +56,11 @@ class acknowledge_stop_notice extends external_api {
         ['attemptid' => $attemptid] = self::validate_parameters(self::execute_parameters(), ['attemptid' => $attemptid]);
         $attempt = $DB->get_record('adaptivequiz_attempt', ['id' => $attemptid], '*', MUST_EXIST);
         $cm = get_coursemodule_from_instance('adaptivequiz', $attempt->instance, 0, false, MUST_EXIST);
-        $context = context_module::instance($cm->id);
-        self::validate_context($context);
+        // The course, not the activity: the result page is readable while completion hides the activity
+        // (attemptfinished.php), and so must its confirmation be. Validating the module context checked
+        // the activity's visibility, the confirmation failed and the notice came back on every visit.
+        // What protects the attempt is the check below: own, completed attempt only.
+        self::validate_context(\context_course::instance($cm->course));
 
         if ((int) $attempt->userid !== (int) $USER->id || $attempt->attemptstate !== attempt_state::COMPLETED) {
             throw new \moodle_exception('nopermissions', 'error', '', 'acknowledge the notice of this attempt');

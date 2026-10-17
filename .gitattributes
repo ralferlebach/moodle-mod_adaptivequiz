@@ -14,3 +14,5 @@
 /.gitignore     export-ignore
 /PORTING_MATRIX.md export-ignore
 /tests/a11y export-ignore
+/tests/local/attempt/resume_test.php export-ignore
+/tests/local/question_pluginfile_test.php export-ignore

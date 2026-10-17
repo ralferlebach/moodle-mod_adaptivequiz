@@ -83,7 +83,7 @@ class attempt_finished_page implements renderable, templatable {
         // Only the participant is told how the attempt ended, and only once it is complete: the
         // notice explains an end, it does not announce one.
         if ((int) $attempt->userid === (int) $USER->id && $attempt->attemptstate === attempt_state::COMPLETED) {
-            $notice = stop_reason::notice($attempt);
+            $notice = stop_reason::notice($attempt, stop_reason::time_limit($adaptivequiz, $attempt));
             if ($notice !== null) {
                 $notice->attemptid = (int) $attempt->id;
                 $notice->acknowledged = !empty($attempt->stopnoticeack);

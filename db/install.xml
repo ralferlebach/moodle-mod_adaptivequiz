@@ -16,6 +16,7 @@
         <FIELD NAME="browsersecurity" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Restriciton on the browser the student must use. E.g. securewindow."/>
         <FIELD NAME="attemptfeedback" TYPE="text" NOTNULL="true" SEQUENCE="false" COMMENT="Feedback given to students when their attempt has been completed."/>
         <FIELD NAME="attemptfeedbackformat" TYPE="int" LENGTH="2" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Format of attempt feedback"/>
+        <FIELD NAME="attemptfeedbacktrusted" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Issue #21: 1 when the feedback was saved by an author with mod/adaptivequiz:trustedfeedback; only then it is shown without cleaning."/>
         <FIELD NAME="attemptfeedbackenable" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Whether the attempt feedback text is shown."/>
         <FIELD NAME="showabilitymeasurefeedback" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Whether the ability measure should be presented to a test-taker once the attempt is finished."/>
         <FIELD NAME="showabilitymeasuresummary" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Whether the ability measure is displayed in user's attempts summary."/>

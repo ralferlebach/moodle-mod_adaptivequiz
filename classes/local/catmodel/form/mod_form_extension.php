@@ -72,7 +72,28 @@ final class mod_form_extension {
         }
 
         foreach ($modifier->definition_after_data_callback($form) as $element) {
-            $form->insertElementBefore($form->removeElement($element->getName(), false), 'catmodelfieldsmarker');
+            self::move_before_marker($form, $element->getName());
+        }
+    }
+
+    /**
+     * Moves an element of the CAT model in front of the marker, keeping the value the CAT model gave it.
+     *
+     * Inserting an element lets it take its value from the submission again. That undid what the CAT
+     * model had set on a reload - choosing a template put the template's values into the fields, and
+     * the move put the values of the old settings back (local_catquiz #123).
+     *
+     * @param MoodleQuickForm $form
+     * @param string $name
+     * @return void
+     */
+    public static function move_before_marker(MoodleQuickForm $form, string $name): void {
+        $current = $form->elementExists($name) ? $form->getElement($name) : null;
+        $value = $current instanceof \HTML_QuickForm_element ? $current->getValue() : null;
+        // The removed element goes straight in: insertElementBefore() keeps a reference to its argument.
+        $moved = $form->insertElementBefore($form->removeElement($name, false), 'catmodelfieldsmarker');
+        if ($value !== null && $moved instanceof \HTML_QuickForm_element) {
+            $moved->setValue($value);
         }
     }
 

@@ -46,6 +46,9 @@ final class stop_reason {
     /** @var string A teacher closed the attempt. */
     public const MANUAL = 'manual';
 
+    /** @var string The participant ended it to start a new attempt (issue #5). */
+    public const RESTARTED = 'restarted';
+
     /** @var string A technical problem ended the attempt. */
     public const ERROR = 'error';
 
@@ -80,25 +83,23 @@ final class stop_reason {
      * Title and text of the notice for an attempt, or null when there is none.
      *
      * @param stdClass $attempt adaptivequiz_attempt record.
+     * @param int|null $timelimit The attempt's time limit in seconds, when the CAT model knows it.
      * @return stdClass|null title, text, kind and code.
      */
-    public static function notice(stdClass $attempt): ?stdClass {
+    public static function notice(stdClass $attempt, ?int $timelimit = null): ?stdClass {
         $code = $attempt->stopcode ?? null;
         $kind = self::notice_kind($code);
         if ($kind === self::NOTICE_NONE) {
             return null;
         }
 
-        $known = [self::TIMELIMIT, self::NO_ELIGIBLE, self::TARGET_PRECISION, self::MANUAL, self::ERROR];
+        $known = [self::TIMELIMIT, self::NO_ELIGIBLE, self::TARGET_PRECISION, self::MANUAL, self::RESTARTED, self::ERROR];
         $key = in_array($code, $known, true) ? $code : 'unknown';
-        $a = (object) [
-            'duration' => (!empty($attempt->timefinished) && !empty($attempt->timecreated))
-                ? format_time(max(0, (int) $attempt->timefinished - (int) $attempt->timecreated))
-                : '',
-        ];
-        $text = get_string('stopnotice_' . $key, 'adaptivequiz', $a);
-        if ($key === self::TIMELIMIT && $a->duration !== '') {
-            $text .= ' ' . get_string('stopnotice_timelimit_duration', 'adaptivequiz', $a);
+        $text = get_string('stopnotice_' . $key, 'adaptivequiz');
+        // The configured limit, not "finished minus started": an attempt closed by the scheduled task or
+        // submitted late finishes long after its limit, and the notice named that as its duration.
+        if ($key === self::TIMELIMIT && $timelimit !== null && $timelimit > 0) {
+            $text .= ' ' . get_string('stopnotice_timelimit_limit', 'adaptivequiz', format_time($timelimit));
         }
         return (object) [
             'code' => (string) $code,
@@ -106,5 +107,25 @@ final class stop_reason {
             'title' => get_string('stopnoticetitle_' . ($kind === self::NOTICE_ERROR ? 'error' : 'info'), 'adaptivequiz'),
             'text' => $text,
         ];
+    }
+
+    /**
+     * The attempt's time limit in seconds, as its CAT model reports it; null when there is none or it is unknown.
+     *
+     * @param stdClass $adaptivequiz The activity record.
+     * @param stdClass $attempt adaptivequiz_attempt record.
+     * @return int|null
+     */
+    public static function time_limit(stdClass $adaptivequiz, stdClass $attempt): ?int {
+        if (empty($adaptivequiz->catmodel)) {
+            return null;
+        }
+        $functions = get_plugin_list_with_function('adaptivequizcatmodel', 'attempt_time_limit');
+        $function = $functions['adaptivequizcatmodel_' . $adaptivequiz->catmodel] ?? null;
+        if ($function === null) {
+            return null;
+        }
+        $limit = $function($adaptivequiz, $attempt);
+        return is_numeric($limit) && (int) $limit > 0 ? (int) $limit : null;
     }
 }

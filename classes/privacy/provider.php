@@ -249,16 +249,17 @@ class provider implements
             return;
         }
 
+        // The CAT model first: it finds its rows through the attempts of the activity, which go next.
+        foreach (self::catmodel_providers() as $catmodelprovider) {
+            $catmodelprovider::delete_catmodel_data_for_all_users_in_context($context);
+        }
+
         $usages = $DB->get_fieldset_select('adaptivequiz_attempt', 'uniqueid', 'instance = :instance', [
             'instance' => $cm->instance,
         ]);
         self::delete_question_usages($usages);
 
         $DB->delete_records('adaptivequiz_attempt', ['instance' => $cm->instance]);
-
-        foreach (self::catmodel_providers() as $catmodelprovider) {
-            $catmodelprovider::delete_catmodel_data_for_all_users_in_context($context);
-        }
     }
 
     /**
@@ -281,6 +282,11 @@ class provider implements
                 continue;
             }
 
+            // The CAT model first: it finds its rows through the attempts of the activity, which go next.
+            foreach (self::catmodel_providers() as $catmodelprovider) {
+                $catmodelprovider::delete_catmodel_data_for_user($userid, $context);
+            }
+
             $conditions = ['instance' => $cm->instance, 'userid' => $userid];
             $usages = $DB->get_fieldset_select(
                 'adaptivequiz_attempt',
@@ -291,10 +297,6 @@ class provider implements
             self::delete_question_usages($usages);
 
             $DB->delete_records('adaptivequiz_attempt', $conditions);
-
-            foreach (self::catmodel_providers() as $catmodelprovider) {
-                $catmodelprovider::delete_catmodel_data_for_user($userid, $context);
-            }
         }
     }
 
@@ -321,6 +323,11 @@ class provider implements
             return;
         }
 
+        // The CAT model first: it finds its rows through the attempts of the activity, which go next.
+        foreach (self::catmodel_providers() as $catmodelprovider) {
+            $catmodelprovider::delete_catmodel_data_for_users($userlist);
+        }
+
         [$insql, $inparams] = $DB->get_in_or_equal($userids, SQL_PARAMS_NAMED);
         $params = ['instance' => $cm->instance] + $inparams;
 
@@ -333,10 +340,6 @@ class provider implements
         self::delete_question_usages($usages);
 
         $DB->delete_records_select('adaptivequiz_attempt', "instance = :instance AND userid $insql", $params);
-
-        foreach (self::catmodel_providers() as $catmodelprovider) {
-            $catmodelprovider::delete_catmodel_data_for_users($userlist);
-        }
     }
 
     /**

@@ -63,6 +63,17 @@ $capabilities = [
             'manager' => CAP_ALLOW,
         ],
     ],
+    // Issue #21: author attempt feedback with scripts and markup that is not cleaned when shown.
+    'mod/adaptivequiz:trustedfeedback' => [
+        'riskbitmask' => RISK_XSS,
+        'captype' => 'write',
+        'contextlevel' => CONTEXT_MODULE,
+        'archetypes' => [
+            'editingteacher' => CAP_ALLOW,
+            'manager' => CAP_ALLOW,
+        ],
+        'clonepermissionsfrom' => 'moodle/course:manageactivities',
+    ],
     'mod/adaptivequiz:manage' => [
         'riskbitmask' => RISK_DATALOSS,
         'captype' => 'write',

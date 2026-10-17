@@ -45,6 +45,9 @@ use stdClass;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 final class cat_session {
+    /** @var int Seconds a request waits for the lock of its attempt (mod_adaptivequiz #17: settable for tests). */
+    public static int $locktimeout = 10;
+
     /** @var int How often the CAT model is asked when it names an item already answered. */
     private const MAX_ASKS = 3;
 
@@ -82,7 +85,7 @@ final class cat_session {
         // would otherwise look like slow item selection.
         request_timing::start('lock_wait');
         $lock = lock_config::get_lock_factory('mod_adaptivequiz')
-            ->get_lock('adaptivequiz_itemadministration_' . $adaptivequiz->id . '_' . $USER->id, 10);
+            ->get_lock('adaptivequiz_itemadministration_' . $adaptivequiz->id . '_' . $USER->id, self::$locktimeout);
         request_timing::stop('lock_wait', ['acquired' => (bool) $lock]);
 
         if (!$lock) {

@@ -372,5 +372,36 @@ function xmldb_adaptivequiz_upgrade($oldversion) {
         upgrade_mod_savepoint(true, 2026100910, 'adaptivequiz');
     }
 
+    if ($oldversion < 2026100911) {
+        // Issue #21: the feedback carries whether a trusted author saved it. Until now every feedback was
+        // shown without cleaning, and only those allowed to edit the activity could write it: existing
+        // feedback stays trusted, so nothing changes for it. Feedback written as HTML is marked as HTML,
+        // so a script in it is no longer broken by line breaks turned into <br>.
+        $table = new xmldb_table('adaptivequiz');
+        $field = new xmldb_field(
+            'attemptfeedbacktrusted',
+            XMLDB_TYPE_INTEGER,
+            '1',
+            null,
+            XMLDB_NOTNULL,
+            null,
+            '0',
+            'attemptfeedbackformat'
+        );
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+        $DB->set_field('adaptivequiz', 'attemptfeedbacktrusted', 1);
+        $DB->set_field_select(
+            'adaptivequiz',
+            'attemptfeedbackformat',
+            FORMAT_HTML,
+            'attemptfeedbackformat <> :html AND ' . $DB->sql_like('attemptfeedback', ':tag'),
+            ['html' => FORMAT_HTML, 'tag' => '%<%']
+        );
+
+        upgrade_mod_savepoint(true, 2026100911, 'adaptivequiz');
+    }
+
     return true;
 }

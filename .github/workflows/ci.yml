@@ -7,7 +7,11 @@ name: CI
 # Zweigen mit. PHP 8.5 laesst sich derzeit nicht fahren - Moodles composer.lock
 # haelt ezyang/htmlpurifier auf einer Fassung, die nur bis PHP 8.4 zugelassen ist,
 # `composer install` bricht deshalb im Moodle-Baum ab. Bis der Kern nachzieht,
-# prueft der Job "PHP 8.5" nur Syntax und Code-Style unseres eigenen Codes.
+# prueft der Job "PHP 8.5" nur Syntax und Code-Style unseres eigenen Codes, und der
+# Job "php85-canary" (#13) faehrt PHPUnit mit ausgesetzter PHP-Plattformpruefung,
+# nicht blockierend: er ordnet jede Deprecation ihrer Herkunft zu und wird nur bei
+# einer aus diesem Plugin rot. PHP 8.5 ist damit beobachtet, nicht unterstuetzt.
+# Unterstuetzt: Moodle 5.1 mit PHP 8.2-8.4, Moodle 5.2/5.3 mit PHP 8.3-8.4.
 #
 # Datenbanken: Moodle 5.3 verlangt PostgreSQL >= 17 bzw. MariaDB >= 11.4.
 
@@ -57,6 +61,11 @@ jobs:
         include:
           # PHP 8.4 auf jedem Zweig, aber nur gegen PostgreSQL - die zweite Engine
           # deckt 8.3 bereits ab.
+          # Moodle 5.1 laesst PHP 8.2 noch zu (admin/environment.xml) - die kleinste
+          # unterstuetzte Kombination laeuft mit (#13).
+          - moodle-branch: 'MOODLE_501_STABLE'
+            php: '8.2'
+            database: 'pgsql'
           - moodle-branch: 'MOODLE_501_STABLE'
             php: '8.4'
             database: 'pgsql'
@@ -197,6 +206,125 @@ jobs:
 
       - name: Code-Style
         run: moodle-plugin-ci phpcs --max-warnings 0 --exclude=PSR1.Classes.ClassDeclaration ./plugin
+
+  php85-canary:
+    # Issue #13: Vorwaertskompatibilitaet, nicht Unterstuetzung. Moodle 5.1-5.3 unterstuetzen
+    # PHP 8.5 nicht; der Job blockiert deshalb nichts. Er faehrt PHPUnit dieses Plugins unter
+    # 8.5, sammelt jede Deprecation mit Datei und ordnet sie ihrer Herkunft zu. Rot wird er nur,
+    # wenn eine aus mod_adaptivequiz selbst stammt (PLUGIN) - Kernmeldungen sind sichtbar, aber
+    # kein Fehler dieses Plugins. Nichts wird unterdrueckt, kein Kern-Code wird angefasst.
+    name: PHP 8.5 · Canary (nicht unterstuetzt, nicht blockierend)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+
+    services:
+      postgres:
+        image: mirror.gcr.io/library/postgres:17
+        env:
+          POSTGRES_USER: 'postgres'
+          POSTGRES_HOST_AUTH_METHOD: 'trust'
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready" --health-interval=10s
+          --health-timeout=5s --health-retries=3
+
+    env:
+      DEPRECATION_LOG: ${{ github.workspace }}/php-deprecations.log
+
+    steps:
+      - name: Plugin auschecken
+        uses: actions/checkout@v4
+        with:
+          path: plugin
+
+      - name: PHP 8.5 einrichten
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          extensions: pgsql, zip, gd, soap, intl
+          ini-values: >-
+            max_input_vars=5000, error_reporting=E_ALL, log_errors=On, display_errors=stderr,
+            error_log=${{ github.workspace }}/php-deprecations.log
+          coverage: none
+
+      - name: Selbsttest der Einordnung
+        run: python3 plugin/tools/test_classify_deprecations.py
+
+      - name: Moodle 5.3 holen und das Plugin einhaengen
+        run: |
+          git clone --depth 1 --branch MOODLE_503_STABLE https://github.com/moodle/moodle.git moodle
+          cp -r plugin moodle/public/mod/adaptivequiz
+          rm -rf moodle/public/mod/adaptivequiz/.git
+
+      # composer.lock haelt ezyang/htmlpurifier auf einer Fassung bis PHP 8.4. Die Plattformpruefung
+      # wird nur fuer PHP ausgesetzt - das ist genau die nicht unterstuetzte Kombination, die hier
+      # beobachtet werden soll.
+      - name: Composer (PHP-Plattformpruefung ausgesetzt)
+        working-directory: moodle
+        run: composer install --no-interaction --no-progress --ignore-platform-req=php
+
+      - name: config.php
+        working-directory: moodle
+        run: |
+          mkdir -p "$RUNNER_TEMP/moodledata" "$RUNNER_TEMP/phpu_moodledata"
+          cat > config.php <<CFG
+          <?php
+          unset(\$CFG);
+          global \$CFG;
+          \$CFG = new stdClass();
+          \$CFG->dbtype = 'pgsql';
+          \$CFG->dblibrary = 'native';
+          \$CFG->dbhost = '127.0.0.1';
+          \$CFG->dbname = 'postgres';
+          \$CFG->dbuser = 'postgres';
+          \$CFG->dbpass = '';
+          \$CFG->prefix = 'm_';
+          \$CFG->wwwroot = 'http://localhost';
+          \$CFG->dataroot = '$RUNNER_TEMP/moodledata';
+          \$CFG->phpunit_prefix = 'phpu_';
+          \$CFG->phpunit_dataroot = '$RUNNER_TEMP/phpu_moodledata';
+          \$CFG->directorypermissions = 02777;
+          require_once(__DIR__ . '/lib/setup.php');
+          CFG
+
+      - name: PHPUnit vorbereiten
+        working-directory: moodle
+        run: php public/admin/tool/phpunit/cli/init.php --no-composer-self-update 2>&1 | tail -n 5
+
+      # Das Ergebnis der Tests ist hier nicht der Massstab, die Deprecations sind es.
+      - name: PHPUnit mod_adaptivequiz unter PHP 8.5
+        working-directory: moodle
+        run: |
+          vendor/bin/phpunit --testsuite mod_adaptivequiz_testsuite --display-deprecations \
+            2>&1 | tee "$GITHUB_WORKSPACE/phpunit-php85.log" || true
+
+      - name: Deprecations nach Herkunft einordnen (Gate - PLUGIN)
+        if: ${{ always() }}
+        run: |
+          touch "$DEPRECATION_LOG" phpunit-php85.log
+          cat "$DEPRECATION_LOG" phpunit-php85.log > all-output.log
+          set +e
+          python3 plugin/tools/classify_deprecations.py all-output.log moodle deprecations
+          status=$?
+          set -e
+          {
+            echo "## PHP 8.5 Canary - nicht unterstuetzt, Vorwaertskompatibilitaet"
+            cat deprecations/deprecations-summary.md
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit $status
+
+      - name: Deprecation-Protokolle sichern
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: php85-canary-deprecations
+          path: |
+            php-deprecations.log
+            phpunit-php85.log
+            deprecations/**
+          if-no-files-found: warn
+          retention-days: 14
 
   architecture:
     name: Architekturgrenze zu local_catquiz

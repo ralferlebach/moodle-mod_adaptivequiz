@@ -1,4 +1,4 @@
-@mod @mod_adaptivequiz @javascript
+@mod @mod_adaptivequiz
 Feature: An unexpected end of the attempt is explained before the feedback
   In order to understand why my test ended before I expected it
   As a student
@@ -25,6 +25,7 @@ Feature: An unexpected end of the attempt is explained before the feedback
       | Adaptive Quiz Questions | truefalse | Q1   | First question  |
       | Adaptive Quiz Questions | truefalse | Q2   | Second question |
 
+  @javascript
   Scenario: No suitable question left: a notice, then the feedback, and no second notice
     ## Questions on levels 1 and 3 only, five allowed: after two right answers there is nothing left to ask.
     Given the following "core_question > Tags" exist:
@@ -61,7 +62,14 @@ Feature: An unexpected end of the attempt is explained before the feedback
     And I reload the page
     And "Your test has ended" "dialogue" should not exist
     And "Continue" "button" should be visible
+    ## Neither going back nor opening the result page again brings the dialog back.
+    And I press the "back" button in the browser
+    And "Your test has ended" "dialogue" should not exist
+    And I open the result page of my last attempt at "adaptivequiz1"
+    And "Your test has ended" "dialogue" should not exist
+    And "Continue" "button" should be visible
 
+  @javascript
   Scenario: The maximum number of questions is the regular end: no notice
     Given the following "core_question > Tags" exist:
       | question | tag    |
@@ -88,3 +96,23 @@ Feature: An unexpected end of the attempt is explained before the feedback
     And I press "Submit answer"
     Then "Your test has ended" "dialogue" should not exist
     And "Continue" "button" should be visible
+
+  Scenario: Without JavaScript the reason is on the page and the feedback is reachable
+    Given the following "activity" exists:
+      | activity          | adaptivequiz            |
+      | idnumber          | adaptivequiz1           |
+      | course            | C1                      |
+      | name              | Adaptive Quiz           |
+      | startinglevel     | 1                       |
+      | lowestlevel       | 1                       |
+      | highestlevel      | 3                       |
+      | minimumquestions  | 1                       |
+      | maximumquestions  | 5                       |
+      | standarderror     | 1                       |
+    And "student1" has finished an attempt at "adaptivequiz1" that ended with "noeligiblequestions"
+    And I log in as "student1"
+    When I open the result page of my last attempt at "adaptivequiz1"
+    Then I should see "Your test has ended"
+    And I should see "There are no further suitable questions for you at the moment"
+    And I should see "You've finished the attempt, thank you for taking the quiz!"
+    And "Continue" "button" should exist

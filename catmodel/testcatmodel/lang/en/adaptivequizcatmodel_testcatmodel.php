@@ -25,3 +25,4 @@
 defined('MOODLE_INTERNAL') || die();
 
 $string['pluginname'] = 'Test CAT model';
+$string['privacy:metadata'] = 'The test CAT model stores no personal data.';

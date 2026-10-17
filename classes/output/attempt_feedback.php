@@ -20,6 +20,7 @@ use context_module;
 use mod_adaptivequiz\attempt_feedback_placeholders_helper;
 use mod_adaptivequiz\external\ability_measure_exporter;
 use mod_adaptivequiz\local\catmodel\catmodel_resolver;
+use mod_adaptivequiz\local\feedback\feedback_trust;
 use renderable;
 use renderer_base;
 use stdClass;
@@ -104,7 +105,6 @@ class attempt_feedback implements renderable, templatable {
                 $feedbacktext = $placeholdershelper->format_feedback_text($adaptivequiz->attemptfeedback, $abilitymeasureexporter);
 
                 $context = context_module::instance($cm->id);
-                $options = ['noclean' => true, 'para' => false, 'filter' => true, 'context' => $context, 'overflowdiv' => true];
                 $feedbacktext = file_rewrite_pluginfile_urls(
                     $feedbacktext,
                     'pluginfile.php',
@@ -113,7 +113,13 @@ class attempt_feedback implements renderable, templatable {
                     'attemptfeedback',
                     0
                 );
-                $feedbacktext = trim(format_text($feedbacktext, $adaptivequiz->attemptfeedbackformat, $options));
+                // Issue #21: cleaned unless a trusted author wrote it.
+                $feedbacktext = feedback_trust::format(
+                    $feedbacktext,
+                    (int) $adaptivequiz->attemptfeedbackformat,
+                    !empty($adaptivequiz->attemptfeedbacktrusted),
+                    $context
+                );
 
                 return $feedbacktext;
             }

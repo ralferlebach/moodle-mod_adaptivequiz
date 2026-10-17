@@ -74,6 +74,7 @@ $string['bestscorestderror'] = 'Erreur standard';
 $string['browsersecurity'] = 'Sécurité du navigateur';
 $string['browsersecurity_help'] = 'Si « Full screen pop-up with some JavaScript security » est sélectionné, le questionnaire débutera seulement si le candidat dispose d’un navigateur-web autorisant Javascipt . Le questionnaire apparaît en plein écran dans une fenêtre contextuelle couvrant toutes les autres fenêtres et qui ne dispose d’aucun contrôle de navigation. De même, dans la mesure du possible, l’utilisation de certaines commandes comme « copier » et « coller » sont désactivées pour les candidats';
 $string['calcerrorwithinlimits'] = 'L’erreur standard calculée par {$a->calerror} est comprise dans les limites imposées par l’application {$a->definederror}';
+$string['catmodelsessionerror'] = '{$a}';
 $string['closeattempt'] = 'Clôturer la tentative';
 $string['confirmcloseattempt'] = 'Êtes vous certain(e) de vouloir clôturer et finaliser cette tentative de {$a->name}?';
 $string['confirmcloseattemptscore'] = '{$a->num_questions} items ont été complétés et le score est de {$a->measure} {$a->standarderror}.';

@@ -37,6 +37,8 @@ class restore_adaptivequiz_activity_structure_step extends restore_questions_act
 
         $adaptivequiz = new restore_path_element('adaptivequiz', '/activity/adaptivequiz');
         $paths[] = $adaptivequiz;
+        // The CAT model's own data, see the backup step (adaptivequizcatmodel_catquiz #1).
+        $this->add_subplugin_structure('adaptivequizcatmodel', $adaptivequiz);
 
         $paths[] = new restore_path_element(
             'adaptivequiz_question',
@@ -69,6 +71,11 @@ class restore_adaptivequiz_activity_structure_step extends restore_questions_act
 
         $data->timecreated = $this->apply_date_offset($data->timecreated);
         $data->timemodified = $this->apply_date_offset($data->timemodified);
+        // Issue #21: the feedback stays trusted only if the restoring user is trusted in the target course.
+        $data->attemptfeedbacktrusted = \mod_adaptivequiz\local\feedback\feedback_trust::restored_mark(
+            $data,
+            \context_course::instance($this->get_courseid())
+        );
         // Insert the quiz record.
         $newitemid = $DB->insert_record('adaptivequiz', $data);
         // Immediately after inserting "activity" record, call this.

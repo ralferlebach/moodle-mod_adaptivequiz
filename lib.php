@@ -126,6 +126,8 @@ function adaptivequiz_add_instance(stdClass $adaptivequiz, ?mod_adaptivequiz_mod
     }
     $adaptivequiz->attemptfeedback = $attemptfeedbacktext;
     $adaptivequiz->attemptfeedbackformat = $attemptfeedbackformat;
+    // Issue #21: who may store scripts is decided here, not by the request.
+    \mod_adaptivequiz\local\feedback\feedback_trust::apply_on_save($adaptivequiz, $context);
 
     $instance = $DB->insert_record('adaptivequiz', $adaptivequiz);
 
@@ -249,6 +251,13 @@ function adaptivequiz_update_instance(stdClass $adaptivequiz, ?mod_adaptivequiz_
 
         $adaptivequiz->attemptfeedback = $attemptfeedbacktext;
         $adaptivequiz->attemptfeedbackformat = $adaptivequiz->attemptfeedbackeditor['format'];
+    }
+    // Issue #21: who may store scripts is decided here, not by the request. A save that does not touch
+    // the feedback keeps text and mark as stored.
+    if (property_exists($adaptivequiz, 'attemptfeedback')) {
+        \mod_adaptivequiz\local\feedback\feedback_trust::apply_on_save($adaptivequiz, $context, $oldquiz);
+    } else {
+        unset($adaptivequiz->attemptfeedbacktrusted);
     }
 
     $instanceid = $DB->update_record('adaptivequiz', $adaptivequiz);
@@ -856,6 +865,15 @@ function adaptivequiz_reset_userdata($data) {
 
                 // Remove attempts data.
                 $DB->delete_records('adaptivequiz_attempt', ['instance' => $adaptivequiz->id]);
+                // The CAT model removes what it keeps for each attempt - a reset left that behind.
+                foreach ($attempts as $attempt) {
+                    \mod_adaptivequiz\local\catmodel\catmodel_resolver::callback(
+                        $adaptivequiz->catmodel ?? null,
+                        'post_delete_attempt_callback',
+                        $adaptivequiz,
+                        $attempt
+                    );
+                }
             }
         }
     }
@@ -948,21 +966,17 @@ function mod_adaptivequiz_question_pluginfile(
     $forcedownload,
     array $options = []
 ) {
-    global $CFG, $DB, $USER;
-
-    $attemptrec = $DB->get_record('adaptivequiz_attempt', ['uniqueid' => $qubaid], '*', MUST_EXIST);
-    // A running attempt and the review of a finished one follow different rules (issue #18).
-    \mod_adaptivequiz\local\question_file_access::require_access($attemptrec);
-
-    $fs = get_file_storage();
-    $relativepath = implode('/', $args);
-    $fullpath = "/$context->id/$component/$filearea/$relativepath";
-
-    $file = $fs->get_file_by_hash(sha1($fullpath));
+    // Access to the attempt, the file tied to its question (issues #16, #18).
+    $file = \mod_adaptivequiz\local\question_file_access::file_for_request(
+        $context,
+        (string) $component,
+        (string) $filearea,
+        (int) $qubaid,
+        (int) $slot,
+        $args,
+        (bool) $forcedownload
+    );
     if (!$file) {
-        send_file_not_found();
-    }
-    if ($file->is_directory()) {
         send_file_not_found();
     }
 
