@@ -86,7 +86,7 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ matrix.php }}
-          extensions: pgsql, mysqli, zip, gd, xmlrpc, soap, intl
+          extensions: pgsql, mysqli, zip, gd, xmlrpc, soap, intl, pcntl
           ini-values: max_input_vars=5000
           coverage: none
 
@@ -134,6 +134,9 @@ jobs:
 
       - name: PHPUnit
         if: ${{ always() }}
+        env:
+          # The concurrency tests (pcntl) fail instead of being skipped: a skip is no green (audit 18.10.).
+          CATQUIZ_REQUIRE_CONCURRENCY: '1'
         run: moodle-plugin-ci phpunit --fail-on-warning
 
       # Docker Hub begrenzt anonyme Pulls (toomanyrequests). moodle-plugin-ci startet Selenium
@@ -251,9 +254,17 @@ jobs:
       - name: Selbsttest der Einordnung
         run: python3 plugin/tools/test_classify_deprecations.py
 
+      # Der Zweig bewegt sich; ohne den Commit waere ein Befund nicht nachstellbar. Die SHA geht
+      # in die Zusammenfassung und das JSON des Classifiers (#13).
       - name: Moodle 5.3 holen und das Plugin einhaengen
+        shell: bash
         run: |
+          set -euo pipefail
           git clone --depth 1 --branch MOODLE_503_STABLE https://github.com/moodle/moodle.git moodle
+          sha=$(git -C moodle rev-parse HEAD)
+          echo "Moodle MOODLE_503_STABLE @ $sha"
+          echo "MOODLE_SHA=$sha" >> "$GITHUB_ENV"
+          echo "PHP_VERSION=$(php -r 'echo PHP_VERSION;')" >> "$GITHUB_ENV"
           cp -r plugin moodle/public/mod/adaptivequiz
           rm -rf moodle/public/mod/adaptivequiz/.git
 
@@ -288,24 +299,47 @@ jobs:
           require_once(__DIR__ . '/lib/setup.php');
           CFG
 
+      # Frueher verschluckte "| tail -n 5" ohne pipefail den Exit-Code von init.php: ein
+      # gescheitertes Init lief weiter, PHPUnit fand keine Tests, der Classifier sah keine
+      # PLUGIN-Meldung - die Canary war gruen, ohne getestet zu haben (#13). Jetzt bricht der
+      # Schritt ab und zeigt das Ende des vollstaendigen Protokolls.
       - name: PHPUnit vorbereiten
         working-directory: moodle
-        run: php public/admin/tool/phpunit/cli/init.php --no-composer-self-update 2>&1 | tail -n 5
+        shell: bash
+        run: |
+          set -o pipefail
+          if ! php public/admin/tool/phpunit/cli/init.php --no-composer-self-update > "$GITHUB_WORKSPACE/phpunit-init.log" 2>&1; then
+            tail -n 50 "$GITHUB_WORKSPACE/phpunit-init.log"
+            echo "::error::PHPUnit-Init unter PHP 8.5 gescheitert - Canary nicht beurteilbar."
+            exit 1
+          fi
+          tail -n 5 "$GITHUB_WORKSPACE/phpunit-init.log"
 
-      # Das Ergebnis der Tests ist hier nicht der Massstab, die Deprecations sind es.
+      # Das Ergebnis der Tests ist hier nicht der Massstab, die Deprecations sind es. Der
+      # Exit-Code von PHPUnit (nicht der von tee) wird festgehalten: 0/1 sind ein Lauf mit
+      # bestandenen bzw. fehlgeschlagenen Tests, alles andere ein Abbruch, den der Classifier
+      # als Infrastrukturfehler (Exit 3) meldet.
       - name: PHPUnit mod_adaptivequiz unter PHP 8.5
         working-directory: moodle
+        shell: bash
         run: |
+          set +e -o pipefail
           vendor/bin/phpunit --testsuite mod_adaptivequiz_testsuite --display-deprecations \
-            2>&1 | tee "$GITHUB_WORKSPACE/phpunit-php85.log" || true
+            2>&1 | tee "$GITHUB_WORKSPACE/phpunit-php85.log"
+          echo "PHPUNIT_EXIT=${PIPESTATUS[0]}" >> "$GITHUB_ENV"
+          exit 0
 
+      # Exit 1 = Deprecation aus diesem Plugin (Gate), Exit 3 = Lauf nicht beurteilbar (Init,
+      # PHPUnit oder Moodle-Baum fehlen) - beides rot, aber in der Zusammenfassung getrennt:
+      # "Gate: PLUGIN=n -> FAIL/PASS; Infrastruktur: OK/FEHLER".
       - name: Deprecations nach Herkunft einordnen (Gate - PLUGIN)
         if: ${{ always() }}
+        shell: bash
         run: |
           touch "$DEPRECATION_LOG" phpunit-php85.log
           cat "$DEPRECATION_LOG" phpunit-php85.log > all-output.log
           set +e
-          python3 plugin/tools/classify_deprecations.py all-output.log moodle deprecations
+          python3 plugin/tools/classify_deprecations.py all-output.log moodle deprecations --expect-phpunit
           status=$?
           set -e
           {
@@ -321,6 +355,7 @@ jobs:
           name: php85-canary-deprecations
           path: |
             php-deprecations.log
+            phpunit-init.log
             phpunit-php85.log
             deprecations/**
           if-no-files-found: warn
@@ -332,6 +367,12 @@ jobs:
     steps:
       - name: Plugin auschecken
         uses: actions/checkout@v4
+
+      # Die Canary (#13) ist nicht blockierend - ihr Classifier aber schon: ein Fehler in der
+      # Einordnung wuerde die Canary still gruen oder grundlos rot machen. Deshalb laeuft sein
+      # Selbsttest hier, in einem Job, der den Workflow rot macht.
+      - name: Selbsttest des Deprecation-Classifiers (#13)
+        run: python3 tools/test_classify_deprecations.py
 
       # Der Host darf keine CATquiz-Fachlichkeit kennen (Issue #10 §13). Das
       # Test-Catmodel unter catmodel/testcatmodel ist neutral, echte Catmodels

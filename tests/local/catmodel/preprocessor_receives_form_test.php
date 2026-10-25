@@ -36,8 +36,8 @@ require_once($CFG->libdir . '/formslib.php');
  * @package    mod_adaptivequiz
  * @copyright  2026 onwards Ralf Erlebach
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- * @covers \mod_adaptivequiz\local\catmodel\form\mod_form_extension
  */
+#[\PHPUnit\Framework\Attributes\CoversClass(\mod_adaptivequiz\local\catmodel\form\mod_form_extension::class)]
 final class preprocessor_receives_form_test extends advanced_testcase {
     /**
      * The form and its submission reach the CAT model.

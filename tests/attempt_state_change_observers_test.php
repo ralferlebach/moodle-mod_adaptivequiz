@@ -90,7 +90,8 @@ final class attempt_state_change_observers_test extends advanced_testcase {
         // used to tick the box on the person's behalf.
         unset($attemptrecordsnapshot->id);
         $attemptid = $DB->insert_record('adaptivequiz_attempt', $attemptrecordsnapshot);
-        $attemptrecordsnapshot->id = $attemptid;
+        // The snapshot is the stored row, with every field of the table.
+        $attemptrecordsnapshot = $DB->get_record('adaptivequiz_attempt', ['id' => $attemptid], '*', MUST_EXIST);
 
         $event = attempt_completed::create([
             'objectid' => $attemptid,

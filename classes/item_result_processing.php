@@ -44,6 +44,16 @@ final class item_result_processing {
     public ?string $stopcode = null;
 
     /**
+     * @var bool Whether this request processed the answer. False when another request already had: a
+     * second POST of the same form - a double click, a second tab - changes nothing and goes on to the
+     * question the attempt is at (audit 18.10.).
+     */
+    public bool $processed = true;
+
+    /** @var bool Whether this request completed the attempt the answer ended, under the item lock (audit 18.10.). */
+    public bool $completed = false;
+
+    /**
      * Returns whether the attempt is to stop after this answer.
      *
      * @return bool

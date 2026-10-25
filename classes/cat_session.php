@@ -17,9 +17,11 @@
 namespace mod_adaptivequiz;
 
 use coding_exception;
+use context_module;
 use core\lock\lock_config;
 use core_tag_tag;
 use mod_adaptivequiz\local\attempt;
+use mod_adaptivequiz\local\attempt\attempt_state;
 use mod_adaptivequiz\local\attempt\stop_reason;
 use mod_adaptivequiz\local\catalgo;
 use mod_adaptivequiz\local\fetchquestion;
@@ -31,6 +33,7 @@ use mod_adaptivequiz\local\itemadministration\item_administration_factory;
 use mod_adaptivequiz\local\request_timing;
 use question_bank;
 use question_engine;
+use question_out_of_sequence_exception;
 use question_usage_by_activity;
 use stdClass;
 
@@ -76,7 +79,7 @@ final class cat_session {
      * @param stdClass $adaptivequiz The activity instance record.
      * @param attempt $attempt The running attempt, with its question usage already initialised.
      * @return item_administration_evaluation|null The evaluation, or null when a concurrent
-     *      request is already administering an item for this attempt.
+     *      request is already administering an item for this attempt, or has completed it.
      */
     public static function administer_next_item(stdClass $adaptivequiz, attempt $attempt): ?item_administration_evaluation {
         global $USER;
@@ -104,12 +107,18 @@ final class cat_session {
      *
      * @param stdClass $adaptivequiz The activity instance record.
      * @param attempt $attempt The running attempt.
-     * @return item_administration_evaluation
+     * @return item_administration_evaluation|null Null when the attempt is no longer in progress.
      */
     private static function administer_next_item_locked(
         stdClass $adaptivequiz,
         attempt $attempt
-    ): item_administration_evaluation {
+    ): ?item_administration_evaluation {
+        // Another request may have completed the attempt while this one waited for the lock - a duplicate
+        // POST of the answer that ended it (audit 18.10.). Nothing more is administered to it.
+        if (!$attempt->still_in_progress()) {
+            return null;
+        }
+
         // A CAT model sets up its own record for the attempt and starts its clock. It has to learn
         // about a new attempt before the first item is administered - afterwards its estimate would
         // already be expected to exist.
@@ -172,8 +181,11 @@ final class cat_session {
                     . 'in this attempt; asking once more.',
                 DEBUG_DEVELOPER
             );
-            $evaluation = $administration->evaluate_ability_to_administer_next_item(
-                !empty($slots) ? end($slots) : null
+            // Each further ask is a selection of its own in the timeline, numbered (mod_adaptivequiz #17).
+            $evaluation = request_timing::measure(
+                'select_item',
+                fn() => $administration->evaluate_ability_to_administer_next_item(!empty($slots) ? end($slots) : null),
+                ['retry' => $asked]
             );
             $asked++;
             if ($evaluation->item_administration_is_to_stop()) {
@@ -202,13 +214,15 @@ final class cat_session {
             );
         }
 
-        $question = request_timing::measure('load_question', fn() => question_bank::load_question($questionid));
+        // The question bank takes no lock while loading - the only lock on this path is the item lock
+        // (lock_wait). dbreads 0: the question came from the cache (mod_adaptivequiz #17).
+        $question = request_timing::measure_db('load_question', fn() => question_bank::load_question($questionid));
         request_timing::start('question_usage');
-        $slot = $quba->add_question($question);
+        $slot = request_timing::measure('quba_add', fn() => $quba->add_question($question));
 
         if (!$quba->get_question_state($slot)->is_active()) {
-            $quba->start_question($slot);
-            question_engine::save_questions_usage_by_activity($quba);
+            request_timing::measure('quba_start', fn() => $quba->start_question($slot));
+            request_timing::measure('quba_save', fn() => question_engine::save_questions_usage_by_activity($quba));
 
             if (count($quba->get_slots()) == 1) {
                 $attempt->set_quba_id($quba->get_id());
@@ -290,41 +304,103 @@ final class cat_session {
      * there is one, otherwise to the built-in algorithm, which recalculates the ability estimate
      * and decides whether the attempt goes on.
      *
+     * Two POSTs of the same answer at once - a double click on "Submit", a second tab - ran side by side:
+     * both loaded the usage, both wrote an answer step with the same sequence number, and one of them ended
+     * on an error page (audit 18.10.). The answer is processed under the item lock now, and a POST whose
+     * answer another request has already processed - the question engine sees it out of sequence - changes
+     * nothing and reports processed = false; the caller goes on to the question the attempt is at.
+     *
      * @param int $uniqueid Id of the question usage of the attempt.
      * @param stdClass $adaptivequiz The activity instance record.
      * @param attempt $attempt The running attempt.
      * @param callable $qubahelper Applies the submitted actions to the question usage.
+     * @param context_module|null $context With it, an answer that ends the attempt completes it right here,
+     *      under the same lock - a duplicate POST waiting for the lock then finds it completed (audit 18.10.).
      * @return item_result_processing
      */
     public static function process_administered_item_result(
         int $uniqueid,
         stdClass $adaptivequiz,
         attempt $attempt,
-        callable $qubahelper
+        callable $qubahelper,
+        ?context_module $context = null
     ): item_result_processing {
         global $USER;
-
-        $attemptrecord = $attempt->get_attempt();
 
         if (!adaptivequiz_uniqueid_part_of_attempt($uniqueid, (int) $adaptivequiz->id, (int) $USER->id)) {
             throw new moodle_exception('uniquenotpartofattempt', 'adaptivequiz');
         }
 
-        $quba = question_engine::load_questions_usage_by_activity($uniqueid);
-        $qubahelper($quba);
-        question_engine::save_questions_usage_by_activity($quba);
+        request_timing::start('answer_lock_wait');
+        $lock = lock_config::get_lock_factory('mod_adaptivequiz')
+            ->get_lock('adaptivequiz_itemadministration_' . $adaptivequiz->id . '_' . $USER->id, self::$locktimeout);
+        request_timing::stop('answer_lock_wait', ['acquired' => (bool) $lock]);
 
+        if (!$lock) {
+            // Another request has been working on this attempt all along. The answer is left alone - the
+            // question it belongs to is shown again, still open, and can be submitted once more.
+            $result = new item_result_processing();
+            $result->processed = false;
+            return $result;
+        }
+
+        try {
+            return self::process_administered_item_result_locked($uniqueid, $adaptivequiz, $attempt, $qubahelper, $context);
+        } finally {
+            $lock->release();
+        }
+    }
+
+    /**
+     * Does the work of process_administered_item_result(), with the lock held.
+     *
+     * @param int $uniqueid Id of the question usage of the attempt.
+     * @param stdClass $adaptivequiz The activity instance record.
+     * @param attempt $attempt The running attempt.
+     * @param callable $qubahelper Applies the submitted actions to the question usage.
+     * @param context_module|null $context Completes an attempt the answer ends, when given.
+     * @return item_result_processing
+     */
+    private static function process_administered_item_result_locked(
+        int $uniqueid,
+        stdClass $adaptivequiz,
+        attempt $attempt,
+        callable $qubahelper,
+        ?context_module $context
+    ): item_result_processing {
+        global $USER;
+
+        // Read under the lock: a request that waited must see what the one before it counted. The attempt
+        // of this usage, never a new one: if another request has completed it meanwhile, this POST is the
+        // duplicate of the answer that ended it (audit 18.10.).
+        $attemptrecord = $attempt->continue_attempt($uniqueid);
+        if ($attemptrecord === null) {
+            $result = new item_result_processing();
+            $result->processed = false;
+            return $result;
+        }
+
+        // Each part of handling the answer on its own in the timeline (mod_adaptivequiz #17).
+        $quba = request_timing::measure('quba_load', fn() => question_engine::load_questions_usage_by_activity($uniqueid));
         $result = new item_result_processing();
+        try {
+            request_timing::measure('quba_process', fn() => $qubahelper($quba));
+        } catch (question_out_of_sequence_exception $e) {
+            // The form was submitted before, and that answer is processed: this POST is its duplicate.
+            $result->processed = false;
+            return $result;
+        }
+        request_timing::measure('quba_save', fn() => question_engine::save_questions_usage_by_activity($quba));
 
         if (!empty($adaptivequiz->catmodel)) {
             // The CAT model keeps its own estimate; the host only records that a question was answered.
-            catmodel_resolver::callback(
+            request_timing::measure('catmodel_item_result', fn() => catmodel_resolver::callback(
                 $adaptivequiz->catmodel,
                 'post_process_item_result_callback',
                 $quba,
                 $adaptivequiz,
                 $attempt
-            );
+            ));
             adaptivequiz_update_attempt_data($uniqueid, $adaptivequiz->id, $USER->id, 0, 0, 0);
 
             return $result;
@@ -361,6 +437,17 @@ final class cat_session {
         $result->stopcode = $algorithm->get_stop_code();
 
         if ($result->attempt_is_to_stop()) {
+            if ($context !== null) {
+                $result->completed = self::complete_attempt_locked(
+                    $uniqueid,
+                    $adaptivequiz,
+                    $context,
+                    (int) $USER->id,
+                    (string) $result->standarderror,
+                    $result->stoppagereason,
+                    $result->stopcode
+                );
+            }
             return $result;
         }
 
@@ -379,6 +466,90 @@ final class cat_session {
         $fetchquestion->store_tagquestsum_in_session();
 
         return $result;
+    }
+
+    /**
+     * Completes the attempt once, under the item lock.
+     *
+     * Two requests could both end the same attempt - a duplicate POST of the last answer, a reload while
+     * the first one completes it - and each ran the whole completion: CAT model, grades, event (audit
+     * 18.10.). Under the lock the state is read again, and a completed attempt stays as it is.
+     *
+     * @param int $uniqueid Id of the question usage of the attempt.
+     * @param stdClass $adaptivequiz The activity instance record.
+     * @param context_module $context
+     * @param int $userid
+     * @param string $standarderror
+     * @param string $message Why it ends.
+     * @param string|null $stopcode One of the stop_reason codes.
+     * @return bool Whether this request completed it; false when it was completed already, or another
+     *      request held the attempt all along.
+     */
+    public static function complete_attempt(
+        int $uniqueid,
+        stdClass $adaptivequiz,
+        context_module $context,
+        int $userid,
+        string $standarderror,
+        string $message,
+        ?string $stopcode
+    ): bool {
+        request_timing::start('complete_lock_wait');
+        $lock = lock_config::get_lock_factory('mod_adaptivequiz')
+            ->get_lock('adaptivequiz_itemadministration_' . $adaptivequiz->id . '_' . $userid, self::$locktimeout);
+        request_timing::stop('complete_lock_wait', ['acquired' => (bool) $lock]);
+        if (!$lock) {
+            return false;
+        }
+        try {
+            return self::complete_attempt_locked($uniqueid, $adaptivequiz, $context, $userid, $standarderror, $message, $stopcode);
+        } finally {
+            $lock->release();
+        }
+    }
+
+    /**
+     * Does the work of complete_attempt(), with the lock held.
+     *
+     * @param int $uniqueid
+     * @param stdClass $adaptivequiz
+     * @param context_module $context
+     * @param int $userid
+     * @param string $standarderror
+     * @param string $message
+     * @param string|null $stopcode
+     * @return bool Whether the attempt was completed now.
+     */
+    private static function complete_attempt_locked(
+        int $uniqueid,
+        stdClass $adaptivequiz,
+        context_module $context,
+        int $userid,
+        string $standarderror,
+        string $message,
+        ?string $stopcode
+    ): bool {
+        global $DB;
+
+        $state = $DB->get_field(
+            'adaptivequiz_attempt',
+            'attemptstate',
+            ['uniqueid' => $uniqueid, 'instance' => $adaptivequiz->id, 'userid' => $userid],
+            MUST_EXIST
+        );
+        if ($state !== attempt_state::IN_PROGRESS) {
+            return false;
+        }
+        request_timing::measure('complete_attempt', fn() => adaptivequiz_complete_attempt(
+            $uniqueid,
+            $adaptivequiz,
+            $context,
+            $userid,
+            $standarderror,
+            $message,
+            $stopcode
+        ));
+        return true;
     }
 
     /**

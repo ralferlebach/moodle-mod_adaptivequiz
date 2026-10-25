@@ -82,6 +82,11 @@ jobs:
           git clone --depth 1 --branch migration-zu-moodle-5.x https://github.com/ralferlebach/moodle-local_catquiz.git catquiz
           git clone --depth 1 --branch main \
             https://github.com/Wunderbyte-GmbH/moodle-local_wunderbyte_table.git wunderbyte_table
+          # Das CAT-Modell ist ein Subplugin des Hosts und wird mit ihm installiert. Es bringt die
+          # kombinierte Geschichte mit (mod_adaptivequiz #17).
+          git clone --depth 1 --branch v-3.0 \
+            https://github.com/ralferlebach/moodle-adaptivequizcatmodel_catquiz.git plugin/catmodel/catquiz
+          rm -rf plugin/catmodel/catquiz/.git
 
       - name: Moodle installieren
         run: |
@@ -117,9 +122,26 @@ jobs:
           npm install --no-audit --no-fund @playwright/test
           npx playwright install --with-deps chromium
 
+      # stories/catquiz-combined.spec.js gibt es im Host nicht mehr: der Host kennt kein CAT-Modell
+      # beim Namen (Architekturgrenze, #10 §13), die Geschichte liegt seit 2026092800 im Repository des
+      # CAT-Modells unter tests/playwright/. Der Schritt rief noch den alten Pfad auf und fand nichts
+      # (mod_adaptivequiz #17). Jetzt wird die Geschichte aus dem eingehaengten CAT-Modell neben die
+      # Host-Geschichten gelegt - Playwright spielt nur, was unter testDir (stories/) liegt - und ihr
+      # Verweis auf die Host-Helfer auf diesen Ort umgestellt.
       - name: Geschichten spielen
         run: |
           cd plugin/tests/playwright
+          if [ "${{ inputs.scope }}" != "standalone" ]; then
+            combined=../../catmodel/catquiz/tests/playwright/catquiz-combined.spec.js
+            if [ ! -f "$combined" ]; then
+              echo "::error::Kombinierte Geschichte fehlt im CAT-Modell: $combined"
+              exit 1
+            fi
+            sed "s#require('../../../../tests/playwright/stories/helpers')#require('./helpers')#" \
+              "$combined" > stories/catquiz-combined.spec.js
+            grep -q "require('./helpers')" stories/catquiz-combined.spec.js \
+              || { echo "::error::Verweis auf die Host-Helfer nicht umgestellt."; exit 1; }
+          fi
           case "${{ inputs.scope }}" in
             standalone) npx playwright test stories/adaptivequiz-standalone.spec.js ;;
             catquiz)    npx playwright test stories/catquiz-combined.spec.js ;;

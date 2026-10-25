@@ -59,6 +59,8 @@ final class attempt_creation_lock_test extends advanced_testcase {
         $CFG->lock_factory = '\\' . attempt_creation_lock_test_factory::class;
         attempt_creation_lock_test_factory::$before = null;
         attempt_creation_lock_test_factory::$resources = [];
+        attempt::$createlocktimeout = 10;
+        request_timing::reset_request();
     }
 
     /**
@@ -66,7 +68,94 @@ final class attempt_creation_lock_test extends advanced_testcase {
      */
     protected function tearDown(): void {
         attempt_creation_lock_test_factory::$before = null;
+        attempt::$createlocktimeout = 10;
+        request_timing::reset_request();
         parent::tearDown();
+    }
+
+    /**
+     * Holds the creation lock as the other request would.
+     *
+     * @return \core\lock\lock
+     */
+    private function hold_creation_lock(): \core\lock\lock {
+        $lock = \core\lock\lock_config::get_lock_factory('mod_adaptivequiz')
+            ->get_lock('adaptivequiz_attemptcreate_' . $this->adaptivequiz->id . '_' . $this->user->id, 0);
+        $this->assertNotFalse($lock);
+        return $lock;
+    }
+
+    /**
+     * Without the lock no attempt is created: the other request may be about to create one (issue #17).
+     *
+     * Before, a request whose wait for the lock timed out created an attempt anyway - the double attempt
+     * of issue #5 again, only later.
+     */
+    public function test_no_attempt_is_created_without_the_lock(): void {
+        $held = $this->hold_creation_lock();
+        attempt::$createlocktimeout = 0;
+        try {
+            (new attempt($this->adaptivequiz, $this->user->id))->get_attempt();
+            $this->fail('An attempt was created without the lock.');
+        } catch (\moodle_exception $e) {
+            $this->assertSame('attemptcreatelocktimeout', $e->errorcode);
+        } finally {
+            $held->release();
+        }
+
+        $this->assertCount(0, $this->open_attempts());
+        $waits = array_values(array_filter(request_timing::get_spans(), fn($s) => $s['name'] === 'attempt_create_lock_wait'));
+        $this->assertCount(1, $waits);
+        $this->assertFalse($waits[0]['meta']['acquired']);
+        $this->assertSame([], array_filter(request_timing::get_spans(), fn($s) => $s['name'] === 'attempt_create'));
+    }
+
+    /**
+     * The lock was not had in time, but the other request has created its attempt meanwhile: it is taken.
+     */
+    public function test_without_the_lock_the_attempt_of_the_other_is_taken(): void {
+        global $DB;
+        $held = $this->hold_creation_lock();
+        attempt::$createlocktimeout = 0;
+        $first = null;
+        attempt_creation_lock_test_factory::$before = function (string $resource) use (&$first, $DB) {
+            if (strpos($resource, 'adaptivequiz_attemptcreate_') !== 0 || $first !== null) {
+                return;
+            }
+            $now = time();
+            $first = (int) $DB->insert_record('adaptivequiz_attempt', (object) [
+                'instance' => $this->adaptivequiz->id, 'userid' => $this->user->id, 'uniqueid' => 0,
+                'attemptstate' => attempt_state::IN_PROGRESS, 'attemptstopcriteria' => '', 'questionsattempted' => 0,
+                'difficultysum' => 0, 'standarderror' => 999, 'measure' => 0, 'timecreated' => $now, 'timemodified' => $now,
+            ]);
+        };
+        try {
+            $attempt = new attempt($this->adaptivequiz, $this->user->id);
+            $record = $attempt->get_attempt();
+        } finally {
+            $held->release();
+        }
+
+        $this->assertSame($first, (int) $record->id);
+        $this->assertFalse($attempt->was_just_created());
+        $this->assertCount(1, $this->open_attempts());
+    }
+
+    /**
+     * Creating the attempt shows in the timeline: the wait for the lock and the insert (issue #17).
+     */
+    public function test_creation_is_measured(): void {
+        (new attempt($this->adaptivequiz, $this->user->id))->get_attempt();
+
+        $spans = array_column(request_timing::get_spans(), null, 'name');
+        $this->assertTrue($spans['attempt_create_lock_wait']['meta']['acquired']);
+        $this->assertGreaterThanOrEqual(0, $spans['attempt_create']['ms']);
+        $this->assertArrayHasKey('memkb', $spans['attempt_create']['meta']);
+
+        // A later request finds the attempt and neither waits nor creates.
+        request_timing::reset();
+        (new attempt($this->adaptivequiz, $this->user->id))->get_attempt();
+        $this->assertSame([], request_timing::get_spans());
     }
 
     /**

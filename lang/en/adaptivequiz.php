@@ -46,6 +46,7 @@ $string['attempt_summary'] = 'Attempt Summary';
 $string['attempt_user'] = 'User';
 $string['attemptclosed'] = 'The attempt has been manually closed.';
 $string['attemptclosedstatus'] = 'Manually closed by {$a->current_user_name} (user-id: {$a->current_user_id}) on {$a->now}.';
+$string['attemptcreatelocktimeout'] = 'Your attempt is just being started in another window or tab. Please wait a moment and try again.';
 $string['attemptdebuginfocaption'] = 'Attempt debugging info';
 $string['attemptdeleted'] = 'Attempt deleted for {$a->name} submitted on {$a->timecompleted}';
 $string['attemptexpiredended'] = 'The time for your previous attempt had run out, so it was ended. You can start a new attempt.';

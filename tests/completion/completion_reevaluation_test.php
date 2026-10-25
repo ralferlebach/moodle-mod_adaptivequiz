@@ -37,9 +37,9 @@ require_once($CFG->libdir . '/completionlib.php');
  * @package    mod_adaptivequiz
  * @copyright  2026 onwards Ralf Erlebach
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- * @covers \mod_adaptivequiz\attempt_state_change_observers
- * @covers ::adaptivequiz_complete_attempt
  */
+#[\PHPUnit\Framework\Attributes\CoversClass(\mod_adaptivequiz\attempt_state_change_observers::class)]
+#[\PHPUnit\Framework\Attributes\CoversFunction('adaptivequiz_complete_attempt')]
 final class completion_reevaluation_test extends advanced_testcase {
     /**
      * The eight combinations of the issue: rules on the activity, validity of the result.
@@ -62,12 +62,12 @@ final class completion_reevaluation_test extends advanced_testcase {
     /**
      * Completing an attempt gives the state the rules decide, and no second attempt.
      *
-     * @dataProvider combinations
      * @param int $attemptcompleted completionattemptcompleted
      * @param int $validresult completionvalidresult
      * @param int $resultvalid Whether the attempt has a valid result.
      * @param int $expected The expected completion state.
      */
+    #[\PHPUnit\Framework\Attributes\DataProvider('combinations')]
     public function test_completion_follows_the_rules(
         int $attemptcompleted,
         int $validresult,

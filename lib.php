@@ -573,8 +573,9 @@ function adaptivequiz_print_recent_mod_activity($activity, $courseid, $detail, $
     // Start div.
     $attr = ['class' => 'user'];
     $content .= html_writer::start_tag('div', $attr);
-    // Create anchor for link to user's profile.
-    $attr = ['href' => $CFG->wwwroot . '/user/view.php?id=' . $activity->user->id . '&amp;course=' . $courseid];
+    // Create anchor for link to user's profile. A moodle_url: html_writer escapes it once - the string
+    // with "&amp;" in it was escaped a second time.
+    $attr = ['href' => new moodle_url('/user/view.php', ['id' => $activity->user->id, 'course' => $courseid])];
     $fullname = fullname($activity->user, $viewfullnames);
     $content .= html_writer::tag('a', $fullname, $attr);
 

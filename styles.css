@@ -59,7 +59,8 @@ table.usersattemptstable {
 #page-mod-adaptivequiz-view .attempt-progress .progress-bar-wrapper {
     width: 60%;
     border-radius: 0.5rem;
-    background-color: #dee2e6;
+    /* The theme colour, the old value as fallback (Moodle 5, Bootstrap 5.3): visible in a dark theme. */
+    background-color: var(--bs-border-color, #dee2e6);
 }
 
 #page-mod-adaptivequiz-view .attempt-progress .progress-bar-inner {

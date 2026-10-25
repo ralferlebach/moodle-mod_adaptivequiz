@@ -81,7 +81,7 @@ final class mod_form_extension {
      *
      * Inserting an element lets it take its value from the submission again. That undid what the CAT
      * model had set on a reload - choosing a template put the template's values into the fields, and
-     * the move put the values of the old settings back (local_catquiz #123).
+     * the move put the values of the old settings back (CAT model, upstream issue #123).
      *
      * @param MoodleQuickForm $form
      * @param string $name

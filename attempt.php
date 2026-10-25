@@ -134,6 +134,9 @@ if ($resumeaction !== '') {
 
 // Create an instance of the adaptiveattempt class.
 $adaptiveattempt = new attempt($adaptivequiz, $USER->id);
+// The correlation id of this request, before any output or redirect: the browser, a proxy log and a CAT
+// model's trace can be matched on it (mod_adaptivequiz #17).
+request_timing::send_request_id_header();
 $nextdiff = null;
 $standarderror = 0.0;
 $message = '';
@@ -147,11 +150,13 @@ if (!empty($uniqueid) && confirm_sesskey()) {
             $quba->finish_all_questions($time);
         };
 
+        // With the context an answer that ends the attempt completes it under the item lock (audit 18.10.).
         $itemresult = request_timing::measure('process_response', fn() => cat_session::process_administered_item_result(
             (int) $uniqueid,
             $adaptivequiz,
             $adaptiveattempt,
-            $qubahelper
+            $qubahelper,
+            $context
         ));
 
         $difflevel = $itemresult->answereddifficulty;
@@ -159,15 +164,18 @@ if (!empty($uniqueid) && confirm_sesskey()) {
         $standarderror = $itemresult->standarderror;
 
         if ($itemresult->attempt_is_to_stop()) {
-            adaptivequiz_complete_attempt(
-                $uniqueid,
-                $adaptivequiz,
-                $context,
-                $USER->id,
-                $standarderror,
-                $itemresult->stoppagereason,
-                $itemresult->stopcode
-            );
+            // Completed already under the lock; this call only completes what is still open, once.
+            if (!$itemresult->completed) {
+                cat_session::complete_attempt(
+                    (int) $uniqueid,
+                    $adaptivequiz,
+                    $context,
+                    (int) $USER->id,
+                    (string) $standarderror,
+                    $itemresult->stoppagereason,
+                    $itemresult->stopcode
+                );
+            }
 
             $param = ['cmid' => $cm->id, 'id' => $cm->instance, 'uattid' => $uniqueid];
             redirect(new moodle_url('/mod/adaptivequiz/attemptfinished.php', $param));
@@ -205,7 +213,20 @@ if (isset($difflevel) && !is_null($difflevel)) {
 
 // Ask for the next item. Which implementation answers depends on the activity: the built-in
 // algorithm, or the CAT model configured for this instance. The host does not know the difference.
-$adaptiveattempt->get_attempt();
+if (!empty($uniqueid)) {
+    // An answer names its attempt: exactly that one goes on, none is created. When another request has
+    // completed it meanwhile - this POST duplicated the answer that ended it - its result is shown (audit 18.10.).
+    $attemptrecord = $adaptiveattempt->continue_attempt((int) $uniqueid);
+    if ($attemptrecord === null) {
+        redirect(new moodle_url('/mod/adaptivequiz/attemptfinished.php', ['cmid' => $cm->id, 'id' => $cm->instance,
+            'uattid' => $uniqueid]));
+    }
+} else {
+    $attemptrecord = $adaptiveattempt->get_attempt();
+}
+// Which attempt and which question this request is about - the first question of a new attempt or a
+// later one (mod_adaptivequiz #17).
+request_timing::set_attempt((int) $attemptrecord->id, (int) $attemptrecord->questionsattempted + 1);
 $adaptiveattempt->initialize_quba();
 
 try {
@@ -214,7 +235,7 @@ try {
         fn() => cat_session::administer_next_item($adaptivequiz, $adaptiveattempt)
     );
 } catch (\mod_adaptivequiz\local\catmodel\catmodel_session_exception $e) {
-    // The CAT model cannot go on with this attempt and says why (local_catquiz #96). Back to the activity
+    // The CAT model cannot go on with this attempt and says why (CAT model, upstream issue #96). Back to the activity
     // with that message; the attempt is left as it is - completing it would need the same state again.
     redirect(
         new moodle_url('/mod/adaptivequiz/view.php', ['id' => $cm->id]),
@@ -225,6 +246,11 @@ try {
 }
 
 if ($evaluation === null) {
+    // Another request has completed the attempt meanwhile (audit 18.10.): its result.
+    if (!$adaptiveattempt->still_in_progress()) {
+        redirect(new moodle_url('/mod/adaptivequiz/attemptfinished.php', ['cmid' => $cm->id, 'id' => $cm->instance,
+            'uattid' => (int) $attemptrecord->uniqueid]));
+    }
     // A concurrent request is already administering an item for this attempt. Send the user back to
     // the activity rather than risk a second slot for the same item.
     redirect(new moodle_url('/mod/adaptivequiz/view.php', ['id' => $cm->id]));
@@ -236,6 +262,17 @@ if ($evaluation->item_administration_is_to_stop()) {
     // The standard error comes from processing the last answer, if there was one.
     $noquestionsfetchedforattempt = $uniqueid == 0;
     if ($noquestionsfetchedforattempt) {
+        if ($adaptivequiz->catmodel && (string) $message !== '') {
+            // A CAT model that cannot start the attempt says why - e.g. settings no attempt can meet (CAT model,
+            // upstream issue #60). Back to the activity with that reason instead of the generic error; the empty
+            // attempt is left as it is and starts once the settings are corrected.
+            redirect(
+                new moodle_url('/mod/adaptivequiz/view.php', ['id' => $cm->id]),
+                $message,
+                null,
+                \core\output\notification::NOTIFY_ERROR
+            );
+        }
         // The script will try to complete an 'empty' attempt as it couldn't fetch the first question for some reason.
         // This is an invalid behaviour, which could be caused by a misconfigured questions pool. Stop it here.
         throw new moodle_exception(
@@ -245,13 +282,14 @@ if ($evaluation->item_administration_is_to_stop()) {
         );
     }
 
-    adaptivequiz_complete_attempt(
-        $uniqueid,
+    // Once, under the item lock: another request may be ending the same attempt (audit 18.10.).
+    cat_session::complete_attempt(
+        (int) $uniqueid,
         $adaptivequiz,
         $context,
-        $USER->id,
-        $standarderror,
-        $message,
+        (int) $USER->id,
+        (string) $standarderror,
+        (string) $message,
         $evaluation->stop_code()
     );
     // Redirect the user to the attemptfeedback page.
@@ -307,7 +345,9 @@ if (!empty($adaptivequiz->password) && empty($condition)) {
 
     $mform->display();
 } else {
-    $attemptrecord = $adaptiveattempt->get_attempt();
+    // Read again, never created: get_attempt() would start a new attempt if another request had just
+    // completed this one (audit 18.10.).
+    $attemptrecord = $DB->get_record('adaptivequiz_attempt', ['id' => $attemptrecord->id], '*', MUST_EXIST);
 
     if ($adaptivequiz->showattemptprogress) {
         echo $output->container_start('attempt-progress-container');

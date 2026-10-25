@@ -44,6 +44,7 @@ $string['attempt_summary'] = 'Résumé de la tentative';
 $string['attempt_user'] = 'utilisateur';
 $string['attemptclosed'] = 'La tentative a été clôturée manuellement';
 $string['attemptclosedstatus'] = 'Tentative clôturée manuellement par {$a->current_user_name} (user-id: {$a->current_user_id}) le {$a->now}.';
+$string['attemptcreatelocktimeout'] = 'Votre tentative est en cours de démarrage dans une autre fenêtre ou un autre onglet. Veuillez patienter un instant et réessayer.';
 $string['attemptdeleted'] = 'Tentative supprimée pour {$a->name} soumise à  {$a->timecompleted}';
 $string['attemptfeedback'] = 'Commentaire';
 $string['attemptfeedback_help'] = 'Un commentaire est proposé à l’utilisateur une fois la session est terminée';

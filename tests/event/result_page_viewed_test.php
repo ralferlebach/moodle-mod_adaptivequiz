@@ -31,9 +31,9 @@ require_once($CFG->dirroot . '/mod/adaptivequiz/locallib.php');
  * @package    mod_adaptivequiz
  * @copyright  2026 onwards Ralf Erlebach
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- * @covers \mod_adaptivequiz\event\result_page_viewed
- * @covers ::adaptivequiz_result_page_attempt
  */
+#[\PHPUnit\Framework\Attributes\CoversClass(\mod_adaptivequiz\event\result_page_viewed::class)]
+#[\PHPUnit\Framework\Attributes\CoversFunction('adaptivequiz_result_page_attempt')]
 final class result_page_viewed_test extends advanced_testcase {
     /**
      * Files a completed attempt of a new activity.

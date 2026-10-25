@@ -31,8 +31,8 @@ use advanced_testcase;
  * @package    mod_adaptivequiz
  * @copyright  2026 onwards Ralf Erlebach
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- * @covers \mod_adaptivequiz\item_bank
  */
+#[\PHPUnit\Framework\Attributes\CoversClass(\mod_adaptivequiz\item_bank::class)]
 final class item_bank_readiness_test extends advanced_testcase {
     /**
      * Without a CAT model, the host's own conditions apply - here: nothing linked, not ready.

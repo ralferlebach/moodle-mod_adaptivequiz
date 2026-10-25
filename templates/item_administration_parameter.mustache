@@ -32,11 +32,11 @@
     }
 }}
 <div class="row">
-    <div class="col-4 text-right font-weight-bold">{{name}}:</div>
+    <div class="col-4 text-end fw-bold">{{name}}:</div>
     <div class="col-2">{{value}}</div>
     <div class="col-2">
         <span
-            class="badge {{^error}}bg-success{{/error}}{{#error}}bg-danger{{/error}} text-white"
+            class="badge {{^error}}text-bg-success{{/error}}{{#error}}text-bg-danger{{/error}}"
         >
             {{^error}}{{#str}} ok {{/str}}{{/error}}{{#error}}{{error}}{{/error}}
         </span>

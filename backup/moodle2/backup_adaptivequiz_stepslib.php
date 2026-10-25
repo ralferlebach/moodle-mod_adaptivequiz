@@ -40,7 +40,7 @@ class backup_adaptivequiz_activity_structure_step extends backup_questions_activ
             'maximumquestions', 'standarderror', 'startinglevel', 'timecreated', 'timemodified', 'completionattemptcompleted',
             'completionvalidresult', 'catmodel', 'grademethod', 'passscore'];
         $adaptivequiz = new backup_nested_element('adaptivequiz', ['id'], $nodes);
-        // What the CAT model keeps for the activity - CATquiz: the test settings (adaptivequizcatmodel_catquiz #1).
+        // What the CAT model keeps for the activity, e.g. its test settings (CAT model adapter, issue #1).
         // Without it, a duplicated or restored activity had no settings of its own.
         $this->add_subplugin_structure('adaptivequizcatmodel', $adaptivequiz, false);
 

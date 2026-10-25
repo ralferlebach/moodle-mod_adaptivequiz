@@ -21,6 +21,7 @@ use advanced_testcase;
 use context_module;
 use mod_adaptivequiz\local\attempt;
 use mod_adaptivequiz\local\attempt\stop_reason;
+use mod_adaptivequiz\local\request_timing;
 use stdClass;
 
 defined('MOODLE_INTERNAL') || die();
@@ -114,6 +115,7 @@ final class cat_session_test extends advanced_testcase {
      * Resets what the fixture CAT model answers.
      */
     protected function tearDown(): void {
+        \mod_adaptivequiz\local\request_timing::reset_request();
         serve_fixed_question_administration::$questionid = null;
         serve_fixed_question_administration::$slot = null;
         serve_fixed_question_administration::$questionsequence = [];
@@ -381,8 +383,14 @@ final class cat_session_test extends advanced_testcase {
 
         // Named again: the answered one first, then another one.
         serve_fixed_question_administration::$questionsequence = [$this->questionids[0], $this->questionids[1]];
+        request_timing::reset();
         $evaluation = cat_session::administer_next_item($this->adaptivequiz, $attempt);
         $this->assertDebuggingCalled();
+        // Each ask is a selection of its own in the timeline, the further one numbered (issue #17).
+        $selections = array_values(array_filter(request_timing::get_spans(), fn($s) => $s['name'] === 'select_item'));
+        $this->assertCount(2, $selections);
+        $this->assertArrayNotHasKey('retry', $selections[0]['meta']);
+        $this->assertSame(1, $selections[1]['meta']['retry']);
 
         $this->assertFalse($evaluation->item_administration_is_to_stop(), 'The test was ended.');
         $slots = $attempt->get_quba()->get_slots();
@@ -583,5 +591,135 @@ final class cat_session_test extends advanced_testcase {
             get_string('stopnotice_timelimit', 'adaptivequiz'),
             \mod_adaptivequiz\local\attempt\stop_reason::notice($record)->text
         );
+    }
+
+    /**
+     * The spans of the request that administers the first item, by name; the children of question_usage.
+     *
+     * @param array $spans
+     * @return array [spans by name, names of the children of question_usage]
+     */
+    private static function timeline(array $spans): array {
+        $byname = [];
+        $children = [];
+        $usage = null;
+        foreach ($spans as $span) {
+            $byname[$span['name']] = $span;
+            if ($span['name'] === 'question_usage') {
+                $usage = $span['depth'];
+                continue;
+            }
+            if ($usage !== null && $span['depth'] <= $usage) {
+                $usage = null;
+            }
+            if ($usage !== null && $span['depth'] === $usage + 1) {
+                $children[] = $span['name'];
+            }
+        }
+        return [$byname, $children];
+    }
+
+    /**
+     * The first item of a new attempt shows its parts in the timeline (issue #17).
+     *
+     * Creating the attempt, telling the CAT model, selecting, loading the question and the question
+     * usage with its own steps - each measured, with duration and memory.
+     */
+    public function test_timeline_of_the_first_item(): void {
+        $this->resetAfterTest();
+        $this->set_up_activity('testcatmodel');
+        serve_fixed_question_administration::$questionid = $this->questionids[0];
+        request_timing::reset_request();
+
+        $attempt = $this->new_request();
+        $this->assertNotNull(cat_session::administer_next_item($this->adaptivequiz, $attempt));
+
+        [$spans, $children] = self::timeline(request_timing::get_spans());
+        $expected = ['attempt_create_lock_wait', 'attempt_create', 'lock_wait', 'catmodel_attempt_created', 'select_item',
+            'load_question', 'question_usage', 'quba_add', 'quba_start', 'quba_save'];
+        foreach ($expected as $name) {
+            $this->assertArrayHasKey($name, $spans, $name);
+            $this->assertGreaterThanOrEqual(0, $spans[$name]['ms'], $name);
+            $this->assertIsInt($spans[$name]['meta']['memkb'], $name);
+            $this->assertIsInt($spans[$name]['meta']['peakkb'], $name);
+        }
+        $this->assertSame(['quba_add', 'quba_start', 'quba_save', 'quba_load'], $children);
+        $this->assertSame(1, $spans['question_usage']['meta']['slots']);
+        $this->assertIsInt($spans['load_question']['meta']['dbreads']);
+        $this->assertTrue($spans['attempt_create_lock_wait']['meta']['acquired']);
+        $this->assertTrue($spans['lock_wait']['meta']['acquired']);
+    }
+
+    /**
+     * Answering shows its parts: the usage loaded, the answer processed, saved, the CAT model told (issue #17).
+     */
+    public function test_timeline_of_an_answer(): void {
+        $this->resetAfterTest();
+        $this->set_up_activity('testcatmodel');
+        serve_fixed_question_administration::$questionid = $this->questionids[0];
+        $attempt = $this->new_request();
+        cat_session::administer_next_item($this->adaptivequiz, $attempt);
+        request_timing::reset();
+
+        cat_session::process_administered_item_result(
+            (int) $attempt->get_quba()->get_id(),
+            $this->adaptivequiz,
+            $attempt,
+            $this->answer_helper($attempt, true)
+        );
+
+        $this->assertSame(
+            ['answer_lock_wait', 'quba_load', 'quba_process', 'quba_save', 'catmodel_item_result'],
+            array_column(request_timing::get_spans(), 'name')
+        );
+    }
+
+    /**
+     * Measuring changes nothing: with a full buffer - nothing recorded - the same question in the same slot.
+     */
+    public function test_selection_is_the_same_with_and_without_measuring(): void {
+        $this->resetAfterTest();
+        $this->set_up_activity('testcatmodel');
+        serve_fixed_question_administration::$questionid = $this->questionids[2];
+
+        request_timing::reset_request();
+        $measured = $this->new_request();
+        cat_session::administer_next_item($this->adaptivequiz, $measured);
+        $this->assertNotEmpty(request_timing::get_spans());
+
+        $this->user = $this->getDataGenerator()->create_user();
+        $this->setUser($this->user);
+        request_timing::reset_request();
+        for ($i = 0; $i < request_timing::MAX_SPANS; $i++) {
+            request_timing::measure('filler', fn() => null);
+        }
+        $unmeasured = $this->new_request();
+        cat_session::administer_next_item($this->adaptivequiz, $unmeasured);
+        $this->assertSame(['filler'], array_unique(array_column(request_timing::get_spans(), 'name')));
+        $this->assertGreaterThan(0, request_timing::summary()['dropped']);
+
+        $this->assertSame($measured->get_question_slot_number(), $unmeasured->get_question_slot_number());
+        $this->assertSame(
+            $measured->get_quba()->get_question($measured->get_question_slot_number())->id,
+            $unmeasured->get_quba()->get_question($unmeasured->get_question_slot_number())->id
+        );
+        $this->assertCount(1, $unmeasured->get_quba()->get_slots());
+    }
+
+    /**
+     * The built-in algorithm measures the same parts of the question usage.
+     */
+    public function test_timeline_of_the_built_in_algorithm(): void {
+        $this->resetAfterTest();
+        $this->set_up_activity();
+        request_timing::reset_request();
+
+        $attempt = $this->new_request();
+        cat_session::administer_next_item($this->adaptivequiz, $attempt);
+
+        [$spans, $children] = self::timeline(request_timing::get_spans());
+        $this->assertSame(['quba_add', 'quba_start', 'quba_save'], $children);
+        $this->assertSame(1, $spans['question_usage']['meta']['slots']);
+        $this->assertArrayHasKey('dbreads', $spans['load_question']['meta']);
     }
 }
