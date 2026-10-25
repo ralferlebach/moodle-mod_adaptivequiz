@@ -84,7 +84,10 @@ export const init = async(attemptid) => {
             removeOnClose: true,
         });
         // The dialog is named by its title; it is described by the reason, so a screen reader reads both.
-        const dialog = modal.getRoot()[0].querySelector('[role="dialog"]');
+        // The root of a Moodle modal is itself the element with role="dialog" (core/modal template); a search
+        // below it found nothing, and the description was never set.
+        const root = modal.getRoot()[0];
+        const dialog = root.matches('[role="dialog"]') ? root : root.querySelector('[role="dialog"]');
         const reason = modal.getBody()[0].querySelector('[data-region="text"]');
         if (dialog && reason) {
             reason.id = 'adaptivequiz-stopnotice-dialog-text';

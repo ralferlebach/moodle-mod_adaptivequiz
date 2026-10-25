@@ -287,7 +287,7 @@ class mod_adaptivequiz_mod_form extends moodleform_mod {
 
             foreach ($formelements as $formelement) {
                 // Inserting lets the element take its value from the submission again, which undid what the
-                // CAT model set on a reload - the values of a chosen template (local_catquiz #123). Keep them.
+                // CAT model set on a reload - the values of a chosen template (CAT model, upstream issue #123). Keep them.
                 // No loop variable is handed to insertElementBefore(): it keeps a reference to what it gets, and
                 // the next iteration would overwrite every element inserted so far through that variable.
                 $current = $form->elementExists($formelement->getName()) ? $form->getElement($formelement->getName()) : null;

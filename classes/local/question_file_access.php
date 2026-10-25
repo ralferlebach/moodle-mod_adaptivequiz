@@ -42,6 +42,12 @@ final class question_file_access {
     public const REVIEW_CALLBACK = 'completed_attempt_review_allowed';
 
     /**
+     * @var bool|null Test seam: what a CAT model would answer. This line has no fixture CAT model; the tests
+     *     set the answer here instead of writing the tables of a real one (the host knows no CAT model).
+     */
+    public static ?bool $testreviewallowed = null;
+
+    /**
      * Checks access to the question files of an attempt and logs the user in to the course.
      *
      * @param stdClass $attemptrec The adaptivequiz_attempt record the question usage belongs to.
@@ -196,6 +202,9 @@ final class question_file_access {
      * @return bool
      */
     private static function catmodel_releases_review(stdClass $adaptivequiz, stdClass $attemptrec): bool {
+        if (self::$testreviewallowed !== null) {
+            return self::$testreviewallowed;
+        }
         if (empty($adaptivequiz->catmodel)) {
             return false;
         }

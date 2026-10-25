@@ -17,7 +17,7 @@
 namespace mod_adaptivequiz\local\catmodel;
 
 /**
- * A CAT model cannot go on with an attempt, and says why in words for the person (local_catquiz #96).
+ * A CAT model cannot go on with an attempt, and says why in words for the person (CAT model, upstream issue #96).
  *
  * Thrown by a CAT model while it selects the next item. The activity catches exactly this type: the person
  * goes back to the activity page with the message, the attempt stays as it is - not completed, nothing

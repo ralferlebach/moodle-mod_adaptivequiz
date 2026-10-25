@@ -130,6 +130,9 @@ if ($resumeaction !== '') {
 
 // Create an instance of the adaptiveattempt class.
 $adaptiveattempt = new attempt($adaptivequiz, $USER->id);
+// The correlation id of this request, before any output or redirect: the browser, a proxy log and a CAT
+// model's trace can be matched on it (mod_adaptivequiz #17).
+request_timing::send_request_id_header();
 $standarderror = 0.0;
 $message = '';
 
@@ -142,9 +145,9 @@ if (!empty($uniqueid) && confirm_sesskey()) {
             $quba->process_all_actions($time);
             $quba->finish_all_questions($time);
         };
-        request_timing::measure(
+        $processed = request_timing::measure(
             'process_response',
-            fn() => cat_session::process_administered_item_result($uniqueid, $adaptivequiz, $adaptiveattempt, $qubahelper)
+            fn() => cat_session::process_administered_item_result($uniqueid, $adaptivequiz, $adaptiveattempt, $qubahelper, $context)
         );
     } catch (question_out_of_sequence_exception $e) {
         $url = new moodle_url('/mod/adaptivequiz/attempt.php', array('cmid' => $id));
@@ -159,6 +162,15 @@ if (!empty($uniqueid) && confirm_sesskey()) {
 
         throw new moodle_exception('errorprocessingresponses', 'question', $url, $e->getMessage(), $debuginfo);
     }
+    // A second POST of an answer already processed (audit 18.10.): nothing was changed. If that answer ended
+    // the attempt, its result is shown - the item administration below would start a new attempt.
+    if (!$processed) {
+        $running = ['uniqueid' => $uniqueid, 'attemptstate' => \mod_adaptivequiz\local\attempt\attempt_state::IN_PROGRESS];
+        if (!$DB->record_exists('adaptivequiz_attempt', $running)) {
+            $param = ['cmid' => $cm->id, 'id' => $cm->instance, 'uattid' => $uniqueid];
+            redirect(new moodle_url('/mod/adaptivequiz/attemptfinished.php', $param));
+        }
+    }
 }
 
 try {
@@ -167,7 +179,7 @@ try {
         fn() => cat_session::run_item_administration($uniqueid, $adaptivequiz, $context, $adaptiveattempt)
     );
 } catch (\mod_adaptivequiz\local\catmodel\catmodel_session_exception $e) {
-    // The CAT model cannot go on with this attempt and says why (local_catquiz #96). Back to the activity
+    // The CAT model cannot go on with this attempt and says why (CAT model, upstream issue #96). Back to the activity
     // with that message; the attempt is left as it is - completing it would need the same state again.
     redirect(
         new moodle_url('/mod/adaptivequiz/view.php', ['id' => $cm->id]),

@@ -76,11 +76,19 @@ final class question_pluginfile_test extends advanced_testcase {
     private context $qcontext;
 
     /**
-     * A course, the activity with the test CAT model, two questions with a file each, and an attempt
-     * of the owner with the first question in slot 1.
+     * The answer of the CAT model is reset for the next test.
+     */
+    protected function tearDown(): void {
+        question_file_access::$testreviewallowed = null;
+        parent::tearDown();
+    }
+
+    /**
+     * A course, the activity, two questions with a file each, and an attempt of the owner with the first
+     * question in slot 1. What the CAT model answers about the review is set by the tests.
      */
     protected function setUp(): void {
-        global $CFG, $DB;
+        global $DB;
         parent::setUp();
         $this->resetAfterTest();
 
@@ -90,9 +98,6 @@ final class question_pluginfile_test extends advanced_testcase {
             'course' => $this->course->id, 'highestlevel' => 10, 'lowestlevel' => 1, 'standarderror' => 14,
             'attemptfeedbackeditor' => ['text' => '', 'format' => FORMAT_MOODLE],
         ]);
-        if (file_exists($CFG->dirroot . '/mod/adaptivequiz/catmodel/catquiz/lib.php')) {
-            $DB->set_field('adaptivequiz', 'catmodel', 'catquiz', ['id' => $instance->id]);
-        }
         $this->adaptivequiz = $DB->get_record('adaptivequiz', ['id' => $instance->id], '*', MUST_EXIST);
         $cm = get_coursemodule_from_instance('adaptivequiz', $instance->id);
         $this->modcontext = context_module::instance($cm->id);
@@ -121,13 +126,8 @@ final class question_pluginfile_test extends advanced_testcase {
             'difficultysum' => 0, 'standarderror' => 0, 'measure' => 0, 'timecreated' => time(), 'timemodified' => time(),
         ];
         $this->attempt->id = $DB->insert_record('adaptivequiz_attempt', $this->attempt);
-        if ($this->adaptivequiz->catmodel === 'catquiz') {
-            $DB->insert_record('local_catquiz_tests', (object) [
-                'name' => 'Test', 'component' => 'mod_adaptivequiz', 'componentid' => $this->adaptivequiz->id,
-                'json' => json_encode(['catquiz_showquestion' => 1]), 'status' => 0, 'parentid' => 0,
-                'courseid' => $this->course->id, 'usermodified' => 2, 'timecreated' => time(), 'timemodified' => time(),
-            ]);
-        }
+        // What the CAT model answers is set by the tests (question_file_access::$testreviewallowed).
+        question_file_access::$testreviewallowed = false;
     }
 
     /**
@@ -136,17 +136,7 @@ final class question_pluginfile_test extends advanced_testcase {
      * @param bool $released
      */
     private function release_review(bool $released): void {
-        global $DB;
-        if ($this->adaptivequiz->catmodel !== 'catquiz') {
-            $this->markTestSkipped('The owner\'s review is released by a CAT model; the CATquiz adapter is not installed.');
-        }
-        $DB->set_field(
-            'local_catquiz_tests',
-            'json',
-            json_encode(['catquiz_showquestion' => $released ? 1 : 0]),
-            ['component' => 'mod_adaptivequiz', 'componentid' => $this->adaptivequiz->id]
-        );
-        \cache_helper::purge_all();
+        question_file_access::$testreviewallowed = $released;
     }
 
     /**
@@ -313,10 +303,8 @@ final class question_pluginfile_test extends advanced_testcase {
      */
     public function test_only_the_question_in_the_slot(): void {
         $teacher = $this->getDataGenerator()->create_and_enrol($this->course, 'editingteacher');
-        $users = [$teacher];
-        if ($this->adaptivequiz->catmodel === 'catquiz') {
-            $users[] = $this->owner;
-        }
+        $users = [$teacher, $this->owner];
+        $this->release_review(true);
         foreach ($users as $user) {
             $this->setUser($user);
             $this->assertSame(self::CONTENT, $this->fetch($this->question));

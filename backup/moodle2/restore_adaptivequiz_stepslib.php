@@ -36,7 +36,7 @@ class restore_adaptivequiz_activity_structure_step extends restore_questions_act
 
         $adaptivequiz = new restore_path_element('adaptivequiz', '/activity/adaptivequiz');
         $paths[] = $adaptivequiz;
-        // The CAT model's own data, see the backup step (adaptivequizcatmodel_catquiz #1).
+        // The CAT model's own data, see the backup step (CAT model adapter, issue #1).
         $this->add_subplugin_structure('adaptivequizcatmodel', $adaptivequiz);
 
         $paths[] = new restore_path_element(

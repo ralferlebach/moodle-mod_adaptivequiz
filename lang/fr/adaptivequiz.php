@@ -50,6 +50,7 @@ $string['adaptivequiz:addinstance'] = 'Ajoutez un nouveau questionnaire adaptati
 $string['adaptivequiz:viewreport'] = 'Voir les rapports du questionnaire adaptatif';
 $string['adaptivequiz:reviewattempts'] = 'Revoir les propositions du questionnaire adaptatif';
 $string['adaptivequiz:attempt'] = 'Débuter un test adaptatif';
+$string['attemptcreatelocktimeout'] = 'Votre tentative est en cours de démarrage dans une autre fenêtre ou un autre onglet. Veuillez patienter un instant et réessayer.';
 $string['attemptsallowed'] = 'Nombre de tentative autorisée';
 $string['attemptsallowed_help'] = 'Nombre de tentative autorisée pour le candidat';
 $string['requirepassword'] = 'Mot de passe requis';

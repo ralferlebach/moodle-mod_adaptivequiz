@@ -34,6 +34,7 @@
 
 defined('MOODLE_INTERNAL') || die();
 
+$string['attemptcreatelocktimeout'] = 'Ihr Versuch wird gerade in einem anderen Fenster oder Tab gestartet. Bitte warten Sie einen Moment und versuchen Sie es erneut.';
 $string['attemptexpiredended'] = 'Die Zeit für Ihren vorherigen Versuch war abgelaufen, deshalb wurde er beendet. Sie können einen neuen Versuch beginnen.';
 $string['btnbacktotest'] = 'Zurück zum Test';
 $string['btncontinuetocourse'] = 'Weiter zum Kurs';

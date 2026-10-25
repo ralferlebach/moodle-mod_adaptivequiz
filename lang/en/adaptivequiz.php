@@ -27,6 +27,7 @@ defined('MOODLE_INTERNAL') || die();
 
 $string['abilityestimated'] = 'Estimated ability';
 $string['abilityestimated_help'] = 'The estimated ability of a test-taker aligns with the question difficulty at which the test-taker has a 50% probability of answering the question correctly. To identify the performance level, match the ability value with the questions level range (see the range after the \'/\' symbol).';
+$string['attemptcreatelocktimeout'] = 'Your attempt is just being started in another window or tab. Please wait a moment and try again.';
 $string['attemptexpiredended'] = 'The time for your previous attempt had run out, so it was ended. You can start a new attempt.';
 $string['attemptfeedbackdefaulttext'] = 'You\'ve finished the attempt, thank you for taking the quiz!';
 $string['attemptquestion_ability'] = 'Ability Measure';

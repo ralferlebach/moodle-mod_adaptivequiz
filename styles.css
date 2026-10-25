@@ -46,8 +46,9 @@ table.adpq_answers_table thead:first-child th.section {
 .usersattemptstable-wrapper {
     margin-top: 1rem;
 }
-.usersattemptstable {
-    margin-bottom: 0.75rem !important;
+/* Specific enough to win over the table margin of the theme without !important. */
+table.usersattemptstable {
+    margin-bottom: 0.75rem;
 }
 
 .attempt-controls-or-notification-container {
