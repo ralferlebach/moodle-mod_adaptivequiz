@@ -107,3 +107,38 @@ Feature: An unexpected end of the attempt is explained before the feedback
     And I should see "There are no further suitable questions for you at the moment"
     And I should see "You've finished the attempt, thank you for taking the quiz!"
     And "Continue to course" "link" should exist
+
+  @javascript @accessibility
+  Scenario Outline: An end the person did not choose is explained in an accessible dialog (<code>)
+    Given the following "activity" exists:
+      | activity          | adaptivequiz            |
+      | idnumber          | adaptivequiz1           |
+      | course            | C1                      |
+      | name              | Adaptive Quiz           |
+      | startinglevel     | 1                       |
+      | lowestlevel       | 1                       |
+      | highestlevel      | 3                       |
+      | minimumquestions  | 1                       |
+      | maximumquestions  | 5                       |
+      | standarderror     | 1                       |
+    And "student1" has finished an attempt at "adaptivequiz1" that ended with "<code>"
+    And I log in as "student1"
+    When I open the result page of my last attempt at "adaptivequiz1"
+    Then I should see "<text>" in the "<title>" "dialogue"
+    And the "<title>" "dialogue" should meet accessibility standards with "wcag131, wcag141, wcag412" extra tests
+    And the "<title>" dialogue is named by its title and described by "<text>"
+    And the attempt feedback is hidden from assistive technology
+    And the focus stays in the open dialogue when I press tab 4 times
+    When I press the escape key
+    Then "<title>" "dialogue" should not exist
+    And the attempt feedback is available to assistive technology
+    And "Continue to course" "link" should be visible
+    And I should see "<text>"
+
+    Examples:
+      | code         | title                                      | text                                                  |
+      | timelimit    | Your test has ended                        | The time available for this test has run out          |
+      | manual       | Your test has ended                        | Your attempt was closed by a teacher                  |
+      | restarted    | Your test has ended                        | You ended this attempt to start a new one             |
+      | error        | Your test was ended by a technical problem | could not be continued because of a technical problem |
+      | somethingnew | Your test has ended                        | Your test was ended automatically                     |

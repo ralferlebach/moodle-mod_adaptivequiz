@@ -36,6 +36,9 @@ final class resume_actions {
     /**
      * Ends the open attempt to start a new one.
      *
+     * An attempt whose time ran out while the choice was open is ended by the time limit (stop reason timelimit),
+     * not by the new start.
+     *
      * @param stdClass $adaptivequiz
      * @param context_module $context
      * @param int $userid
@@ -48,12 +51,15 @@ final class resume_actions {
             if ($attempt === null) {
                 return false;
             }
+            // The time of the attempt may have run out while the choice was on the screen: then the time limit
+            // ended it, as the activity page would have - not the new start.
+            $expired = resume_state::classify($adaptivequiz, $attempt) === resume_state::EXPIRED;
             return adaptivequiz_complete_attempt_by_id(
                 $attemptid,
                 $adaptivequiz,
                 $context,
-                get_string('stopnotice_restarted', 'adaptivequiz'),
-                stop_reason::RESTARTED
+                get_string($expired ? 'stopnotice_timelimit' : 'stopnotice_restarted', 'adaptivequiz'),
+                $expired ? stop_reason::TIMELIMIT : stop_reason::RESTARTED
             );
         });
     }
