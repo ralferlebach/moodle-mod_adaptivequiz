@@ -1,0 +1,4 @@
+plugin-probe: classifier exit 1
+core-only control: classifier exit 0
+clean: classifier exit 0
+empty log (infrastructure): classifier exit 3

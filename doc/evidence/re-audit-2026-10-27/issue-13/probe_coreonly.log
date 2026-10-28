@@ -1,0 +1,13 @@
+Moodle 5.3+ (Build: 20261021)
+Php: 8.3.6, pgsql: 17.11 (Ubuntu 17.11-1.pgdg24.04+2), OS: Linux 6.18.44-fc-v180 x86_64
+PHPUnit 11.5.56 by Sebastian Bergmann and contributors.
+
+Runtime:       PHP 8.3.6
+Configuration: /home/claude/moodle53/phpunit.xml
+
+......                                                              6 / 6 (100%)
+
+Time: 00:04.928, Memory: 72.50 MB
+
+OK (6 tests, 19 assertions)
+PHP Deprecated:  artificial core deprecation in /home/claude/moodle53/public/lib/moodlelib.php on line 10

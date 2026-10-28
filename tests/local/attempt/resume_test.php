@@ -230,6 +230,25 @@ final class resume_test extends advanced_testcase {
     }
 
     /**
+     * The time of the attempt runs out while the choice is on the screen; the person then starts anew. The time
+     * limit ended the attempt - its stop reason and notice say so - not the new start.
+     */
+    public function test_restart_of_an_attempt_out_of_time_records_the_time_limit(): void {
+        global $DB;
+        $record = $this->attempt_with_a_pending_question(10);
+        $GLOBALS['adaptivequizcatmodel_testcatmodel_limits'] = ['attempt' => 600];
+        $DB->set_field('adaptivequiz_attempt', 'timecreated', time() - 1000, ['id' => $record->id]);
+
+        $this->assertTrue(resume_actions::restart($this->adaptivequiz, $this->context, (int) $this->user->id, (int) $record->id));
+
+        $ended = $DB->get_record('adaptivequiz_attempt', ['id' => $record->id]);
+        $this->assertSame(attempt_state::COMPLETED, $ended->attemptstate);
+        $this->assertSame(stop_reason::TIMELIMIT, $ended->stopcode);
+        $this->assertNotEmpty($ended->timefinished);
+        $this->assertSame([(int) $record->uniqueid], adaptivequizcatmodel_testcatmodel_completed_attempts());
+    }
+
+    /**
      * An attempt without any question - uniqueid 0, of which there can be several - is completed by its id.
      */
     public function test_an_attempt_without_a_question_is_completed_by_its_id(): void {

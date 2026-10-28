@@ -1,0 +1,15 @@
+Moodle `unbekannt` · PHP 8.3.6 · PHPUnit-Exit 1 · Tests 7
+
+**Gate: PLUGIN=1 → FAIL; Infrastruktur: OK**
+
+| Origin | Distinct | Total |
+|---|---|---|
+| PLUGIN | 1 | 1 |
+| CATMODEL | 0 | 0 |
+| MOODLE_CORE | 0 | 0 |
+| DEPENDENCY | 0 | 0 |
+| UNKNOWN | 0 | 0 |
+
+**PLUGIN DEPRECATION** - in mod_adaptivequiz itself:
+
+- `/home/claude/moodle53/public/mod/adaptivequiz/tests/zz_canary_probe_test.php:13: artificial plugin deprecation for the canary gate`

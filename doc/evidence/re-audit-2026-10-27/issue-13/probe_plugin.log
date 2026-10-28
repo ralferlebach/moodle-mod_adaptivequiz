@@ -1,0 +1,18 @@
+Moodle 5.3+ (Build: 20261021)
+Php: 8.3.6, pgsql: 17.11 (Ubuntu 17.11-1.pgdg24.04+2), OS: Linux 6.18.44-fc-v180 x86_64
+PHPUnit 11.5.56 by Sebastian Bergmann and contributors.
+
+Runtime:       PHP 8.3.6
+Configuration: /home/claude/moodle53/phpunit.xml
+
+D......                                                             7 / 7 (100%)
+
+Time: 00:08.817, Memory: 74.50 MB
+
+1 test triggered 1 deprecation:
+
+1) /home/claude/moodle53/public/mod/adaptivequiz/tests/zz_canary_probe_test.php:13
+artificial plugin deprecation for the canary gate
+
+OK, but there were issues!
+Tests: 7, Assertions: 20, Deprecations: 1, PHPUnit Deprecations: 1.

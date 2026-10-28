@@ -1,0 +1,38 @@
+{
+  "CATMODEL": {
+    "distinct": 0,
+    "total": 0
+  },
+  "DEPENDENCY": {
+    "distinct": 0,
+    "total": 0
+  },
+  "MOODLE_CORE": {
+    "distinct": 0,
+    "total": 0
+  },
+  "PLUGIN": {
+    "distinct": 0,
+    "total": 0
+  },
+  "UNKNOWN": {
+    "distinct": 0,
+    "total": 0
+  },
+  "gate": {
+    "infrastructure": "FEHLER",
+    "plugin": 0,
+    "problems": [
+      "log is empty",
+      "no PHPUnit result in the log (\"Tests: N\" / \"OK (N tests\")"
+    ],
+    "result": "PASS"
+  },
+  "meta": {
+    "expect_phpunit": true,
+    "moodle_sha": null,
+    "php_version": null,
+    "phpunit_exit": null,
+    "tests_run": null
+  }
+}

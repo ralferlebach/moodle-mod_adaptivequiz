@@ -1,0 +1,3 @@
+loaduser1: 160 answered, end /mod/adaptivequiz/attemptfinished.php?cmid=5&id=2&uattid=165, result {'exception': False, 'progressmissing': False, 'lazyregions': 2, 'lazyfailed': 0}
+163 requests in 1070.5 s; status {200: 163}; attempts with a problem: 0
+client exit 0

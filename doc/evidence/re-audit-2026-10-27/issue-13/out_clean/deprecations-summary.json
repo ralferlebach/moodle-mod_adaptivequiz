@@ -1,0 +1,35 @@
+{
+  "CATMODEL": {
+    "distinct": 0,
+    "total": 0
+  },
+  "DEPENDENCY": {
+    "distinct": 0,
+    "total": 0
+  },
+  "MOODLE_CORE": {
+    "distinct": 0,
+    "total": 0
+  },
+  "PLUGIN": {
+    "distinct": 0,
+    "total": 0
+  },
+  "UNKNOWN": {
+    "distinct": 0,
+    "total": 0
+  },
+  "gate": {
+    "infrastructure": "OK",
+    "plugin": 0,
+    "problems": [],
+    "result": "PASS"
+  },
+  "meta": {
+    "expect_phpunit": true,
+    "moodle_sha": null,
+    "php_version": "8.3.6",
+    "phpunit_exit": 0,
+    "tests_run": 6
+  }
+}
