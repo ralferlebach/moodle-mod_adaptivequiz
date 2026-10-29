@@ -1,5 +1,15 @@
 # Changelog – mod_adaptivequiz (ALiSe)
 
+## 2026102801 – CI-Logs und #17 vom 28.10.2026
+
+- CI, Job „PHP 8.5 · Canary“ (#13, nicht blockierend): Das PHPUnit-Init brach mit „Required locale 'en_AU.UTF-8' is
+  not installed“ ab, dazu kam „Undefined property `$dboptions`“. Die Canary hat damit bisher nie getestet. Ergänzt
+  sind `locale-gen` und `$CFG->dboptions = []`. PHP 8.5 gibt es in meiner Umgebung nicht; ob der Job jetzt Tests
+  ausführt, zeigt erst der nächste Lauf.
+- #17: Lastmatrix auf v3 (Moodle 5.3, PostgreSQL) ohne Störung durch andere Läufe neu gemessen:
+  `doc/evidence/re-audit-2026-10-28/issue-17-evidence.md`.
+- Am Plugin-Code ändert sich nichts.
+
 ## 2026102800 – Nacharbeiten zum Re-Audit vom 27.10.2026
 
 Nachweise je Issue: `doc/evidence/re-audit-2026-10-27/issue-<nr>-evidence.md`.

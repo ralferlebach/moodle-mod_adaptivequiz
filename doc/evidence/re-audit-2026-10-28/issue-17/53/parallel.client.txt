@@ -1,0 +1,6 @@
+loaduser2: 160 answered, end /mod/adaptivequiz/attemptfinished.php?cmid=5&id=2&uattid=181, result {'exception': False, 'progressmissing': False, 'lazyregions': 2, 'lazyfailed': 0}
+loaduser3: 160 answered, end /mod/adaptivequiz/attemptfinished.php?cmid=5&id=2&uattid=182, result {'exception': False, 'progressmissing': False, 'lazyregions': 2, 'lazyfailed': 0}
+loaduser4: 160 answered, end /mod/adaptivequiz/attemptfinished.php?cmid=5&id=2&uattid=183, result {'exception': False, 'progressmissing': False, 'lazyregions': 2, 'lazyfailed': 0}
+loaduser5: 160 answered, end /mod/adaptivequiz/attemptfinished.php?cmid=5&id=2&uattid=180, result {'exception': False, 'progressmissing': False, 'lazyregions': 2, 'lazyfailed': 0}
+652 requests in 1732.5 s; status {200: 652}; attempts with a problem: 0
+client exit 0

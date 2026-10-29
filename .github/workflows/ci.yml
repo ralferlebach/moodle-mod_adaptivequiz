@@ -275,6 +275,12 @@ jobs:
         working-directory: moodle
         run: composer install --no-interaction --no-progress --ignore-platform-req=php
 
+      # Moodles PHPUnit-Bootstrap verlangt en_AU.UTF-8; das Runner-Image bringt die Locale nicht mit.
+      # Ohne diesen Schritt brach das Init am 28.10.2026 mit "Required locale 'en_AU.UTF-8' is not
+      # installed" ab - die Canary hatte nie getestet. Die Matrix-Jobs oben tun dasselbe.
+      - name: Locale en_AU.UTF-8
+        run: sudo locale-gen en_AU.UTF-8
+
       - name: config.php
         working-directory: moodle
         run: |
@@ -290,6 +296,7 @@ jobs:
           \$CFG->dbname = 'postgres';
           \$CFG->dbuser = 'postgres';
           \$CFG->dbpass = '';
+          \$CFG->dboptions = [];
           \$CFG->prefix = 'm_';
           \$CFG->wwwroot = 'http://localhost';
           \$CFG->dataroot = '$RUNNER_TEMP/moodledata';
