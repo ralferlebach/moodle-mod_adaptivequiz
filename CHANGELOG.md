@@ -1,5 +1,11 @@
 # Changelog – mod_adaptivequiz (ALiSe)
 
+## 2026102801 – CI nur auf Anforderung (02.11.2026)
+
+- `a11y-axe.yml`: zeitgesteuerter Lauf (`schedule`, montags) entfernt. Der Workflow läuft auf Anforderung
+  (`workflow_dispatch`) und bei Push. Damit gibt es in diesem Plugin keine zeitgesteuerten CI-Läufe mehr.
+- Am Plugin-Code ändert sich nichts.
+
 ## 2026102800 – Nacharbeiten zum Re-Audit vom 27.10.2026
 
 Nachweise je Issue: `doc/evidence/re-audit-2026-10-27/issue-<nr>-evidence.md`.
