@@ -1,5 +1,11 @@
 # Changelog – mod_adaptivequiz (ALiSe)
 
+## 2026102802 – CI nur auf Anforderung (02.11.2026)
+
+- `a11y-axe.yml`: zeitgesteuerter Lauf (`schedule`, montags) entfernt. Der Workflow läuft auf Anforderung
+  (`workflow_dispatch`) und bei Push. Damit gibt es in diesem Plugin keine zeitgesteuerten CI-Läufe mehr.
+- Am Plugin-Code ändert sich nichts.
+
 ## 2026102801 – CI-Logs und #17 vom 28.10.2026
 
 - CI, Job „PHP 8.5 · Canary“ (#13, nicht blockierend): Das PHPUnit-Init brach mit „Required locale 'en_AU.UTF-8' is

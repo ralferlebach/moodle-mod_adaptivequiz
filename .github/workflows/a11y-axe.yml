@@ -9,6 +9,8 @@ name: Accessibility (axe-core)
 # EVERY run uploads one artefact per Moodle line, passed or failed: the axe results as JSON, video
 # and screenshots. For an accessibility review the record of a green run is evidence, not noise.
 #
+# Runs on request and on push only; no scheduled runs (decided 02.11.2026).
+#
 # NOTE: workflow_dispatch only appears in the Actions UI once this file is on the default branch.
 "on":
   workflow_dispatch:
@@ -20,8 +22,6 @@ name: Accessibility (axe-core)
       - 'attemptfinished.php'
       - 'tests/a11y/**'
       - '.github/workflows/a11y-axe.yml'
-  schedule:
-    - cron: '30 4 * * 1'
 
 permissions:
   contents: read
