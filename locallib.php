@@ -254,6 +254,41 @@ function adaptivequiz_update_attempt_data($uniqueid, $instance, $userid, $level,
 }
 
 /**
+ * Deletes an attempt, its answers and its grade, and tells the CAT model about it.
+ *
+ * One transaction with the CAT model's deletion (adaptivequizcatmodel_catquiz #11): if the CAT model cannot delete
+ * its data, the attempt stays as it was and the deletion can run again. Before, delattempt.php deleted the attempt
+ * first and stopped without regrading when the CAT model had no callback.
+ *
+ * @package mod_adaptivequiz
+ * @param stdClass $adaptivequiz The activity instance record.
+ * @param stdClass $attempt The attempt to delete.
+ */
+function adaptivequiz_delete_attempt(stdClass $adaptivequiz, stdClass $attempt): void {
+    global $DB;
+
+    $transaction = $DB->start_delegated_transaction();
+    try {
+        question_engine::delete_questions_usage_by_activity($attempt->uniqueid);
+        $DB->delete_records('adaptivequiz_attempt', ['id' => $attempt->id]);
+
+        // Allow sub-plugins to run their code when relevant.
+        if (!empty($adaptivequiz->catmodel)) {
+            $component = 'adaptivequizcatmodel_' . $adaptivequiz->catmodel;
+            $functions = get_plugin_list_with_function('adaptivequizcatmodel', 'post_delete_attempt_callback');
+            if (array_key_exists($component, $functions)) {
+                $functions[$component]($adaptivequiz, $attempt);
+            }
+        }
+
+        adaptivequiz_update_grades($adaptivequiz, $attempt->userid);
+        $transaction->allow_commit();
+    } catch (Throwable $e) {
+        $transaction->rollback($e);
+    }
+}
+
+/**
  * This function sets the complete status for an attempt.
  *
  * @param int $uniqueid

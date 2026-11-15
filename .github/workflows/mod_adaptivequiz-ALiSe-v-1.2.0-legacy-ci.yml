@@ -1,6 +1,7 @@
 name: CI
 
-# mod_adaptivequiz, Zweig ALiSe-v-1.2.0-legacy: Moodle 4.5 (LTS), PHP 8.1 bis 8.3.
+# mod_adaptivequiz, Zweig ALiSe-v-1.2.0-legacy: Moodle 4.5 (LTS), PHP 8.2 bis 8.3. Keine Zelle mit PHP 8.1
+# oder aelter (wie local_catquiz #156 und Adapter #10); version.php bleibt unveraendert.
 #
 # Blockierend ist, was dieser Zweig heute sauber besteht: PHP-Syntax, Plugin-Validierung,
 # Upgrade-Savepoints, PHPUnit und die Architekturgrenze zu local_catquiz.
@@ -59,7 +60,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { moodle-branch: 'MOODLE_405_STABLE', php: '8.1', database: 'pgsql' }
+          - { moodle-branch: 'MOODLE_405_STABLE', php: '8.2', database: 'pgsql' }
           - { moodle-branch: 'MOODLE_405_STABLE', php: '8.2', database: 'mariadb' }
           - { moodle-branch: 'MOODLE_405_STABLE', php: '8.3', database: 'pgsql' }
           - { moodle-branch: 'MOODLE_405_STABLE', php: '8.3', database: 'mariadb' }

@@ -1,5 +1,19 @@
 # Changelog – mod_adaptivequiz (ALiSe)
 
+## 2026111500 – Löschen als eine Transaktion (adaptivequizcatmodel_catquiz #10, #11; 15.11.2026)
+
+- Eine Aktivität löschen (`adaptivequiz_delete_instance()`), einen Versuch löschen (neu: `adaptivequiz_delete_attempt()`
+  in `locallib.php`, von `delattempt.php` genutzt) und den Kurs zurücksetzen (je Aktivität) sind jetzt jeweils eine
+  Transaktion zusammen mit der Löschung des CAT-Modells. Kann das CAT-Modell seine Daten nicht löschen, bleibt alles,
+  wie es war: Versuch, Question Usage, Aktivität. Dieselbe Löschung noch einmal schließt sie ab. Vorher waren
+  Versuch und Usage schon weg, wenn das CAT-Modell scheiterte; seine Daten blieben ohne Weg zurück liegen.
+- `delattempt.php`: Hatte das CAT-Modell keinen Lösch-Callback, endete die Seite leer ohne Neubewertung; jetzt
+  wird immer neu bewertet und weitergeleitet.
+- Nachweis über den Adapter: `adaptivequizcatmodel_catquiz` `tests/local/attempt_deletion_chain_test.php`. Ohne
+  diese Transaktionen werden dort 10 Tests rot.
+- CI (#10 im Adapter, wie local_catquiz #156): keine Zelle mehr mit PHP 8.1 (8.1/pgsql → 8.2/pgsql). `version.php`
+  bleibt bei seiner Kompatibilitätsangabe.
+
 ## 2026102801 – CI nur auf Anforderung (02.11.2026)
 
 - `a11y-axe.yml`: zeitgesteuerter Lauf (`schedule`, montags) entfernt. Der Workflow läuft auf Anforderung

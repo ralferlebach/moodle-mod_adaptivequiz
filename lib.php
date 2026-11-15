@@ -327,6 +327,27 @@ function adaptivequiz_delete_instance($id) {
         return false;
     }
 
+    // One transaction with the CAT model's deletion (adaptivequizcatmodel_catquiz #11): if the CAT model cannot
+    // delete its data, nothing is deleted and the deletion can run again.
+    $transaction = $DB->start_delegated_transaction();
+    try {
+        adaptivequiz_delete_instance_data($adaptivequiz);
+        $transaction->allow_commit();
+    } catch (Throwable $e) {
+        $transaction->rollback($e);
+    }
+    return true;
+}
+
+/**
+ * The deletion of an activity, inside the transaction of adaptivequiz_delete_instance().
+ *
+ * @param stdClass $adaptivequiz The instance record.
+ */
+function adaptivequiz_delete_instance_data(stdClass $adaptivequiz): void {
+    global $DB;
+    $id = $adaptivequiz->id;
+
     // When a custom CAT model was set, wire up its callback for instance deletion (if exists).
     if (!empty($adaptivequiz->catmodel)) {
         adaptivequiz_catmodel_delete_instance_callback($adaptivequiz);
@@ -354,8 +375,6 @@ function adaptivequiz_delete_instance($id) {
 
     // Delete the grade item.
     adaptivequiz_grade_item_delete($adaptivequiz);
-
-    return true;
 }
 
 /**
@@ -869,20 +888,13 @@ function adaptivequiz_reset_userdata($data) {
         foreach ($adaptivequizes as $adaptivequiz) {
             $attempts = $DB->get_records('adaptivequiz_attempt', array('instance' => $adaptivequiz->id));
             if (!empty($attempts)) {
-                // Remove question_usage_by_activity records.
-                foreach ($attempts as $attempt) {
-                    question_engine::delete_questions_usage_by_activity($attempt->uniqueid);
-                }
-
-                // Remove attempts data.
-                $DB->delete_records('adaptivequiz_attempt', array('instance' => $adaptivequiz->id));
-                // The CAT model removes what it keeps for each attempt - a reset left that behind.
-                $functions = get_plugin_list_with_function('adaptivequizcatmodel', 'post_delete_attempt_callback');
-                $component = 'adaptivequizcatmodel_' . ($adaptivequiz->catmodel ?? '');
-                if (!empty($adaptivequiz->catmodel) && array_key_exists($component, $functions)) {
-                    foreach ($attempts as $attempt) {
-                        $functions[$component]($adaptivequiz, $attempt);
-                    }
+                // Per activity one transaction with the CAT model's deletion (adaptivequizcatmodel_catquiz #11).
+                $transaction = $DB->start_delegated_transaction();
+                try {
+                    adaptivequiz_reset_attempts($adaptivequiz, $attempts);
+                    $transaction->allow_commit();
+                } catch (Throwable $e) {
+                    $transaction->rollback($e);
                 }
             }
         }
@@ -904,6 +916,31 @@ function adaptivequiz_reset_userdata($data) {
     }
 
     return $status;
+}
+
+/**
+ * Deletes the attempts of an activity for a course reset, inside the transaction of adaptivequiz_reset_userdata().
+ *
+ * @param stdClass $adaptivequiz The instance record.
+ * @param stdClass[] $attempts Its attempts.
+ */
+function adaptivequiz_reset_attempts(stdClass $adaptivequiz, array $attempts): void {
+    global $DB;
+    // Remove question_usage_by_activity records.
+    foreach ($attempts as $attempt) {
+        question_engine::delete_questions_usage_by_activity($attempt->uniqueid);
+    }
+
+    // Remove attempts data.
+    $DB->delete_records('adaptivequiz_attempt', array('instance' => $adaptivequiz->id));
+    // The CAT model removes what it keeps for each attempt - a reset left that behind.
+    $functions = get_plugin_list_with_function('adaptivequizcatmodel', 'post_delete_attempt_callback');
+    $component = 'adaptivequizcatmodel_' . ($adaptivequiz->catmodel ?? '');
+    if (!empty($adaptivequiz->catmodel) && array_key_exists($component, $functions)) {
+        foreach ($attempts as $attempt) {
+            $functions[$component]($adaptivequiz, $attempt);
+        }
+    }
 }
 
 /**
