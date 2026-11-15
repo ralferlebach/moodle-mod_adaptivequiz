@@ -81,6 +81,9 @@ class instance_handler implements
      * @param stdClass $adaptivequiz The instance record being deleted.
      */
     public function delete_instance_callback(stdClass $adaptivequiz): void {
+        if (!empty($GLOBALS['adaptivequizcatmodel_testcatmodel_faildeletion'])) {
+            throw new \moodle_exception('error', 'error', '', null, 'testcatmodel: deletion failed on purpose');
+        }
         self::$calls[] = ['callback' => 'delete_instance_callback', 'instance' => $adaptivequiz];
     }
 }

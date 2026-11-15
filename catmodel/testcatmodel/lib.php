@@ -76,7 +76,22 @@ function adaptivequizcatmodel_testcatmodel_post_delete_attempt_callback(
     stdClass $adaptivequiz,
     stdClass $attempt
 ): void {
+    if (!empty($GLOBALS['adaptivequizcatmodel_testcatmodel_faildeletion'])) {
+        throw new \moodle_exception('error', 'error', '', null, 'testcatmodel: deletion failed on purpose');
+    }
     $GLOBALS['adaptivequizcatmodel_testcatmodel_deletions'][] = (int) $attempt->uniqueid;
+}
+
+/**
+ * Makes the deletion callbacks of this CAT model fail, or work again.
+ *
+ * Lets the host prove that a deletion the CAT model cannot complete changes nothing
+ * (adaptivequizcatmodel_catquiz #11).
+ *
+ * @param bool $fail
+ */
+function adaptivequizcatmodel_testcatmodel_fail_deletions(bool $fail): void {
+    $GLOBALS['adaptivequizcatmodel_testcatmodel_faildeletion'] = $fail;
 }
 
 /**

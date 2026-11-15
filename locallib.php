@@ -264,10 +264,31 @@ function adaptivequiz_update_attempt_data($uniqueid, $instance, $userid, $level,
  * Kept out of delattempt.php on purpose: a script cannot be exercised in a test, and the CAT model
  * has to learn about the deletion reliably - it may hold results of its own for this attempt.
  *
+ * One transaction with the CAT model's deletion (adaptivequizcatmodel_catquiz #11): if the CAT model cannot delete
+ * its data, the attempt stays as it was and the deletion can run again.
+ *
  * @param stdClass $adaptivequiz The activity instance record.
  * @param stdClass $attempt The attempt to delete.
  */
 function adaptivequiz_delete_attempt(stdClass $adaptivequiz, stdClass $attempt): void {
+    global $DB;
+
+    $transaction = $DB->start_delegated_transaction();
+    try {
+        adaptivequiz_delete_attempt_data($adaptivequiz, $attempt);
+        $transaction->allow_commit();
+    } catch (Throwable $e) {
+        $transaction->rollback($e);
+    }
+}
+
+/**
+ * The deletion of an attempt, inside the transaction of adaptivequiz_delete_attempt().
+ *
+ * @param stdClass $adaptivequiz The activity instance record.
+ * @param stdClass $attempt The attempt to delete.
+ */
+function adaptivequiz_delete_attempt_data(stdClass $adaptivequiz, stdClass $attempt): void {
     global $DB;
 
     question_engine::delete_questions_usage_by_activity($attempt->uniqueid);
