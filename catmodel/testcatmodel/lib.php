@@ -85,8 +85,7 @@ function adaptivequizcatmodel_testcatmodel_post_delete_attempt_callback(
 /**
  * Makes the deletion callbacks of this CAT model fail, or work again.
  *
- * Lets the host prove that a deletion the CAT model cannot complete changes nothing
- * (adaptivequizcatmodel_catquiz #11).
+ * Lets the host prove that a deletion the CAT model cannot complete changes nothing.
  *
  * @param bool $fail
  */

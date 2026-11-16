@@ -22,7 +22,7 @@ use mod_adaptivequiz\local\attempt\attempt_state;
 use stdClass;
 
 /**
- * A deletion the CAT model cannot complete changes nothing; run again, it completes (adaptivequizcatmodel_catquiz #11).
+ * A deletion the CAT model cannot complete changes nothing; run again, it completes.
  *
  * Deleting an attempt, resetting the course and deleting the activity are each one transaction together with the
  * CAT model's deletion. Before, the attempt and its question usage were gone when the CAT model failed - its data

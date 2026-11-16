@@ -1,7 +1,9 @@
 # Changelog – mod_adaptivequiz (ALiSe)
 
-## 2026111501 – Löschen als eine Transaktion (adaptivequizcatmodel_catquiz #11; 15.11.2026)
+## 2026111502 – Löschen als eine Transaktion (Adapter-Issue #11; 15.11.2026)
 
+- Code, Tests und das Test-CAT-Modell nennen kein bestimmtes CAT-Modell (Host-Prüfung „CATquiz-Referenz im Host“,
+  Issue #10 §13); die Fassung vom selben Tag mit solchen Verweisen in Kommentaren ist damit ersetzt.
 - Eine Aktivität löschen (`adaptivequiz_delete_instance()`), einen Versuch löschen (`adaptivequiz_delete_attempt()`)
   und den Kurs zurücksetzen (je Aktivität) sind jetzt jeweils eine Transaktion zusammen mit der Löschung des
   CAT-Modells. Kann das CAT-Modell seine Daten nicht löschen, bleibt alles, wie es war: Versuch, Question Usage,
