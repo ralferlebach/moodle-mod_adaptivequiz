@@ -80,6 +80,23 @@ final class deletion_transaction_test extends advanced_testcase {
     }
 
     /**
+     * Deletes a course module the way the running Moodle version wants it.
+     *
+     * Moodle 5.2 deprecates course_delete_module() in favour of core_courseformat\local\cmactions::delete();
+     * 5.1 does not have the latter.
+     *
+     * @param int $cmid
+     * @param int $courseid
+     */
+    private static function delete_module(int $cmid, int $courseid): void {
+        if (method_exists(\core_courseformat\local\cmactions::class, 'delete')) {
+            \core_courseformat\formatactions::cm($courseid)->delete($cmid);
+        } else {
+            course_delete_module($cmid);
+        }
+    }
+
+    /**
      * The paths.
      *
      * @return array
@@ -113,7 +130,7 @@ final class deletion_transaction_test extends advanced_testcase {
                 'reset' => adaptivequiz_reset_userdata(
                     (object) ['courseid' => $adaptivequiz->course, 'reset_adaptivequiz_all' => 1]
                 ),
-                'activity' => course_delete_module((int) $adaptivequiz->cmid),
+                'activity' => self::delete_module((int) $adaptivequiz->cmid, (int) $adaptivequiz->course),
             };
         };
 

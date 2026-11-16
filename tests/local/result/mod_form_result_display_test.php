@@ -55,7 +55,6 @@ final class mod_form_result_display_test extends advanced_testcase {
 
         $form = new mod_adaptivequiz_mod_form($data, $cw->section, $cm, $course);
         $property = new \ReflectionProperty(\moodleform::class, '_form');
-        $property->setAccessible(true);
         return $property->getValue($form);
     }
 

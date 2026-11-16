@@ -341,6 +341,8 @@ function adaptivequiz_delete_instance_data(stdClass $adaptivequiz): void {
     if (!empty($attempts)) {
         foreach ($attempts as $attempt) {
             question_engine::delete_questions_usage_by_activity($attempt->uniqueid);
+            // On MySQL and MariaDB a usage without question attempts stays behind (see adaptivequiz_delete_attempt()).
+            $DB->delete_records('question_usages', ['id' => $attempt->uniqueid]);
         }
 
         // Remove attempts data.
@@ -919,6 +921,8 @@ function adaptivequiz_reset_attempts(stdClass $adaptivequiz, array $attempts): v
     // Remove question_usage_by_activity records.
     foreach ($attempts as $attempt) {
         question_engine::delete_questions_usage_by_activity($attempt->uniqueid);
+        // On MySQL and MariaDB a usage without question attempts stays behind (see adaptivequiz_delete_attempt()).
+        $DB->delete_records('question_usages', ['id' => $attempt->uniqueid]);
     }
 
     // Remove attempts data.

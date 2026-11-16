@@ -1,5 +1,16 @@
 # Changelog – mod_adaptivequiz (ALiSe)
 
+## 2026111601 – CI vom 16.11.2026: MariaDB, Moodle 5.2/5.3, PHP 8.5
+
+- Löschen einer Aktivität und das Zurücksetzen entfernen die Question Usage jetzt selbst
+  (`$DB->delete_records('question_usages', …)`), wie es `adaptivequiz_delete_attempt()` schon tat.
+  `question_engine::delete_questions_usage_by_activity()` löscht auf MySQL/MariaDB über einen Join mit den
+  Frageversuchen; eine Usage ohne Frageversuche blieb dort liegen (CI: `deletion_transaction_test`, MariaDB).
+- `deletion_transaction_test`: löscht die Aktivität ab Moodle 5.2 über `core_courseformat` statt über das dort
+  veraltete `course_delete_module()` (CI: Notice/Deprecation auf 5.2 und 5.3).
+- Tests rufen `ReflectionProperty::setAccessible()` nicht mehr auf: seit PHP 8.1 wirkungslos, ab PHP 8.5 veraltet
+  (Canary-Zelle).
+
 ## 2026111502 – Löschen als eine Transaktion (Adapter-Issue #11; 15.11.2026)
 
 - Code, Tests und das Test-CAT-Modell nennen kein bestimmtes CAT-Modell (Host-Prüfung „CATquiz-Referenz im Host“,
