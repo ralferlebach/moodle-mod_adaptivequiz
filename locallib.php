@@ -270,6 +270,9 @@ function adaptivequiz_delete_attempt(stdClass $adaptivequiz, stdClass $attempt):
     $transaction = $DB->start_delegated_transaction();
     try {
         question_engine::delete_questions_usage_by_activity($attempt->uniqueid);
+        // On MySQL and MariaDB the question engine deletes a usage together with its question attempts through an
+        // inner join - a usage that never received a question stays behind. Removing it here leaves no orphan.
+        $DB->delete_records('question_usages', ['id' => $attempt->uniqueid]);
         $DB->delete_records('adaptivequiz_attempt', ['id' => $attempt->id]);
 
         // Allow sub-plugins to run their code when relevant.

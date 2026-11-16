@@ -1,5 +1,14 @@
 # Changelog – mod_adaptivequiz (ALiSe)
 
+## 2026111600 – Question Usage auch auf MySQL/MariaDB löschen (CI vom 16.11.2026)
+
+- Löschen einer Aktivität, eines Versuchs und das Zurücksetzen entfernen die Question Usage jetzt selbst
+  (`$DB->delete_records('question_usages', …)`). `question_engine::delete_questions_usage_by_activity()` löscht
+  die Usage auf MySQL/MariaDB über einen Join mit ihren Frageversuchen; eine Usage ohne Frageversuche blieb dort
+  liegen, auf PostgreSQL nicht.
+- Test: `tests/question_usage_deletion_test.php` (drei Pfade, Usage ohne Frageversuche). Auf MariaDB ohne die
+  Änderung 3 von 3 rot.
+
 ## 2026111501 – Löschen als eine Transaktion (Adapter-Issues #10, #11; 15.11.2026)
 
 - Code, Tests und das Test-CAT-Modell nennen kein bestimmtes CAT-Modell (Host-Prüfung „CATquiz-Referenz im Host“,
