@@ -327,7 +327,7 @@ function adaptivequiz_delete_instance($id) {
         return false;
     }
 
-    // One transaction with the CAT model's deletion (adaptivequizcatmodel_catquiz #11): if the CAT model cannot
+    // One transaction with the CAT model's deletion: if the CAT model cannot
     // delete its data, nothing is deleted and the deletion can run again.
     $transaction = $DB->start_delegated_transaction();
     try {
@@ -888,7 +888,7 @@ function adaptivequiz_reset_userdata($data) {
         foreach ($adaptivequizes as $adaptivequiz) {
             $attempts = $DB->get_records('adaptivequiz_attempt', array('instance' => $adaptivequiz->id));
             if (!empty($attempts)) {
-                // Per activity one transaction with the CAT model's deletion (adaptivequizcatmodel_catquiz #11).
+                // Per activity one transaction with the CAT model's deletion.
                 $transaction = $DB->start_delegated_transaction();
                 try {
                     adaptivequiz_reset_attempts($adaptivequiz, $attempts);

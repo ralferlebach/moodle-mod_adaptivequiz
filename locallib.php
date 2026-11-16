@@ -256,7 +256,7 @@ function adaptivequiz_update_attempt_data($uniqueid, $instance, $userid, $level,
 /**
  * Deletes an attempt, its answers and its grade, and tells the CAT model about it.
  *
- * One transaction with the CAT model's deletion (adaptivequizcatmodel_catquiz #11): if the CAT model cannot delete
+ * One transaction with the CAT model's deletion: if the CAT model cannot delete
  * its data, the attempt stays as it was and the deletion can run again. Before, delattempt.php deleted the attempt
  * first and stopped without regrading when the CAT model had no callback.
  *
