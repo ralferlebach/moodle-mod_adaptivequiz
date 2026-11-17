@@ -31,6 +31,10 @@ require_once($CFG->dirroot . '/mod/adaptivequiz/locallib.php');
 use mod_adaptivequiz\attempt_feedback_placeholders_helper;
 use mod_adaptivequiz\local\catmodel\form\mod_form_extension;
 use mod_adaptivequiz\local\feedback\feedback_trust;
+use mod_adaptivequiz\local\result\link\link_function_registry;
+use mod_adaptivequiz\local\result\link\logistic_mid_link_function;
+use mod_adaptivequiz\local\result\link\logistic_pass_link_function;
+use mod_adaptivequiz\local\result\result_configuration_exception;
 use mod_adaptivequiz\local\result\result_definition;
 use mod_adaptivequiz\local\result\result_service;
 use mod_adaptivequiz\output\editor_placeholders;
@@ -173,6 +177,30 @@ class mod_adaptivequiz_mod_form extends moodleform_mod {
         );
         $mform->addHelpButton('resultsource', 'resultsource', 'adaptivequiz');
 
+        // Issue #25: grading can be switched off; the results stay valid, there is just no grade.
+        $mform->addElement('select', 'gradingmode', get_string('gradingmode', 'adaptivequiz'), [
+            result_service::GRADING_ON => get_string('gradingmode_on', 'adaptivequiz'),
+            result_service::GRADING_OFF => get_string('gradingmode_off', 'adaptivequiz'),
+        ]);
+        $mform->addHelpButton('gradingmode', 'gradingmode', 'adaptivequiz');
+        $mform->setDefault('gradingmode', result_service::GRADING_ON);
+
+        // Issue #25: how a score becomes a grade.
+        $mform->addElement('select', 'linkfunction', get_string('linkfunction', 'adaptivequiz'), self::link_function_options());
+        $mform->addHelpButton('linkfunction', 'linkfunction', 'adaptivequiz');
+        $mform->hideIf('linkfunction', 'gradingmode', 'eq', result_service::GRADING_OFF);
+
+        $mform->addElement('text', 'linksteepness', get_string('linksteepness', 'adaptivequiz'), ['size' => 8]);
+        $mform->setType('linksteepness', PARAM_RAW_TRIMMED);
+        $mform->addHelpButton('linksteepness', 'linksteepness', 'adaptivequiz');
+        $mform->hideIf('linksteepness', 'gradingmode', 'eq', result_service::GRADING_OFF);
+        // Moodle's form conditions know 'in' but not 'not in': hidden for every function that is not logistic.
+        $notlogistic = array_values(array_diff(
+            array_map('strval', array_keys(self::link_function_options())),
+            [logistic_mid_link_function::ID, logistic_pass_link_function::ID]
+        ));
+        $mform->hideIf('linksteepness', 'linkfunction', 'in', $notlogistic);
+
         $mform->addElement('text', 'passscore', get_string('passscore', 'adaptivequiz'), ['size' => 8]);
         $mform->setType('passscore', PARAM_RAW_TRIMMED);
         $mform->addHelpButton('passscore', 'passscore', 'adaptivequiz');
@@ -184,6 +212,14 @@ class mod_adaptivequiz_mod_form extends moodleform_mod {
             get_string('passpercentage', 'adaptivequiz'),
             self::describe_pass_percentage($this->current_settings())
         );
+
+        $mform->hideIf('passscore', 'gradingmode', 'eq', result_service::GRADING_OFF);
+        $mform->hideIf('passpercentage', 'gradingmode', 'eq', result_service::GRADING_OFF);
+
+        // Issue #25: whether a change of these settings computes the existing grades again.
+        $mform->addElement('advcheckbox', 'keepgrades', get_string('keepgrades', 'adaptivequiz'));
+        $mform->addHelpButton('keepgrades', 'keepgrades', 'adaptivequiz');
+        $mform->setDefault('keepgrades', 0);
 
         // Grading method.
         $mform->addElement(
@@ -273,6 +309,27 @@ class mod_adaptivequiz_mod_form extends moodleform_mod {
             }
         }
 
+        // Issue #25: a link function must be able to compute grades with the settings given.
+        if (!isset($errors['passscore'])) {
+            $settings = $this->result_settings($data);
+            $settings->passscore = is_float($passscore) ? $passscore : null;
+            $settings->linksteepness = ($data['linksteepness'] ?? '') === '' ? null : unformat_float($data['linksteepness'], true);
+            if (($data['linksteepness'] ?? '') !== '' && $settings->linksteepness === false) {
+                $errors['linksteepness'] = get_string('linksteepnessinvalid', 'adaptivequiz');
+            } else if ($error = result_service::link_settings_error($settings)) {
+                [$field, $identifier, $a] = $error;
+                $errors[$field] = get_string($identifier, 'adaptivequiz', $a);
+            }
+        }
+        // Issue #25: without grading there is no grade to receive and none to pass.
+        if ((int) ($data['gradingmode'] ?? result_service::GRADING_ON) === result_service::GRADING_OFF) {
+            foreach (['completionusegrade', 'completionpassgrade'] as $rule) {
+                if (!empty($data[$rule])) {
+                    $errors['gradingmode'] = get_string('gradingmodeoffcompletion', 'adaptivequiz');
+                }
+            }
+        }
+
         return array_merge(parent::validation($data, $files), mod_form_extension::validate($data, $files), $errors);
     }
 
@@ -289,7 +346,31 @@ class mod_adaptivequiz_mod_form extends moodleform_mod {
         }
         $passscore = self::parse_passscore($data->passscore);
         $data->passscore = is_float($passscore) ? $passscore : null;
+        if (property_exists($data, 'linksteepness')) {
+            $k = trim((string) $data->linksteepness) === '' ? null : unformat_float($data->linksteepness, true);
+            $data->linksteepness = is_numeric($k) ? (float) $k : null;
+        }
         $data->gradepass = result_service::pass_percentage($this->result_settings((array) $data)) ?? 0.0;
+    }
+
+    /**
+     * The link functions to choose from: the default of the result source first, then every known function.
+     *
+     * @return array identifier => name
+     */
+    private static function link_function_options(): array {
+        $options = ['' => get_string('linkfunction_default', 'adaptivequiz')];
+        try {
+            $functions = link_function_registry::all();
+        } catch (result_configuration_exception $e) {
+            $functions = link_function_registry::host_functions();
+        }
+        foreach ($functions as $function) {
+            $key = 'linkfunction_' . $function->get_id();
+            $options[$function->get_id()] = get_string_manager()->string_exists($key, 'adaptivequiz')
+                ? get_string($key, 'adaptivequiz') : $function->get_id();
+        }
+        return $options;
     }
 
     /**

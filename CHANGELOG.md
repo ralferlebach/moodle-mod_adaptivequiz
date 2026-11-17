@@ -1,5 +1,33 @@
 # Changelog – mod_adaptivequiz (ALiSe)
 
+## 2026111701 – Issues #24, #25 und die Gegenstücke zu local_catquiz #172 und Adapter #12 (17.11.2026)
+
+- #24: Die Trennungsregel „der Host kennt CATquiz nicht“ ist aufgehoben.
+  - Das CI-Gate „Keine CATquiz-Referenzen im Host“ ist entfernt; der Selbsttest des Deprecation-Classifiers bleibt als eigener Job.
+  - Regeltexte in Kommentaren, README und Tests sind angepasst.
+  - Inventar und Folgekonzept stehen in `doc/transition-mod_catquiz.md`.
+  - Funktionale Schnittstellen (Subplugin-Callbacks, Result-Provider, Linkfunktions-Registry) und Schutzprüfungen
+    sind unverändert.
+- #25: Bewertungseinstellungen der Aktivität.
+  - **Bewertung abschaltbar** (`gradingmode`): Der Bewertungsaspekt bekommt keinen Werttyp. Gültige Ergebnisse
+    bleiben gültig, ohne Note (`resultreason` `grading_off`), nie 0. Ein Abschluss über das Erhalten oder Bestehen
+    einer Bewertung wird abgelehnt.
+  - **Sechs Linkfunktionen**, wählbar je Aktivität (`linkfunction`; leer = Vorgabe der Ergebnisquelle):
+    - `linear`, `piecewise_pass50`, `logistic_mid`, `logistic_pass` (Steilheit `linksteepness`), `guttman_pass`;
+    - `fisher_rao`: adaptive Simpson-Quadratur mit Fehlerschranke über sqrt der Testinformation der aktuell
+      kalibrierten Itembatterie. Die Information liefert der Ergebnis-Provider (`test_information_source`).
+  - **Nicht berechenbar** heißt: keine Note, `link_not_computable`, kein Ersatzwert.
+  - **Unbrauchbare Einstellungen** werden im Formular abgelehnt.
+  - **Option „bestehende Bewertungen behalten“** (`keepgrades`): Ist sie aus, berechnet eine geänderte Einstellung
+    jede Note aus dem gespeicherten Score neu. `cli/regrade_results.php --relink` zeigt eine Vorschau und schreibt
+    erst mit `--confirm`.
+  - Datensicherung und Wiederherstellung übernehmen die neuen Felder.
+  - Upgrade: bestehende Aktivitäten bleiben bewertet, mit der Linkfunktion ihrer Ergebnisquelle, Steilheit 1 und
+    keepgrades 0.
+- Stoppgründe aus local_catquiz #172 und Adapter #12, je mit eigenem Hinweis:
+  - `scalescomplete`: jede gemessene Skala fertig;
+  - `noeligiblebeforeminimum`: keine passende Frage vor der Mindestlänge.
+
 ## 2026111601 – CI vom 16.11.2026: MariaDB, Moodle 5.2/5.3, PHP 8.5
 
 - Löschen einer Aktivität und das Zurücksetzen entfernen die Question Usage jetzt selbst

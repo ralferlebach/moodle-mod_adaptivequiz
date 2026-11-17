@@ -21,7 +21,8 @@ use mod_adaptivequiz\local\result\result_configuration_exception;
 /**
  * The link functions the host knows (issue #14).
  *
- * The host brings 'linear'. A CAT model can add its own: every class in its namespace
+ * The host brings six (issues #14, #25): linear, piecewise_pass50, logistic_mid, logistic_pass, guttman_pass and
+ * fisher_rao. A CAT model can add its own: every class in its namespace
  * local\catmodel\result\link that implements link_function is offered, under its identifier, to
  * the gradebook and the pass decision alike - without a line of grading code of its own. An
  * identifier offered twice is a configuration error (identifiers are stable; a CAT model cannot
@@ -51,13 +52,29 @@ final class link_function_registry {
     }
 
     /**
+     * The link functions the host brings, in the order the activity settings offer them.
+     *
+     * @return link_function[]
+     */
+    public static function host_functions(): array {
+        return [
+            new linear_link_function(),
+            new piecewise_pass50_link_function(),
+            new logistic_mid_link_function(),
+            new logistic_pass_link_function(),
+            new guttman_pass_link_function(),
+            new fisher_rao_link_function(),
+        ];
+    }
+
+    /**
      * All link functions: the host's own and those the installed CAT models offer.
      *
      * @return link_function[]
      * @throws result_configuration_exception When two of them use the same identifier.
      */
     public static function all(): array {
-        $functions = [new linear_link_function()];
+        $functions = self::host_functions();
         foreach (array_keys(\core_component::get_plugin_list('adaptivequizcatmodel')) as $catmodel) {
             $classes = \core_component::get_component_classes_in_namespace(
                 'adaptivequizcatmodel_' . $catmodel,

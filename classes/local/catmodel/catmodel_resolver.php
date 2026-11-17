@@ -24,8 +24,8 @@ use core_component;
  *
  * The host offers extension points, it does not implement CAT model logic. Every place in the
  * host that may be extended by a CAT model asks this class for a handler and falls back to the
- * default behaviour when none is returned. There is deliberately no other way to reach a
- * subplugin from the host.
+ * default behaviour when none is returned. As long as CAT models are subplugins this is the way to
+ * reach one; the rule that the host must not know CATquiz is lifted (issue #24).
  *
  * @package    mod_adaptivequiz
  * @copyright  2026 onwards Ralf Erlebach

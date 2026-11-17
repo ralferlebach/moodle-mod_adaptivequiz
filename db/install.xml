@@ -35,6 +35,10 @@
         <FIELD NAME="debuginfoenable" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
         <FIELD NAME="catmodel" TYPE="char" LENGTH="255" NOTNULL="false" SEQUENCE="false" COMMENT="Name of the CAT model subplugin driving this instance, empty for the built-in algorithm."/>
         <FIELD NAME="passscore" TYPE="number" LENGTH="15" NOTNULL="false" SEQUENCE="false" DECIMALS="5" COMMENT="Pass mark in the units of the result source, within its range. The grade item gets it as a percentage."/>
+        <FIELD NAME="gradingmode" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="1" SEQUENCE="false" COMMENT="1 = graded, 0 = not graded: the grade item has no value type, results stay valid without a grade (issue #25)."/>
+        <FIELD NAME="linkfunction" TYPE="char" LENGTH="50" NOTNULL="false" SEQUENCE="false" COMMENT="Link function from score to grade; empty for the default of the result source (issue #25)."/>
+        <FIELD NAME="linksteepness" TYPE="number" LENGTH="15" NOTNULL="false" SEQUENCE="false" DECIMALS="5" COMMENT="Steepness k of the logistic link functions, above 0; empty for 1 (issue #25)."/>
+        <FIELD NAME="keepgrades" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="1 = a change of the grading settings does not compute existing grades again (issue #25)."/>
       </FIELDS>
       <KEYS>
         <KEY NAME="primary" TYPE="primary" FIELDS="id"/>

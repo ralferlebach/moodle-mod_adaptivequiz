@@ -37,8 +37,8 @@ use mod_adaptivequiz\output\attempts_number;
 /**
  * Tests the generic CAT model subplugin contract.
  *
- * These tests deliberately use the neutral CAT model under catmodel/testcatmodel and never a
- * real one. The host must be testable on an installation that has no real CAT model at all.
+ * These tests use the neutral CAT model under catmodel/testcatmodel: they check the subplugin contract
+ * itself and run on an installation without a real CAT model.
  * The test CAT model is excluded from the released package by .gitattributes.
  *
  * @package    mod_adaptivequiz

@@ -26,7 +26,7 @@ use advanced_testcase;
  * elsewhere never met them, and no attempt could be started. The CAT model now answers for itself
  * through catmodel_item_bank_readiness; without one, nothing changes.
  *
- * Checked with the neutral test CAT model: the host must not know any real one (issue #10).
+ * Checked with the neutral test CAT model, so the test does not depend on a real one.
  *
  * @package    mod_adaptivequiz
  * @copyright  2026 onwards Ralf Erlebach

@@ -15,9 +15,8 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 namespace mod_adaptivequiz\local\result\link;
-
 /**
- * The linear mapping: 100 * (score - lower) / (upper - lower).
+ * The linear mapping: p = 100 * (score - L) / (U - L) (issue #14).
  *
  * @package    mod_adaptivequiz
  * @copyright  2026 onwards Ralf Erlebach
@@ -31,7 +30,7 @@ final class linear_link_function implements link_function {
     public const VERSION = 1;
 
     /**
-     * The identifier an engine uses to ask for this function.
+     * The identifier.
      *
      * @return string
      */
@@ -40,7 +39,7 @@ final class linear_link_function implements link_function {
     }
 
     /**
-     * The version of the mapping behind the identifier.
+     * The version of the mapping.
      *
      * @return int
      */
@@ -49,14 +48,22 @@ final class linear_link_function implements link_function {
     }
 
     /**
+     * The parameters this function cannot do without.
+     *
+     * @return string[]
+     */
+    public function required_parameters(): array {
+        return [];
+    }
+
+    /**
      * The share of the range the score reaches, in percent, before clamping.
      *
      * @param float $score
-     * @param float $lower
-     * @param float $upper
-     * @return float
+     * @param link_parameters $parameters
+     * @return float|null
      */
-    public function percentage(float $score, float $lower, float $upper): float {
-        return 100.0 * ($score - $lower) / ($upper - $lower);
+    public function percentage(float $score, link_parameters $parameters): ?float {
+        return 100.0 * ($score - $parameters->lower) / ($parameters->upper - $parameters->lower);
     }
 }

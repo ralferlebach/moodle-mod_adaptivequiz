@@ -368,8 +368,8 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
-  architecture:
-    name: Architekturgrenze zu local_catquiz
+  classifier:
+    name: Selbsttest des Deprecation-Classifiers
     runs-on: ubuntu-latest
     steps:
       - name: Plugin auschecken
@@ -380,20 +380,3 @@ jobs:
       # Selbsttest hier, in einem Job, der den Workflow rot macht.
       - name: Selbsttest des Deprecation-Classifiers (#13)
         run: python3 tools/test_classify_deprecations.py
-
-      # Der Host darf keine CATquiz-Fachlichkeit kennen (Issue #10 §13). Das
-      # Test-Catmodel unter catmodel/testcatmodel ist neutral, echte Catmodels
-      # liegen in eigenen Repositories und sind hier nicht eingecheckt.
-      # Geprueft wird ausfuehrbarer Code, nicht die Dokumentation - dort duerfen
-      # die Begriffe vorkommen, etwa in der Portierungsmatrix.
-      - name: Keine CATquiz-Referenzen im Host
-        run: |
-          if grep -rInE 'local_catquiz|catquiz_handler|catscale|adaptivequizcatmodel_catquiz' \
-               --include='*.php' --include='*.js' --include='*.mustache' \
-               --include='*.json' --include='*.xml' --include='*.feature' \
-               --exclude-dir=.git --exclude-dir=doc --exclude-dir=tools \
-               --exclude-dir=catquiz . ; then
-            echo "::error::CATquiz-Referenz im Host gefunden - siehe Issue #10 §13."
-            exit 1
-          fi
-          echo "Keine CATquiz-Referenzen im Host."

@@ -17,6 +17,7 @@
 namespace adaptivequizcatmodel_testcatmodel\local\catmodel\result\link;
 
 use mod_adaptivequiz\local\result\link\link_function;
+use mod_adaptivequiz\local\result\link\link_parameters;
 
 /**
  * A link function a CAT model brings itself (issue #14), for the tests of the host's registry.
@@ -51,15 +52,23 @@ final class test_square_link_function implements link_function {
     }
 
     /**
+     * No parameter besides the range.
+     *
+     * @return string[]
+     */
+    public function required_parameters(): array {
+        return [];
+    }
+
+    /**
      * Version 1: square of the linear share; version 2: its square root.
      *
      * @param float $score
-     * @param float $lower
-     * @param float $upper
+     * @param link_parameters $parameters
      * @return float
      */
-    public function percentage(float $score, float $lower, float $upper): float {
-        $share = ($score - $lower) / ($upper - $lower);
+    public function percentage(float $score, link_parameters $parameters): ?float {
+        $share = ($score - $parameters->lower) / ($parameters->upper - $parameters->lower);
         return 100.0 * ($this->get_version() === 2 ? sqrt(max(0.0, $share)) : $share * $share);
     }
 }

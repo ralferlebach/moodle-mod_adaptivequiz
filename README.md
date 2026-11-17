@@ -213,8 +213,10 @@ Such subplugins live under `/mod/adaptivequiz/catmodel` and have the frankenstyl
 `adaptivequizcatmodel_<name>`. An activity names the one it uses in `adaptivequiz.catmodel`; an
 empty value means the built-in algorithm.
 
-The host offers extension points, it holds no CAT model logic of its own - and it must stay usable
-with no CAT model installed at all. Its test suite runs without one.
+Today the host offers extension points and holds no CAT model logic of its own; its test suite runs
+without a CAT model installed. This is the current state, not a rule any more: the activity is to become
+`mod_catquiz` with `local_catquiz` as a dependency, and the separation of host and CATquiz is lifted for that
+transition (issue #24, `doc/transition-mod_catquiz.md`).
 
 ## How the host reaches a subplugin
 

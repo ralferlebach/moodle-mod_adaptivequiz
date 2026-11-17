@@ -403,5 +403,25 @@ function xmldb_adaptivequiz_upgrade($oldversion) {
         upgrade_mod_savepoint(true, 2026100911, 'adaptivequiz');
     }
 
+    if ($oldversion < 2026111701) {
+        // Issue #25: grading can be switched off, the link function, its steepness and whether a settings change
+        // computes existing grades again are settings of the activity. Existing activities stay as they were:
+        // graded, the link function of their result source, steepness 1, and a settings change applies to existing
+        // grades as before (keepgrades 0).
+        $table = new xmldb_table('adaptivequiz');
+        $fields = [
+            new xmldb_field('gradingmode', XMLDB_TYPE_INTEGER, '1', null, XMLDB_NOTNULL, null, '1', 'passscore'),
+            new xmldb_field('linkfunction', XMLDB_TYPE_CHAR, '50', null, null, null, null, 'gradingmode'),
+            new xmldb_field('linksteepness', XMLDB_TYPE_NUMBER, '15, 5', null, null, null, null, 'linkfunction'),
+            new xmldb_field('keepgrades', XMLDB_TYPE_INTEGER, '1', null, XMLDB_NOTNULL, null, '0', 'linksteepness'),
+        ];
+        foreach ($fields as $field) {
+            if (!$dbman->field_exists($table, $field)) {
+                $dbman->add_field($table, $field);
+            }
+        }
+        upgrade_mod_savepoint(true, 2026111701, 'adaptivequiz');
+    }
+
     return true;
 }

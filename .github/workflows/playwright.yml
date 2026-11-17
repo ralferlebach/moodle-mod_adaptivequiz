@@ -122,8 +122,8 @@ jobs:
           npm install --no-audit --no-fund @playwright/test
           npx playwright install --with-deps chromium
 
-      # stories/catquiz-combined.spec.js gibt es im Host nicht mehr: der Host kennt kein CAT-Modell
-      # beim Namen (Architekturgrenze, #10 §13), die Geschichte liegt seit 2026092800 im Repository des
+      # stories/catquiz-combined.spec.js gibt es im Host nicht mehr: wegen der damaligen Architekturgrenze
+      # (#10 §13, seit 16.11.2026 aufgehoben) liegt die Geschichte seit 2026092800 im Repository des
       # CAT-Modells unter tests/playwright/. Der Schritt rief noch den alten Pfad auf und fand nichts
       # (mod_adaptivequiz #17). Jetzt wird die Geschichte aus dem eingehaengten CAT-Modell neben die
       # Host-Geschichten gelegt - Playwright spielt nur, was unter testDir (stories/) liegt - und ihr

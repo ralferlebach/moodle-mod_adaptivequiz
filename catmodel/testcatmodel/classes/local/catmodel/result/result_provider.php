@@ -19,6 +19,7 @@ namespace adaptivequizcatmodel_testcatmodel\local\catmodel\result;
 use mod_adaptivequiz\local\result\attempt_result;
 use mod_adaptivequiz\local\result\result_definition;
 use mod_adaptivequiz\local\result\result_provider as host_result_provider;
+use mod_adaptivequiz\local\result\test_information_source;
 use stdClass;
 
 /**
@@ -26,13 +27,15 @@ use stdClass;
  *
  * The range comes from the plugin setting 'resultdefinition' (JSON: supportsgrading, lower,
  * upper, link), the result of an attempt from what the test registered for its question usage
- * with {@see self::set_result()}. An attempt nothing was registered for is not finalised.
+ * with {@see self::set_result()}. An attempt nothing was registered for is not finalised. The test information
+ * (issue #25) comes from the plugin setting 'information' (JSON: {"rasch": [difficulties]} or {"constant": value});
+ * without it there is none.
  *
  * @package    adaptivequizcatmodel_testcatmodel
  * @copyright  2026 onwards Ralf Erlebach
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-final class result_provider implements host_result_provider {
+final class result_provider implements host_result_provider, test_information_source {
     /**
      * Registers the result the provider reports for an attempt.
      *
@@ -78,5 +81,31 @@ final class result_provider implements host_result_provider {
     public function get_attempt_result(stdClass $adaptivequiz, stdClass $attempt): attempt_result {
         return $GLOBALS['adaptivequizcatmodel_testcatmodel_results'][(int) $attempt->uniqueid]
             ?? attempt_result::invalid('not_finalised');
+    }
+
+    /**
+     * The test information from the plugin setting, none by default (issue #25).
+     *
+     * @param stdClass $adaptivequiz
+     * @return \Closure|null
+     */
+    public function test_information(stdClass $adaptivequiz): ?\Closure {
+        $config = json_decode((string) get_config('adaptivequizcatmodel_testcatmodel', 'information'), true);
+        if (isset($config['constant'])) {
+            $value = (float) $config['constant'];
+            return fn(float $t): float => $value;
+        }
+        if (isset($config['rasch']) && is_array($config['rasch'])) {
+            $difficulties = array_map('floatval', $config['rasch']);
+            return function (float $t) use ($difficulties): float {
+                $sum = 0.0;
+                foreach ($difficulties as $b) {
+                    $p = 1 / (1 + exp(-($t - $b)));
+                    $sum += $p * (1 - $p);
+                }
+                return $sum;
+            };
+        }
+        return null;
     }
 }

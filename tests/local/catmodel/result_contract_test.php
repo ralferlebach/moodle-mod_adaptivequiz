@@ -392,7 +392,11 @@ final class result_contract_test extends advanced_testcase {
         $this->assertSame('linear', $first->get_id());
         $this->assertSame(1, $first->get_version());
         $this->assertSame($first->get_id(), $second->get_id());
-        $this->assertEqualsWithDelta(65.0, $first->percentage(1.2, -4.0, 4.0), 1e-9);
+        $this->assertEqualsWithDelta(
+            65.0,
+            $first->percentage(1.2, new \mod_adaptivequiz\local\result\link\link_parameters(-4.0, 4.0)),
+            1e-9
+        );
     }
 
     /**

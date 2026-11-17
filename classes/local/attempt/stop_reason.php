@@ -40,8 +40,17 @@ final class stop_reason {
     /** @var string The time for the attempt ran out. */
     public const TIMELIMIT = 'timelimit';
 
+    /** @var string Every part the CAT model measures is done before the maximum: a regular end (local_catquiz #172). */
+    public const SCALES_COMPLETE = 'scalescomplete';
+
     /** @var string No suitable question was left. */
     public const NO_ELIGIBLE = 'noeligiblequestions';
+
+    /**
+     * @var string No suitable question was left before the minimum number of questions (adapter #12): told apart from
+     *      a pool that runs out after the minimum. It says nothing about the validity of the result.
+     */
+    public const NO_ELIGIBLE_BEFORE_MINIMUM = 'noeligiblebeforeminimum';
 
     /** @var string A teacher closed the attempt. */
     public const MANUAL = 'manual';
@@ -93,7 +102,10 @@ final class stop_reason {
             return null;
         }
 
-        $known = [self::TIMELIMIT, self::NO_ELIGIBLE, self::TARGET_PRECISION, self::MANUAL, self::RESTARTED, self::ERROR];
+        $known = [
+            self::TIMELIMIT, self::NO_ELIGIBLE, self::NO_ELIGIBLE_BEFORE_MINIMUM, self::TARGET_PRECISION,
+            self::SCALES_COMPLETE, self::MANUAL, self::RESTARTED, self::ERROR,
+        ];
         $key = in_array($code, $known, true) ? $code : 'unknown';
         $text = get_string('stopnotice_' . $key, 'adaptivequiz');
         // The configured limit, not "finished minus started": an attempt closed by the scheduled task or
