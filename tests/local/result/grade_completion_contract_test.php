@@ -255,7 +255,8 @@ final class grade_completion_contract_test extends advanced_testcase {
         $this->assertInstanceOf(linear_link_function::class, $function);
         $this->assertSame('linear', $function->get_id());
         $this->assertSame(1, $function->get_version());
-        $this->assertEqualsWithDelta(65.0, $function->percentage(1.2, -4.0, 4.0), 1e-9);
+        $parameters = new \mod_adaptivequiz\local\result\link\link_parameters(-4.0, 4.0);
+        $this->assertEqualsWithDelta(65.0, $function->percentage(1.2, $parameters), 1e-9);
 
         $attempt = $this->complete(0.0);
         $this->assertSame('linear', $attempt->resultlink);

@@ -271,8 +271,20 @@ function adaptivequiz_update_instance(stdClass $adaptivequiz, ?mod_adaptivequiz_
     // grading method, other result settings - in a background task: the grades are rebuilt from the
     // result snapshots, missing snapshots are taken. Without it they stayed as they were until someone
     // ran cli/regrade_results.php.
-    if ($DB->record_exists('adaptivequiz_attempt', ['instance' => $adaptivequiz->id, 'attemptstate' => 'complete'])) {
-        \mod_adaptivequiz\task\regrade_activity::queue((int) $adaptivequiz->id);
+    // Issue #25: unless the activity keeps its existing grades. Then nothing is computed again - neither
+    // snapshots nor gradebook; cli/regrade_results.php --relink does it on request, with a preview. A changed
+    // grading setting (on/off, link function, pass score, steepness) computes every grade again from its score.
+    $keepgrades = !empty($adaptivequiz->keepgrades ?? $oldquiz->keepgrades ?? 0);
+    $completed = $DB->record_exists('adaptivequiz_attempt', ['instance' => $adaptivequiz->id, 'attemptstate' => 'complete']);
+    if (!$keepgrades && $completed) {
+        $relink = false;
+        foreach (['gradingmode', 'linkfunction', 'linksteepness', 'passscore'] as $field) {
+            $changed = (string) ($adaptivequiz->$field ?? '') !== (string) ($oldquiz->$field ?? '');
+            if (property_exists($adaptivequiz, $field) && $changed) {
+                $relink = true;
+            }
+        }
+        \mod_adaptivequiz\task\regrade_activity::queue((int) $adaptivequiz->id, $relink);
     }
 
     // When a custom CAT model is submitted, wire up its callback for instance update (if exists).
@@ -750,8 +762,9 @@ function adaptivequiz_grade_item_update(stdClass $adaptivequiz, $grades = null) 
 
     // Always 0-100: the host maps every result onto a percentage of its range (issue #14). Only a
     // source whose results are not meant for the gradebook has no grade item value at all.
+    // Issue #25: an activity that is not graded has no value type - no grade, no pass mark, nothing for LTI.
     $definition = result_service::definition($adaptivequiz);
-    if ($definition->supportsgrading) {
+    if ($definition->supportsgrading && result_service::is_graded($adaptivequiz)) {
         $params['gradetype'] = GRADE_TYPE_VALUE;
         $params['grademax'] = 100;
         $params['grademin'] = 0;

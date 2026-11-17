@@ -240,6 +240,9 @@ final class regrade_test extends advanced_testcase {
         global $CFG;
 
         $source = file_get_contents($CFG->dirroot . '/mod/adaptivequiz/cli/regrade_results.php');
-        $this->assertStringContainsString('result_service::regrade($adaptivequiz, $resnapshot)', $source);
+        $this->assertStringContainsString(
+            'result_service::regrade($adaptivequiz, $resnapshot, (bool) $options[\'relink\'])',
+            $source
+        );
     }
 }

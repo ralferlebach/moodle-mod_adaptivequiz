@@ -17,10 +17,11 @@
 namespace mod_adaptivequiz\local\result\link;
 
 /**
- * Maps a score on a range onto a share of that range (issue #14).
+ * Maps a score on a range onto a share of that range, in percent (issues #14, #25).
  *
- * The host owns the mapping; an engine only names the function it wants by its identifier. The
- * caller has checked the range (upper > lower, both finite) and clamps the outcome to 0-100.
+ * The host owns the mapping; the activity chooses the function, an engine names its default. The caller has checked
+ * the range (upper > lower, both finite) and clamps the outcome to 0-100. A function that cannot compute a value -
+ * a parameter it needs is missing, the test information is unusable - returns null: no grade, never a substitute.
  *
  * @package    mod_adaptivequiz
  * @copyright  2026 onwards Ralf Erlebach
@@ -28,7 +29,7 @@ namespace mod_adaptivequiz\local\result\link;
  */
 interface link_function {
     /**
-     * The identifier an engine uses to ask for this function.
+     * The identifier an activity or an engine uses to ask for this function.
      *
      * @return string
      */
@@ -45,12 +46,18 @@ interface link_function {
     public function get_version(): int;
 
     /**
+     * The parameters this function cannot do without.
+     *
+     * @return string[] link_parameters::PASS, link_parameters::INFORMATION
+     */
+    public function required_parameters(): array;
+
+    /**
      * The share of the range the score reaches, in percent, before clamping.
      *
      * @param float $score
-     * @param float $lower
-     * @param float $upper
-     * @return float
+     * @param link_parameters $parameters
+     * @return float|null Null when the function cannot compute a value with these parameters.
      */
-    public function percentage(float $score, float $lower, float $upper): float;
+    public function percentage(float $score, link_parameters $parameters): ?float;
 }

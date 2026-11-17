@@ -55,7 +55,13 @@ final class stop_notice_test extends advanced_testcase {
             'maximum: the regular end' => [stop_reason::MAXIMUM, stop_reason::NOTICE_NONE, null],
             'time limit' => [stop_reason::TIMELIMIT, stop_reason::NOTICE_INFO, 'stopnotice_timelimit'],
             'no eligible question' => [stop_reason::NO_ELIGIBLE, stop_reason::NOTICE_INFO, 'stopnotice_noeligiblequestions'],
+            'no eligible question before the minimum' => [
+                stop_reason::NO_ELIGIBLE_BEFORE_MINIMUM,
+                stop_reason::NOTICE_INFO,
+                'stopnotice_noeligiblebeforeminimum',
+            ],
             'target precision' => [stop_reason::TARGET_PRECISION, stop_reason::NOTICE_INFO, 'stopnotice_targetprecision'],
+            'every part measured' => [stop_reason::SCALES_COMPLETE, stop_reason::NOTICE_INFO, 'stopnotice_scalescomplete'],
             'closed by a teacher' => [stop_reason::MANUAL, stop_reason::NOTICE_INFO, 'stopnotice_manual'],
             'technical error' => [stop_reason::ERROR, stop_reason::NOTICE_ERROR, 'stopnotice_error'],
             'unknown code' => ['somethingnew', stop_reason::NOTICE_INFO, 'stopnotice_unknown'],

@@ -43,7 +43,7 @@ final class question_file_access {
 
     /**
      * @var bool|null Test seam: what a CAT model would answer. This line has no fixture CAT model; the tests
-     *     set the answer here instead of writing the tables of a real one (the host knows no CAT model).
+     *     set the answer here instead of writing the tables of a real one.
      */
     public static ?bool $testreviewallowed = null;
 

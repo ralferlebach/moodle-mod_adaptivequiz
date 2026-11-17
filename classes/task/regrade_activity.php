@@ -37,11 +37,12 @@ class regrade_activity extends adhoc_task {
      * Queues the regrade of an activity, once: a second save before the task ran adds nothing.
      *
      * @param int $instanceid adaptivequiz.id
+     * @param bool $relink Compute every grade again from its score under the new grading settings (issue #25).
      * @return void
      */
-    public static function queue(int $instanceid): void {
+    public static function queue(int $instanceid, bool $relink = false): void {
         $task = new self();
-        $task->set_custom_data((object) ['instanceid' => $instanceid]);
+        $task->set_custom_data((object) ['instanceid' => $instanceid, 'relink' => $relink]);
         \core\task\manager::queue_adhoc_task($task, true);
     }
 
@@ -59,8 +60,8 @@ class regrade_activity extends adhoc_task {
             // Deleted since it was queued: nothing to grade.
             return;
         }
-        $report = result_service::regrade($adaptivequiz);
+        $report = result_service::regrade($adaptivequiz, [], !empty($this->get_custom_data()->relink));
         mtrace("adaptivequiz {$adaptivequiz->id}: {$report->attempts} completed attempt(s), {$report->snapshots} snapshot(s) "
-            . "taken, {$report->valid} with a valid result; grades rebuilt.");
+            . "taken, {$report->relinked} grade(s) computed again, {$report->valid} with a valid result; grades rebuilt.");
     }
 }

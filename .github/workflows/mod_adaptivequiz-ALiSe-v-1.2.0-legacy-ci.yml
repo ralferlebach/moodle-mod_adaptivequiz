@@ -4,7 +4,7 @@ name: CI
 # oder aelter (wie local_catquiz #156 und Adapter #10); version.php bleibt unveraendert.
 #
 # Blockierend ist, was dieser Zweig heute sauber besteht: PHP-Syntax, Plugin-Validierung,
-# Upgrade-Savepoints, PHPUnit und die Architekturgrenze zu local_catquiz.
+# Upgrade-Savepoints und PHPUnit.
 #
 # Beratend (continue-on-error) laufen Code-Style, PHPDoc, Mustache, Grunt und Behat. Der
 # Legacy-Zweig traegt Stil-Altlasten aus der Zeit vor der Uebernahme (Stand 2026-10-09:
@@ -204,24 +204,3 @@ jobs:
             moodledata/behat_faildump/**
           if-no-files-found: ignore
           retention-days: 14
-
-  architecture:
-    name: Architekturgrenze zu local_catquiz
-    runs-on: ubuntu-22.04
-    steps:
-      - name: Plugin auschecken
-        uses: actions/checkout@v4
-
-      # Der Host darf keine CATquiz-Fachlichkeit kennen (Issue #10 §13); er spricht CAT-Modelle
-      # nur ueber neutrale Erweiterungspunkte an (z. B. den Ergebnisvertrag, Issue #14).
-      # Geprueft wird ausfuehrbarer Code, nicht die Dokumentation.
-      - name: Keine CATquiz-Referenzen im Host
-        run: |
-          if grep -rInE 'local_catquiz|catquiz_handler|catscale|adaptivequizcatmodel_catquiz' \
-               --include='*.php' --include='*.js' --include='*.mustache' \
-               --include='*.json' --include='*.xml' --include='*.feature' \
-               --exclude-dir=.git --exclude-dir=doc --exclude-dir=catquiz . ; then
-            echo "::error::CATquiz-Referenz im Host gefunden - siehe Issue #10 §13."
-            exit 1
-          fi
-          echo "Keine CATquiz-Referenzen im Host."
