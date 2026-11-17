@@ -1,3 +1,8 @@
+# Enforce LF line endings for all text files, as the other ALiSe repositories do. Without this line a
+# Windows clone with core.autocrlf=true checks the files out with CRLF, and every delivery unpacked over it
+# (LF) shows as hundreds of changed files without a content change (17.11.2026).
+* text=auto eol=lf
+
 # Nicht ausliefern: reine Entwicklungs- und Testbestandteile.
 # Das neutrale Test-Catmodel und die Tests, die es voraussetzen, gehoeren
 # zur Entwicklung, nicht ins ausgelieferte Plugin.

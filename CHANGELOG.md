@@ -1,5 +1,13 @@
 # Changelog – mod_adaptivequiz (ALiSe)
 
+## 2026111702 – Zeilenenden und Canary-Vertrag (17.11.2026)
+
+- `.gitattributes`: `* text=auto eol=lf`, wie in den anderen ALiSe-Repositories. Ohne diese Zeile checkt Git unter
+  Windows mit `core.autocrlf=true` die Dateien mit CRLF aus. Jede darüber entpackte Auslieferung (LF) erschien dann als
+  Hunderte geänderter Dateien ohne Inhaltsänderung: Git vergleicht zuerst die Dateigröße im Index. Im Repository selbst
+  stehen alle Textdateien schon mit LF; `git add --renormalize .` ändert nichts.
+- `doc/php85-canary.md`: Vertrag zum PHP-8.5-Canary (Re-Audit 17.11.2026). Kein Code geändert.
+
 ## 2026111701 – Issues #24, #25 und die Gegenstücke zu local_catquiz #172 und Adapter #12 (17.11.2026)
 
 - #24: Die Trennungsregel „der Host kennt CATquiz nicht“ ist aufgehoben.
