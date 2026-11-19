@@ -24,6 +24,9 @@
  *   any other platform. This directory must never be pulled into another suite's testDir.
  * - Not headless, never parallel: a screen reader is one instance on a visible desktop.
  * - Playwright 1.57 or newer: own directory, own lockfile.
+ * - Exact Guidepup versions (package.json): library 0.33.0 with the integration 0.19.1, and setup
+ *   0.24.1 in the workflow. With a newer library the setup tool installs an NVDA the integration
+ *   does not find ("NVDA not installed").
  *
  * Slow by nature - NVDA speaks in real time - so the timeouts are generous. No retries: a run that
  * passes only on the second attempt says nothing about what a person heard on the first.
@@ -65,5 +68,7 @@ export default defineConfig({
         trace: 'retain-on-failure',
         ignoreHTTPSErrors: true,
     },
-    projects: [{name: 'chromium', use: {...devices['Desktop Chrome'], channel: 'chrome'}}],
+    // Playwright's own Chromium, installed by the workflow: the browser local_adele and
+    // local_stackmatheditor run NVDA against. Not headless - screenReaderConfig says so.
+    projects: [{name: 'chromium', use: {...devices['Desktop Chrome']}}],
 });

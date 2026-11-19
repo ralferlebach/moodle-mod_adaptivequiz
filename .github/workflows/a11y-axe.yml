@@ -4,7 +4,8 @@ name: Accessibility (axe-core)
 # line the plugin supports. The suite builds its own site: a fresh installation, the stop notice
 # fixture from tests/a11y/seed_stop_notice.php, PHP's built-in server.
 #
-# What a screen reader SAYS is checked by a11y-screenreader.yml (NVDA, Windows, manual).
+# What a screen reader SAYS is checked by a11y-screenreader.yml (NVDA on Windows, started by hand;
+# it builds the same site on Linux and reaches it through a tunnel).
 #
 # EVERY run uploads one artefact per Moodle line, passed or failed: the axe results as JSON, video
 # and screenshots. For an accessibility review the record of a green run is evidence, not noise.

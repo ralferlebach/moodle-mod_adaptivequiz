@@ -1,5 +1,24 @@
 # Changelog – mod_adaptivequiz (ALiSe)
 
+## 2026111704 – Screenreader-Workflow läuft vollständig in GitHub (19.11.2026)
+
+- `a11y-screenreader.yml` nach dem Muster von local_adele umgebaut: Ein Linux-Job baut die Testsite wie
+  `a11y-axe.yml` (Moodle-Linie im Formular wählbar: 5.1, 5.2, 5.3; Vorgabe 5.1), führt `tests/a11y/seed_stop_notice.php` aus und stellt sie über einen
+  temporären Cloudflare-Tunnel bereit; der Windows-Job (`windows-2025`) wartet auf deren Adresse und lässt NVDA gegen
+  den Tunnel laufen. Keine Pflichteingaben, keine Secrets, keine externe Site mehr. Bisher verlangte das Formular
+  Adresse und Aktivität einer bestehenden Site – leer abgeschickt lehnte GitHub den Start ab („Workflow dispatch
+  failed“) –, dazu Secrets und eine Site mit Composer-Entwicklungspaketen und `tests/a11y`, die das Release-ZIP nicht
+  enthält.
+- Guidepup wie in local_adele: Bibliothek 0.33.0 (bisher nicht gepinnt, aufgelöst zu 0.36.0), Integration 0.19.1,
+  Setup 0.24.1 im Workflow (statt `npx guidepup setup --no-interactive` und `@guidepup/setup` 0.29.1 in
+  `package.json`). Mit neuerer Bibliothek findet die Integration das installierte NVDA nicht („NVDA not installed“).
+- Spec A11Y-AQ-SR-01: „Start attempt“ als Button oder Link (die Linie 1.2 rendert einen Link mit Button-Stil, 1.3
+  einen `single_button`). Mit dem bisherigen Button-Locator wäre der Test auf 1.2 schon im ersten Schritt
+  gescheitert; lokal nachgestellt.
+- Browser: Playwrights Chromium statt des Chrome-Kanals. NVDA mit `capture: true`; das Gesprochene liegt zusätzlich
+  als `transcripts/*.txt` im Artefakt.
+- Keine Laufzeitänderung; `.github/` und `tests/a11y/` sind nicht Teil des Release-Pakets.
+
 ## 2026111703 – Issues #17, #23, #24 (Re-Audit 18.11.2026, 19.11.2026)
 
 - #17 Produktionsstandard „Trace aus“: `request_timing` misst nur noch, wenn jemand die Spans liest – Einstellung
