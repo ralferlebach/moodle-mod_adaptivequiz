@@ -145,6 +145,8 @@ final class max_slots_test extends advanced_testcase {
         $this->assertNotFalse($held);
         // The lock factory counts in whole seconds: two seconds wait at least one.
         cat_session::$locktimeout = 2;
+        // The host's spans are asserted: measuring on (off by default, mod_adaptivequiz #17).
+        set_config(\mod_adaptivequiz\local\request_timing::CONFIG, 1, 'adaptivequiz');
         \mod_adaptivequiz\local\request_timing::reset();
         try {
             cat_session::run_item_administration((int) $record->uniqueid, $adaptivequiz, $context, $attempt);

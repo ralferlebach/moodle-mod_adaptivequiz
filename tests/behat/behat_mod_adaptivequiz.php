@@ -65,6 +65,97 @@ class behat_mod_adaptivequiz extends behat_base {
     }
 
     /**
+     * An attempt the host completes with a stop code, measured by the built-in result source (issue #23): the
+     * measure in logits, its standard error (0: no estimate) and the number of answers - completed through
+     * adaptivequiz_complete_attempt() as the end of a test is, with snapshot, gradebook and completion.
+     *
+     * @Given /^"([^"]*)" has an attempt at "([^"]*)" with measure "([^"]*)" and standard error "([^"]*)" completed with "([^"]*)"$/
+     *
+     * @param string $username
+     * @param string $idnumber The activity's ID number.
+     * @param string $measure In logits.
+     * @param string $standarderror
+     * @param string $code The stop code.
+     */
+    public function has_an_attempt_completed_with(
+        string $username,
+        string $idnumber,
+        string $measure,
+        string $standarderror,
+        string $code
+    ): void {
+        global $CFG, $DB;
+        require_once($CFG->dirroot . '/mod/adaptivequiz/locallib.php');
+        $userid = (int) $DB->get_field('user', 'id', ['username' => $username], MUST_EXIST);
+        $cm = $DB->get_record('course_modules', ['idnumber' => $idnumber], '*', MUST_EXIST);
+        $adaptivequiz = $DB->get_record('adaptivequiz', ['id' => $cm->instance], '*', MUST_EXIST);
+        $now = time();
+        $uniqueid = 980000 + $userid;
+        $DB->insert_record('adaptivequiz_attempt', (object) [
+            'instance' => $cm->instance, 'userid' => $userid, 'uniqueid' => $uniqueid, 'attemptstate' => 'inprogress',
+            'attemptstopcriteria' => '', 'questionsattempted' => 2, 'difficultysum' => 0, 'standarderror' => $standarderror,
+            'measure' => (float) $measure, 'timecreated' => $now - 600, 'timemodified' => $now,
+        ]);
+        // This line keeps the standard error with the attempt record (inserted above), not as an argument.
+        adaptivequiz_complete_attempt(
+            $uniqueid,
+            $adaptivequiz,
+            \context_module::instance($cm->id),
+            $userid,
+            'Stopped',
+            $code
+        );
+    }
+
+    /**
+     * How the host stored the end of the last attempt of a user (issue #23): its stop code and whether its result is
+     * valid - the fields the gradebook, the completion and the result page read.
+     *
+     * @Then /^the last attempt of "([^"]*)" at "([^"]*)" has the stop code "([^"]*)" and (a valid|no valid) result$/
+     *
+     * @param string $username
+     * @param string $idnumber The activity's ID number.
+     * @param string $code
+     * @param string $validity
+     */
+    public function the_last_attempt_has_the_stop_code_and_result(
+        string $username,
+        string $idnumber,
+        string $code,
+        string $validity
+    ): void {
+        global $DB;
+        $userid = (int) $DB->get_field('user', 'id', ['username' => $username], MUST_EXIST);
+        $cm = $DB->get_record('course_modules', ['idnumber' => $idnumber], '*', MUST_EXIST);
+        $attempts = $DB->get_records(
+            'adaptivequiz_attempt',
+            ['instance' => $cm->instance, 'userid' => $userid],
+            'id DESC',
+            '*',
+            0,
+            1
+        );
+        $attempt = reset($attempts);
+        if (!$attempt) {
+            throw new ExpectationException('No attempt at ' . $idnumber, $this->getSession());
+        }
+        $valid = $validity === 'a valid';
+        $expected = (string) $attempt->stopcode === $code && (int) $attempt->resultvalid === ($valid ? 1 : 0)
+            && $attempt->attemptstate === 'complete' && !empty($attempt->timefinished);
+        if (!$expected) {
+            throw new ExpectationException(sprintf(
+                'Stop code %s, state %s, resultvalid %s (%s) - expected %s and %s.',
+                $attempt->stopcode,
+                $attempt->attemptstate,
+                $attempt->resultvalid,
+                $attempt->resultreason,
+                $code,
+                $validity
+            ), $this->getSession());
+        }
+    }
+
+    /**
      * Opens the result page of the logged-in user's last attempt at an activity (issue #20).
      *
      * @Given /^I open the result page of my last attempt at "([^"]*)"$/

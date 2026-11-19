@@ -49,6 +49,8 @@ final class cat_session_timeline_test extends advanced_testcase {
     protected function setUp(): void {
         parent::setUp();
         $this->resetAfterTest();
+        // The host's spans are asserted: measuring on (off by default, mod_adaptivequiz #17).
+        set_config(\mod_adaptivequiz\local\request_timing::CONFIG, 1, 'adaptivequiz');
         $generator = $this->getDataGenerator();
         $questions = $generator->get_plugin_generator('core_question');
         $course = $generator->create_course();

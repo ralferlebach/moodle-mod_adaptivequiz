@@ -118,4 +118,30 @@ class custom_completion_test extends advanced_testcase {
             [__DIR__.'/../fixtures/mod_adaptivequiz_adaptiveattempt.xml']
         )->to_database();
     }
+
+    /**
+     * The sort order lists every condition the activity can have - core throws on the activity page for a missing one
+     * (found with "Receive a passing grade" together with "valid result", host #23).
+     */
+    public function test_the_sort_order_lists_every_condition(): void {
+        $this->resetAfterTest();
+        $course = $this->getDataGenerator()->create_course(['enablecompletion' => 1]);
+        $adaptivequiz = $this->getDataGenerator()->create_module('adaptivequiz', [
+            'course' => $course->id, 'completion' => COMPLETION_TRACKING_AUTOMATIC, 'completionview' => 1,
+            'completionusegrade' => 1, 'completionpassgrade' => 1, 'completionattemptcompleted' => 1,
+            'completionvalidresult' => 1,
+        ]);
+        $cm = cm_info::create(get_coursemodule_from_id('adaptivequiz', $adaptivequiz->cmid));
+        $user = $this->getDataGenerator()->create_and_enrol($course, 'student');
+        $completion = new custom_completion($cm, (int) $user->id);
+        $order = $completion->get_sort_order();
+        $rules = ['completionview', 'completionusegrade', 'completionpassgrade', ...custom_completion::get_defined_custom_rules()];
+        foreach ($rules as $rule) {
+            $this->assertContains($rule, $order, $rule);
+        }
+        // What the activity page builds from it: no exception.
+        $details = \core_completion\cm_completion_details::get_instance($cm, (int) $user->id);
+        $this->assertArrayHasKey('completionpassgrade', $details->get_details());
+        $this->assertArrayHasKey('completionvalidresult', $details->get_details());
+    }
 }

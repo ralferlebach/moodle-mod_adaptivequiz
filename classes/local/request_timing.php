@@ -20,12 +20,13 @@ namespace mod_adaptivequiz\local;
  * Durations of the host's own steps in this request: waiting for a lock, creating the attempt, asking
  * the CAT model, loading the question, the question usage (mod_adaptivequiz #17).
  *
- * Trace decision: always measure, never persist. The host keeps its spans in memory only - a handful
- * of hrtime() and memory_get_usage() calls per request, cheap enough to run always - and writes
- * nothing anywhere. A CAT model that keeps a trace of its requests (off by default) reads the spans
- * with get_spans() and stores them next to its own; without such a trace the spans end with the
- * request. Nothing of a question or an answer is recorded: span names are fixed strings from the
- * code, meta holds numbers and flags only.
+ * Trace decision: off by default, never persisted by the host. The host measures only when somebody reads
+ * the spans: the setting adaptivequiz/requesttiming, or a CAT model whose own trace is on (callback
+ * adaptivequizcatmodel_<name>_wants_request_timing()). Off, start(), stop() and measure() do nothing
+ * but run the step - the path of the request is the same. On, the host keeps its spans in memory only
+ * and writes nothing anywhere; a CAT model that keeps a trace of its requests reads them with
+ * get_spans() and stores them next to its own. Nothing of a question or an answer is recorded: span
+ * names are fixed strings from the code, meta holds numbers and flags only.
  *
  * Contract for a CAT model (it checks with method_exists(), older hosts lack the newer methods):
  * - get_spans(): the spans - name, depth, offsetms, ms, meta.
@@ -72,12 +73,63 @@ final class request_timing {
     /** @var callable|null Test seam: stands in for error_get_last() in on_shutdown(). */
     public static $lasterror = null;
 
+    /** @var string Setting that switches the measuring on for every request (mod_adaptivequiz #17). */
+    public const CONFIG = 'requesttiming';
+
+    /** @var bool|null Whether this request measures: decided once, on the first span; null until then. */
+    private static ?bool $enabled = null;
+
+    /** @var bool|null Test seam: on or off whatever setting and CAT models say; null to decide. Left to the test. */
+    public static ?bool $force = null;
+
+    /**
+     * Whether this request measures (mod_adaptivequiz #17: production default off).
+     *
+     * On when the setting adaptivequiz/requesttiming is set, or a CAT model asks for the spans because its own
+     * trace is on. Decided once per request; reset() and reset_request() decide again.
+     *
+     * @return bool
+     */
+    public static function enabled(): bool {
+        if (self::$force !== null) {
+            return self::$force;
+        }
+        if (self::$enabled === null) {
+            self::$enabled = self::decide();
+        }
+        return self::$enabled;
+    }
+
+    /**
+     * The decision: the setting, then the CAT models. Anything failing on the way means off.
+     *
+     * @return bool
+     */
+    private static function decide(): bool {
+        try {
+            if (!empty(get_config('adaptivequiz', self::CONFIG))) {
+                return true;
+            }
+            foreach (get_plugin_list_with_function('adaptivequizcatmodel', 'wants_request_timing') as $function) {
+                if ($function()) {
+                    return true;
+                }
+            }
+        } catch (\Throwable $e) {
+            return false;
+        }
+        return false;
+    }
+
     /**
      * Opens a span.
      *
      * @param string $name Fixed name from the code.
      */
     public static function start(string $name): void {
+        if (!self::enabled()) {
+            return;
+        }
         if (!self::$shutdownregistered) {
             self::$shutdownregistered = true;
             \core_shutdown_manager::register_function([self::class, 'on_shutdown']);
@@ -107,6 +159,10 @@ final class request_timing {
      * @param array $meta Numbers and flags only, e.g. a slot count; anything else is dropped.
      */
     public static function stop(string $name, array $meta = []): void {
+        if (!self::$open) {
+            // Nothing open - nothing measured, or the trace is off.
+            return;
+        }
         $now = hrtime(true);
         for ($i = count(self::$open) - 1; $i >= 0; $i--) {
             if (self::$open[$i]['name'] !== $name) {
@@ -158,6 +214,9 @@ final class request_timing {
      * @return mixed
      */
     public static function measure(string $name, callable $fn, array $meta = []) {
+        if (!self::enabled()) {
+            return $fn();
+        }
         self::start($name);
         try {
             $result = $fn();
@@ -182,6 +241,9 @@ final class request_timing {
      */
     public static function measure_db(string $name, callable $fn) {
         global $DB;
+        if (!self::enabled()) {
+            return $fn();
+        }
         $before = $DB->perf_get_reads();
         $reads = fn() => ['dbreads' => $DB->perf_get_reads() - $before];
         self::start($name);
@@ -346,6 +408,7 @@ final class request_timing {
         self::$spans = [];
         self::$open = [];
         self::$dropped = 0;
+        self::$enabled = null;
     }
 
     /**
