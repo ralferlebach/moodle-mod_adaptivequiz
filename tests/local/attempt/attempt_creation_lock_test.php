@@ -51,6 +51,8 @@ final class attempt_creation_lock_test extends advanced_testcase {
         global $CFG;
         parent::setUp();
         $this->resetAfterTest();
+        // The host's spans are asserted: measuring on (off by default, mod_adaptivequiz #17).
+        set_config(\mod_adaptivequiz\local\request_timing::CONFIG, 1, 'adaptivequiz');
         $course = $this->getDataGenerator()->create_course();
         $this->adaptivequiz = $this->getDataGenerator()->get_plugin_generator('mod_adaptivequiz')->create_instance([
             'course' => $course->id, 'highestlevel' => 10, 'lowestlevel' => 1, 'standarderror' => 14,

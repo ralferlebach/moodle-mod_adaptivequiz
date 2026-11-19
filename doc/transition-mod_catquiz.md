@@ -66,3 +66,25 @@ Zu entscheiden und zu beauftragen, getrennt von diesem Issue:
    `mod/adaptivequiz:*` → `mod/catquiz:*`.
 5. **Linien:** 1.2 (Moodle 4.5) und 1.3 (Moodle 5.x) gleichwertig oder nur 1.3.
 6. **Betrieb:** CLARA- und ALiSe-Instanzen: Reihenfolge, Ausfallzeit, Rückweg.
+
+## 5. Abgleich mit Code, CI und Werkzeug (Re-Audit 18.11.2026, Stand 19.11.2026)
+
+Geprüft an den Branch-Ständen `v-3.0` (5bae215 + diese Auslieferung, 2026111703) und `ALiSe-v-1.2.0-legacy` (a05a188 +
+diese Auslieferung, 2026111701), mit `grep` über Code, Tests, Workflows und Werkzeug:
+
+| Prüfpunkt | v-3.0 | legacy | Ergebnis |
+|---|---|---|---|
+| Gate-Schritt „Keine CATquiz-Referenzen im Host“ in den Workflows | `.github/workflows/ci.yml`: nicht vorhanden | `.github/workflows/mod_adaptivequiz-ALiSe-v-1.2.0-legacy-ci.yml`: nicht vorhanden | entfernt (AK2) |
+| CATquiz in Workflows | `playwright.yml` Z. 79–147: holt local_catquiz und Adapter für die kombinierte Geschichte; Z. 125 Kommentar „wegen der damaligen Architekturgrenze“ (historisch) | nur `CATQUIZ_REQUIRE_CONCURRENCY` (Z. 124) | Nutzung, kein Verbot |
+| Lokaler Preflight | `tools/preflight.sh` Z. 116: „das Architektur-Gate (Host #10 §13) ist seit 16.11.2026 entfernt“ | dasselbe Werkzeug | entfernt |
+| Resolver | `classes/local/catmodel/catmodel_resolver.php` Z. 34–60: `is_configured()`, `handler()` – Schnittstelle | Callbacks `adaptivequiz_catmodel_add_instance_callback()` / `_update_instance_callback()` in `lib.php` Z. 185/304 | Schnittstelle bleibt (AK3) |
+| Result-Provider | `result_service::provider()` Z. 130 | dieselbe Methode (ohne Resolver, `core_component`) | Schnittstelle bleibt |
+| Linkfunktionen | `link_function_registry.php` Z. 80 (`adaptivequizcatmodel_<name>`) | dieselbe Datei | bleibt für #25 |
+| Löschpfad | `lib.php` Z. 947 `post_delete_attempt_callback` | `lib.php` Z. 954 | bleibt (Adapter #11) |
+| Testinfrastruktur | `catmodel/testcatmodel`, Tests „neutral CAT model“ (`catmodel_resolver_test.php` Z. 40, `item_bank_readiness_test.php` Z. 29) | keine Test-CAT-Modell-Fixture (`question_file_access.php` Z. 45: Test-Naht) | Testinfrastruktur, keine Regel |
+| Schutzprüfungen (AK4) | Rechte/Kontext, Eigentum Versuch/Usage, ID-Räume, `resultvalid`, Löschtransaktionen, Stoppcodes | dieselben | unverändert, keine als Gate entfernt |
+| Dokumente | `README.md` Z. 216–219 („derzeitiger Stand … transition (issue #24)“), `CHANGELOG.md` (Eintrag 2026111701), dieses Dokument unter `doc/transition-mod_catquiz.md` | `README.md`, `CHANGELOG.md` (Eintrag 2026111700), dieses Dokument als `TRANSITION-mod_catquiz.md` | inhaltsgleich (Datei-Diff leer); nur der Ablageort unterscheidet sich je Linie |
+
+Keine `mod_catquiz`-Implementierung in diesem Issue (AK6, DoD5): weder Komponente noch Tabellen, URLs, Fähigkeiten oder
+Abhängigkeiten wurden geändert. Regressionen (DoD2/DoD3): Host-, Adapter- und CATquiz-Suiten beider Linien laufen in
+dieser Auslieferung (Abnahmebericht `restarbeiten-2026-11-19.md` in local_catquiz).

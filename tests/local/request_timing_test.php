@@ -35,6 +35,8 @@ final class request_timing_test extends \basic_testcase {
         parent::setUp();
         $this->incomingid = $_SERVER['HTTP_X_REQUEST_ID'] ?? null;
         request_timing::reset_request();
+        // The spans themselves: measuring on (off by default, see request_timing_switch_test).
+        request_timing::$force = true;
     }
 
     /**
@@ -47,6 +49,7 @@ final class request_timing_test extends \basic_testcase {
             $_SERVER['HTTP_X_REQUEST_ID'] = $this->incomingid;
         }
         request_timing::reset_request();
+        request_timing::$force = null;
         parent::tearDown();
     }
 

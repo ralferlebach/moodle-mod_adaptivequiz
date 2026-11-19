@@ -4,19 +4,31 @@
 ausführt – Warten auf Locks, Anlegen des Versuchs, Aufruf des CAT-Modells, Laden der Frage, die
 Question Usage. Die Klasse ist in v3 und in der Legacy-Linie identisch.
 
-## Trace-Entscheidung: immer messen, nie selbst persistieren
+## Trace-Entscheidung: standardmäßig aus, nie selbst persistieren (Stand 19.11.2026)
 
-- Der Host misst **immer**. Pro Span fallen ein paar `hrtime()`- und `memory_get_usage()`-Aufrufe
-  an; das ist billig genug, um es nicht abschaltbar zu machen. Es gibt deshalb keinen Schalter, der
-  den normalen Pfad verändern könnte (Test „Fragenauswahl mit/ohne Messung identisch“).
-- Der Host **schreibt nichts** – keine Tabelle, kein Log, keine Datei. Die Spans leben nur im
-  Speicher des Requests.
-- **Persistiert wird ausschließlich über das CAT-Modell**, wenn dessen eigener Trace eingeschaltet ist
-  (Produktionsstandard: aus). Das CAT-Modell liest die Spans, legt sie neben seine eigenen und ruft
-  danach `reset()` auf.
+- Der Host misst **nur, wenn jemand die Spans liest** (`request_timing::enabled()`, je Request einmal
+  entschieden, nach `reset()` neu):
+  - Einstellung `adaptivequiz/requesttiming` (ohne Formular; z. B.
+    `php admin/cli/cfg.php --component=adaptivequiz --name=requesttiming --set=1`), oder
+  - ein CAT-Modell, dessen eigener Trace an ist, über den Callback
+    `adaptivequizcatmodel_<name>_wants_request_timing(): bool` – der CATquiz-Adapter liefert
+    `local_catquiz/attempttrace`.
+- **Produktionsstandard: aus.** Dann tun `start()`, `stop()`, `measure()` und `measure_db()` nichts außer den
+  Schritt auszuführen; kein Shutdown-Handler, keine Spans. Der Ablauf des Requests ist derselbe (Tests
+  `request_timing_switch_test`, `request_timing_catmodel_test`,
+  `cat_session_test::test_selection_is_the_same_with_and_without_measuring`,
+  Adapter `trace_test::test_the_host_measures_only_with_the_trace`).
+- Request-ID (`X-ALiSe-Request-Id`) und `set_attempt()` bleiben unabhängig davon: sie messen nichts.
+- Der Host **schreibt nichts** – keine Tabelle, kein Log, keine Datei. Die Spans leben nur im Speicher des
+  Requests; persistiert wird ausschließlich über das CAT-Modell, wenn dessen Trace an ist.
 - Es wird nichts von Fragen oder Antworten aufgezeichnet: Span-Namen sind feste Strings aus dem Code,
   `meta` nimmt nur Zahlen und Wahrheitswerte an (Strings werden verworfen). Einzige Ausnahme ist
   `where` im Span `fatal` – ein Pfad unterhalb des Moodle-Wurzelverzeichnisses, nie eine Meldung.
+- Test-Naht `request_timing::$force` (an/aus unabhängig von Einstellung und CAT-Modell); `reset()` lässt sie
+  stehen, der Test setzt sie zurück.
+
+Vorher (bis 2026111702 bzw. 2026111700) maß der Host immer; das Re-Audit wertete das als „Trace an“ im
+Produktionsstandard (#17, AK „Produktionsstandard Trace OFF“).
 
 ## API-Vertrag für CAT-Modelle
 

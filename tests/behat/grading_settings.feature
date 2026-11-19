@@ -113,3 +113,39 @@ Feature: Grading settings of the activity (issue #25)
     And I press "Save and return to course"
     And I am on the "Course 1" "grades > Grader report > View" page
     And I should see "Plain Quiz" in the "#user-grades" "css_element"
+
+  @accessibility
+  Scenario Outline: The link function <link> is saved, shown again and kept by a duplicate
+    Given I am on the "Plain Quiz" "adaptivequiz activity editing" page logged in as teacher1
+    And I expand all fieldsets
+    # The fields of the grading settings; the rest of the core form is not the subject here.
+    And the "#fitem_id_linkfunction" "css_element" should meet accessibility standards
+    And the "#fitem_id_passscore" "css_element" should meet accessibility standards
+    When I set the field "Link function" to "<link>"
+    And I set the field "Pass score" to "<pass>"
+    And I press "Save and return to course"
+    And I am on the "Plain Quiz" "adaptivequiz activity editing" page
+    And I expand all fieldsets
+    Then the field "Link function" matches value "<link>"
+    And the field "Pass score" matches value "<pass>"
+    When I am on "Course 1" course homepage with editing mode on
+    And I duplicate "Plain Quiz" activity
+    And I am on the "Plain Quiz (copy)" "adaptivequiz activity editing" page
+    And I expand all fieldsets
+    Then the field "Link function" matches value "<link>"
+    And the field "Pass score" matches value "<pass>"
+
+    Examples:
+      | link                                      | pass |
+      | Linear                                    | 5    |
+      | Piecewise linear, pass score at 50 %      | 5    |
+      | Logistic, 50 % in the middle of the range | 5    |
+      | Logistic, 50 % at the pass score          | 5.5  |
+      | All or nothing at the pass score          | 4.5  |
+
+  Scenario: Fisher-Rao is refused where the result source offers no test information
+    Given I am on the "Plain Quiz" "adaptivequiz activity editing" page logged in as teacher1
+    And I expand all fieldsets
+    When I set the field "Link function" to "Fisher-Rao arc length (information of the item battery)"
+    And I press "Save and display"
+    Then I should see "The result source offers no usable test information for this activity"

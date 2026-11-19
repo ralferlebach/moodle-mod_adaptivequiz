@@ -77,6 +77,9 @@ class custom_completion extends activity_custom_completion {
      * Returns sort order.
      */
     public function get_sort_order(): array {
-        return ['completionview', 'completionusegrade', 'completionattemptcompleted', 'completionvalidresult'];
+        // Every condition that can apply, the standard ones included: core throws on the activity page for one that is
+        // missing - "Receive a passing grade" was, so an activity with it and a rule of its own showed no page at all.
+        return ['completionview', 'completionusegrade', 'completionpassgrade', 'completionattemptcompleted',
+            'completionvalidresult'];
     }
 }

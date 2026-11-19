@@ -57,6 +57,8 @@ final class cat_session_test extends advanced_testcase {
      * @param string|null $catmodel Name of the CAT model to configure, null for the built-in one.
      */
     private function set_up_activity(?string $catmodel = null): void {
+        // The host's spans are asserted: measuring on (off by default, mod_adaptivequiz #17).
+        set_config(\mod_adaptivequiz\local\request_timing::CONFIG, 1, 'adaptivequiz');
         $coregenerator = $this->getDataGenerator();
         /** @var \mod_adaptivequiz_generator $modgenerator */
         $modgenerator = $coregenerator->get_plugin_generator('mod_adaptivequiz');

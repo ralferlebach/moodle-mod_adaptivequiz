@@ -219,3 +219,12 @@ function adaptivequizcatmodel_testcatmodel_attempt_time_limit(stdClass $adaptive
 function adaptivequizcatmodel_testcatmodel_item_time_limit(stdClass $adaptivequiz, stdClass $attempt): ?int {
     return $GLOBALS['adaptivequizcatmodel_testcatmodel_limits']['item'] ?? null;
 }
+
+/**
+ * Whether this CAT model reads the host's request timing (mod_adaptivequiz #17): when a test says so.
+ *
+ * @return bool
+ */
+function adaptivequizcatmodel_testcatmodel_wants_request_timing(): bool {
+    return !empty($GLOBALS['adaptivequizcatmodel_testcatmodel_wantstiming']);
+}

@@ -1,5 +1,27 @@
 # Changelog – mod_adaptivequiz (ALiSe)
 
+## 2026111703 – Issues #17, #23, #24 (Re-Audit 18.11.2026, 19.11.2026)
+
+- #17 Produktionsstandard „Trace aus“: `request_timing` misst nur noch, wenn jemand die Spans liest – Einstellung
+  `adaptivequiz/requesttiming` oder ein CAT-Modell mit eigenem Trace (Callback
+  `adaptivequizcatmodel_<name>_wants_request_timing()`; der CATquiz-Adapter liefert `local_catquiz/attempttrace`). Aus,
+  führen `start()`/`stop()`/`measure()`/`measure_db()` nur den Schritt aus; kein Shutdown-Handler, keine Spans.
+  Entscheidung einmal je Request (`enabled()`), Test-Naht `request_timing::$force`. Neu `request_timing_switch_test` und
+  `request_timing_catmodel_test` (Callback über das Test-CAT-Modell, nicht ausgeliefert);
+  die Tests der Spans schalten die Messung ausdrücklich ein. Doku: `doc/request-timing.md`.
+- #23: Behat `result_after_technical_error.feature` (3 Szenarien) gegen die echte Ergebnisseite: technischer Fehler
+  nach gültiger Messung – Fehlerdialog, Note, „Bestehensnote“ und „gültiges Ergebnis“ erfüllt; Fehler ohne Schätzung –
+  Fehlerdialog, keine Note (nicht 0), nichts erfüllt; reguläres Ende gleich bewertet. Neue Schritte: Versuch über
+  `adaptivequiz_complete_attempt()` mit Stoppcode abschließen; Stoppcode und Gültigkeit des letzten Versuchs prüfen.
+- Abschluss (gefunden mit dem neuen Behat zu #23): `custom_completion::get_sort_order()` nannte „Bestehensnote
+  erhalten“ (`completionpassgrade`) nicht. Core wirft dann auf der Aktivitätsseite eine `coding_exception`, sobald
+  die Aktivität diese Bedingung zusammen mit einer eigenen Regel („gültiges Ergebnis“, „Versuch abgeschlossen“) hat
+  – die Seite war nicht aufrufbar. Ergänzt; Test `custom_completion_test::test_the_sort_order_lists_every_condition`.
+- #24: `doc/transition-mod_catquiz.md` §5 – Abgleich der Gate-Entfernung mit Workflows, Preflight, Resolver/Callbacks, Schutzprüfungen und
+  Dokumenten, mit Pfad und Zeile. Keine Codeänderung dafür.
+- Test-CAT-Modell: Callback `adaptivequizcatmodel_testcatmodel_wants_request_timing()` für den Schaltertest.
+
+
 ## 2026111702 – Zeilenenden und Canary-Vertrag (17.11.2026)
 
 - `.gitattributes`: `* text=auto eol=lf`, wie in den anderen ALiSe-Repositories. Ohne diese Zeile checkt Git unter
