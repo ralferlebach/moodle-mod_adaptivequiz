@@ -29,11 +29,37 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
+import fs from 'node:fs';
+import path from 'node:path';
 import {nvdaTest} from '@guidepup/playwright';
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const {env, loginAs} = require('../../support/env');
 
 const {expect} = nvdaTest;
+
+// Everything NVDA says after a command, not only its first utterance: role and state often come as
+// a second one ("dialog", then the title).
+nvdaTest.use({nvdaStartOptions: {capture: true}});
+
+/**
+ * Keeps what NVDA said as a plain file in the artefact, with commit, date and site on top - a dated
+ * record rather than something remembered.
+ *
+ * @param name File name without extension.
+ * @param phrases The spoken phrases.
+ */
+function archive(name: string, phrases: string[]): void {
+    const dir = path.join(process.env.A11Y_EXPORT_DIR || __dirname, 'transcripts');
+    fs.mkdirSync(dir, {recursive: true});
+    fs.writeFileSync(path.join(dir, `${name}.txt`), [
+        `# ${name}`,
+        `# recorded ${new Date().toISOString()}`,
+        `# commit ${process.env.GITHUB_SHA || 'local'}`,
+        `# site ${process.env.A11Y_BASE_URL || 'unknown'}`,
+        '',
+        ...phrases,
+    ].join('\n'), 'utf8');
+}
 
 /** Reading steps after the dialog was closed: enough for the notice and the feedback below it. */
 const READING_STEPS = 12;
@@ -43,7 +69,9 @@ nvdaTest.describe('A11Y-AQ-SR-01 - the end of the test is announced', () => {
         await nvdaTest.step('answer the first question', async() => {
             await loginAs(page, env.user, env.password);
             await page.goto(env.activityUrl);
-            await page.getByRole('button', {name: /start attempt/i}).click();
+            // A button on the newer host line (core/single_button), a link styled as one on the legacy line.
+            await page.getByRole('button', {name: /start attempt/i})
+                .or(page.getByRole('link', {name: /start attempt/i})).first().click();
             await page.getByRole('radio', {name: 'True'}).check();
             await page.getByRole('button', {name: /submit answer/i}).click();
             await page.getByText('Second question').first().waitFor();
@@ -71,6 +99,7 @@ nvdaTest.describe('A11Y-AQ-SR-01 - the end of the test is announced', () => {
             spoken.push('--- after closing ---', ...await nvda.spokenPhraseLog());
         });
 
+        archive('A11Y-AQ-SR-01-stop-notice', spoken);
         await testInfo.attach('nvda-spoken-phrases.txt', {body: spoken.join('\n'), contentType: 'text/plain'});
         const [opening, afterwards] = spoken.join(' | ').split('--- after closing ---');
 
