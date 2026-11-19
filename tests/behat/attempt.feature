@@ -55,7 +55,7 @@ Feature: Attempt an adaptive quiz
     And I press "Submit answer"
     And I click on "True" "radio" in the "Second question" "question"
     And I press "Submit answer"
-    And I press "Continue"
+    And I press "Return to test"
     When I am on the "adaptivequiz1" "Activity" page
     Then "Start attempt" "link" should not be visible
     And I should see "No more attempts allowed at this activity"
@@ -83,7 +83,7 @@ Feature: Attempt an adaptive quiz
     And I click on "True" "radio"
     And I press "Submit answer"
     And I am on the "adaptivequiz1" "Activity" page
-    And I click on "Start attempt" "link"
+    And I click on "Continue attempt" "button"
     And I click on "True" "radio"
     And I press "Submit answer"
     Then I should see "Fourth question"

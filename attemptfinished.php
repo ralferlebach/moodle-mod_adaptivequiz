@@ -66,13 +66,15 @@ $context = context_module::instance($cm->id);
 
 // TODO - check if user has capability to attempt.
 
-// Check if this is the owner of the attempt.
-$validattempt = adaptivequiz_uniqueid_part_of_attempt($uniqueid, $instance, $USER->id);
+// Loaded once, after the login and only if it is this user's attempt of this activity; the event,
+// the feedback of the CAT model and the rest of the page all use this row.
+$attempt = adaptivequiz_result_page_attempt($cm, $uniqueid, $instance, (int) $USER->id);
 
-// Display an error message if this is not the owner of the attempt.
-if (!$validattempt) {
-    $url = new moodle_url('/mod/adaptivequiz/attempt.php', array('cmid' => $cm->id));
-    throw new moodle_exception('notyourattempt', 'adaptivequiz', $url);
+// The result page of a completed attempt was opened (issue #15). Every view is an event; which was
+// the first is for the consumer to decide. No visibility check here: an own completed result stays
+// readable even if completion has since hidden the activity.
+if ($attempt->attemptstate === \mod_adaptivequiz\local\attempt\attempt_state::COMPLETED) {
+    \mod_adaptivequiz\event\result_page_viewed::create_from_attempt($attempt, $context)->trigger();
 }
 
 // The require_login() call above omits the course module, so it does not set the
@@ -99,7 +101,9 @@ if (!empty($adaptivequiz->browsersecurity)) {
     $PAGE->set_heading(format_string($course->fullname));
 }
 
-$attemptfeedback = $adaptivequiz->attemptfeedback;
+// Issue #21: the activity's own feedback, cleaned unless a trusted author wrote it. The feedback of a CAT
+// model below is that model's output and passes as it is.
+$attemptfeedback = adaptivequiz_format_attempt_feedback($adaptivequiz, $context);
 if (!empty($adaptivequiz->catmodel)) {
     // Try wire up the custom feedback from the sub-plugin being used. If it's implemented in a sub-plugin, it always has
     // a precedence over the default feedback provided by the activity.
@@ -108,11 +112,31 @@ if (!empty($adaptivequiz->catmodel)) {
     if (array_key_exists($catmodelcomponentname, $pluginswithfunction)) {
         $functionname = $pluginswithfunction[$catmodelcomponentname];
 
-        $attempt = $DB->get_record('adaptivequiz_attempt', ['uniqueid' => $uniqueid], '*', MUST_EXIST);
         $attemptfeedback = $functionname($adaptivequiz, $cm, $attempt);
     }
 }
 
+// Issue #20: an end the participant may not expect is explained before the feedback.
+$stopnotice = null;
+$ownattempt = (int) $attempt->userid === (int) $USER->id;
+if ($ownattempt && $attempt->attemptstate === \mod_adaptivequiz\local\attempt\attempt_state::COMPLETED) {
+    $stopnotice = \mod_adaptivequiz\local\attempt\stop_reason::notice(
+        $attempt,
+        \mod_adaptivequiz\local\attempt\stop_reason::time_limit($adaptivequiz, $attempt)
+    );
+}
+
 echo $output->header();
+if ($stopnotice !== null) {
+    echo $output->render_from_template('mod_adaptivequiz/stop_notice', [
+        'title' => $stopnotice->title,
+        'text' => $stopnotice->text,
+        'iserror' => $stopnotice->kind === \mod_adaptivequiz\local\attempt\stop_reason::NOTICE_ERROR,
+        'attemptid' => (int) $attempt->id,
+        'acknowledged' => !empty($attempt->stopnoticeack),
+    ]);
+}
+echo html_writer::start_div('', ['data-region' => 'adaptivequiz-attempt-feedback']);
 echo $output->attempt_feedback($attemptfeedback, $cm->id, $abilitymeasurerenderable, $popup);
+echo html_writer::end_div();
 echo $output->footer();

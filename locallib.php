@@ -32,7 +32,7 @@ require_once($CFG->dirroot . '/question/engine/lib.php');
 use core_question\local\bank\question_edit_contexts;
 use mod_adaptivequiz\event\attempt_completed;
 use mod_adaptivequiz\local\attempt\attempt_state;
-use mod_adaptivequiz\local\catalgo;
+use mod_adaptivequiz\local\result\result_service;
 use qbank_managecategories\helper as qbank_managecategories_helper;
 
 // Default tagging used.
@@ -179,6 +179,37 @@ function adaptivequiz_uniqueid_part_of_attempt($uniqueid, $instance, $userid) {
 }
 
 /**
+ * Returns the attempt whose result page the user may see, or throws.
+ *
+ * The attempt must belong to the activity of the course module - not merely to the instance id
+ * the request names - and to the user. Everything the result page and its event use comes from
+ * the stored row this returns, never from the request (issue #15).
+ *
+ * @param stdClass $cm The course module of the activity.
+ * @param int $uniqueid The question usage id of the attempt, as passed to the page.
+ * @param int $instance The instance id as passed to the page.
+ * @param int $userid The user asking for the page.
+ * @return stdClass The row of adaptivequiz_attempt.
+ * @throws moodle_exception If the attempt is not this user's attempt of this activity.
+ */
+function adaptivequiz_result_page_attempt(stdClass $cm, int $uniqueid, int $instance, int $userid): stdClass {
+    global $DB;
+
+    $attempt = $DB->get_record('adaptivequiz_attempt', ['uniqueid' => $uniqueid]);
+    if (
+        !$attempt
+        || $instance !== (int) $cm->instance
+        || (int) $attempt->instance !== (int) $cm->instance
+        || (int) $attempt->userid !== $userid
+    ) {
+        $url = new moodle_url('/mod/adaptivequiz/attempt.php', ['cmid' => $cm->id]);
+        throw new moodle_exception('notyourattempt', 'adaptivequiz', $url);
+    }
+
+    return $attempt;
+}
+
+/**
  * This function increments the difficultysum value and the number of questions attempted for the adaptivequiz_attempt record
  * @throws dml_exception A DML specific exception
  * @param int $uniqueid uniqueid value of the adaptivequiz_attempt record
@@ -223,6 +254,44 @@ function adaptivequiz_update_attempt_data($uniqueid, $instance, $userid, $level,
 }
 
 /**
+ * Deletes an attempt, its answers and its grade, and tells the CAT model about it.
+ *
+ * One transaction with the CAT model's deletion: if the CAT model cannot delete
+ * its data, the attempt stays as it was and the deletion can run again. Before, delattempt.php deleted the attempt
+ * first and stopped without regrading when the CAT model had no callback.
+ *
+ * @package mod_adaptivequiz
+ * @param stdClass $adaptivequiz The activity instance record.
+ * @param stdClass $attempt The attempt to delete.
+ */
+function adaptivequiz_delete_attempt(stdClass $adaptivequiz, stdClass $attempt): void {
+    global $DB;
+
+    $transaction = $DB->start_delegated_transaction();
+    try {
+        question_engine::delete_questions_usage_by_activity($attempt->uniqueid);
+        // On MySQL and MariaDB the question engine deletes a usage together with its question attempts through an
+        // inner join - a usage that never received a question stays behind. Removing it here leaves no orphan.
+        $DB->delete_records('question_usages', ['id' => $attempt->uniqueid]);
+        $DB->delete_records('adaptivequiz_attempt', ['id' => $attempt->id]);
+
+        // Allow sub-plugins to run their code when relevant.
+        if (!empty($adaptivequiz->catmodel)) {
+            $component = 'adaptivequizcatmodel_' . $adaptivequiz->catmodel;
+            $functions = get_plugin_list_with_function('adaptivequizcatmodel', 'post_delete_attempt_callback');
+            if (array_key_exists($component, $functions)) {
+                $functions[$component]($adaptivequiz, $attempt);
+            }
+        }
+
+        adaptivequiz_update_grades($adaptivequiz, $attempt->userid);
+        $transaction->allow_commit();
+    } catch (Throwable $e) {
+        $transaction->rollback($e);
+    }
+}
+
+/**
  * This function sets the complete status for an attempt.
  *
  * @param int $uniqueid
@@ -230,25 +299,81 @@ function adaptivequiz_update_attempt_data($uniqueid, $instance, $userid, $level,
  * @param context_module $context
  * @param int $userid
  * @param string $statusmessage
+ * @param string|null $stopcode Why, as a code (issue #20); see \mod_adaptivequiz\local\attempt\stop_reason.
  */
 function adaptivequiz_complete_attempt(
     int $uniqueid,
     stdClass $adaptivequiz,
     context_module $context,
     int $userid,
-    string $statusmessage
+    string $statusmessage,
+    ?string $stopcode = null
 ): void {
     global $DB;
 
     $attempt = $DB->get_record('adaptivequiz_attempt',
         ['uniqueid' => $uniqueid, 'instance' => $adaptivequiz->id, 'userid' => $userid], '*', MUST_EXIST);
+    adaptivequiz_complete_attempt_record($attempt, $adaptivequiz, $context, $userid, $statusmessage, $stopcode);
+}
 
-    // Need to keep the record as it is before triggering the event below.
-    $attemptrecordsnapshot = clone $attempt;
+/**
+ * Completes an attempt given by its id (issue #5).
+ *
+ * The same completion as any other end - time, stop code, CAT model, grades, event - for an attempt the
+ * question usage cannot name: one without a question has uniqueid 0, and several of those exist side by
+ * side. An attempt completed already stays as it is.
+ *
+ * @param int $attemptid adaptivequiz_attempt.id
+ * @param stdClass $adaptivequiz
+ * @param context_module $context
+ * @param string $statusmessage
+ * @param string|null $stopcode One of the stop_reason codes.
+ * @return bool Whether the attempt was completed now.
+ */
+function adaptivequiz_complete_attempt_by_id(
+    int $attemptid,
+    stdClass $adaptivequiz,
+    context_module $context,
+    string $statusmessage,
+    ?string $stopcode = null
+): bool {
+    global $DB;
+
+    $attempt = $DB->get_record('adaptivequiz_attempt', ['id' => $attemptid, 'instance' => $adaptivequiz->id], '*', MUST_EXIST);
+    if ($attempt->attemptstate === attempt_state::COMPLETED) {
+        return false;
+    }
+    adaptivequiz_complete_attempt_record($attempt, $adaptivequiz, $context, (int) $attempt->userid, $statusmessage, $stopcode);
+    return true;
+}
+
+/**
+ * Completes an attempt record: the part shared by every way an attempt ends.
+ *
+ * @param stdClass $attempt adaptivequiz_attempt record.
+ * @param stdClass $adaptivequiz
+ * @param context_module $context
+ * @param int $userid
+ * @param string $statusmessage
+ * @param string|null $stopcode
+ */
+function adaptivequiz_complete_attempt_record(
+    stdClass $attempt,
+    stdClass $adaptivequiz,
+    context_module $context,
+    int $userid,
+    string $statusmessage,
+    ?string $stopcode = null
+): void {
+    global $DB;
 
     $now = time();
     $attempt->attemptstate = attempt_state::COMPLETED;
     $attempt->attemptstopcriteria = $statusmessage;
+    // The first code given stays (issue #20): a later, repeated completion does not rewrite why it ended.
+    if ($stopcode !== null && $stopcode !== '' && empty($attempt->stopcode)) {
+        $attempt->stopcode = $stopcode;
+    }
     // Issue #5: the completion timestamp is authoritative and immutable. Set it
     // exactly once, at the transition to COMPLETED; never overwrite it on a
     // repeated completion (which keeps the whole finalisation idempotent).
@@ -272,6 +397,10 @@ function adaptivequiz_complete_attempt(
         }
     }
 
+    // The result as the engine reports it now, kept with the attempt: the gradebook and the
+    // completion rules read this snapshot and nothing else (issue #14).
+    result_service::snapshot($adaptivequiz, $attempt);
+
     adaptivequiz_update_grades($adaptivequiz, $userid);
 
     $event = attempt_completed::create([
@@ -279,6 +408,10 @@ function adaptivequiz_complete_attempt(
         'context' => $context,
         'userid' => $userid
     ]);
+    // The attempt as it stands now: completed, with the result the CAT model has written. The
+    // snapshot used to be cloned before the change of state, so the event described an attempt
+    // that was not yet completed (issue #121).
+    $attemptrecordsnapshot = $DB->get_record('adaptivequiz_attempt', ['id' => $attempt->id]);
     $event->add_record_snapshot('adaptivequiz_attempt', $attemptrecordsnapshot);
     $event->add_record_snapshot('adaptivequiz', $adaptivequiz);
     $event->trigger();
@@ -353,58 +486,90 @@ function adaptivequiz_get_grading_options() {
 /**
  * Return grade for given user or all users.
  *
+ * The grade is the percentage of the result snapshot (issue #14): 0-100, taken only from attempts
+ * with a valid result. A user whose completed attempts have no valid result gets null - never 0,
+ * which would read as a measured result at the bottom of the range. First and last refer to the
+ * valid attempts in the order they were finished; highest compares percentages.
+ *
  * @param stdClass $adaptivequiz The adaptivequiz
  * @param int $userid optional user id, 0 means all users
- * @return array array of grades, false if none. These are raw grades. They should
- * be processed with adaptivequiz_format_grade for display.
+ * @return array Grade objects with userid and rawgrade, keyed by user id.
  */
 function adaptivequiz_get_user_grades($adaptivequiz, $userid = 0) {
-    global $CFG, $DB;
+    global $DB;
 
-    $params = array(
+    $params = [
         'instance' => $adaptivequiz->id,
         'attemptstate' => attempt_state::COMPLETED,
-    );
+    ];
     $userwhere = '';
     if ($userid) {
         $params['userid'] = $userid;
-        $userwhere = 'AND aa.userid = :userid';
+        $userwhere = 'AND userid = :userid';
     }
-    $sql = "SELECT aa.uniqueid, aa.userid, aa.measure, aa.timemodified, aa.timecreated, a.highestlevel,
-               a.lowestlevel
-          FROM {adaptivequiz_attempt} aa
-          JOIN {adaptivequiz} a ON aa.instance = a.id
-         WHERE aa.instance = :instance
-               AND aa.attemptstate = :attemptstate
-               $userwhere";
-    $records = $DB->get_records_sql($sql, $params);
+    $records = $DB->get_records_select(
+        'adaptivequiz_attempt',
+        "instance = :instance AND attemptstate = :attemptstate $userwhere",
+        $params,
+        'id',
+        'id, userid, resultvalid, resultpercent, timefinished, timemodified'
+    );
 
-    $grades = array();
-    foreach ($records as $grade) {
-        $grade->rawgrade = catalgo::map_logit_to_scale($grade->measure,
-            $grade->highestlevel, $grade->lowestlevel);
+    $grades = [];
+    $chosen = [];
+    foreach ($records as $attempt) {
+        $grades[$attempt->userid] ??= (object) ['userid' => (int) $attempt->userid, 'rawgrade' => null];
 
-        if (empty($grades[$grade->userid])) {
-            // Store the first attempt.
-            $grades[$grade->userid] = $grade;
-        } else {
-            // If additional attempts are recorded, uses the settings to determine
-            // which one to report.
-            if ($adaptivequiz->grademethod == ADAPTIVEQUIZ_ATTEMPTFIRST) {
-                if ($grade->timemodified < $grades[$grade->userid]->timemodified) {
-                    $grades[$grade->userid] = $grade;
-                }
-            } else if ($adaptivequiz->grademethod == ADAPTIVEQUIZ_ATTEMPTLAST) {
-                if ($grade->timemodified > $grades[$grade->userid]->timemodified) {
-                    $grades[$grade->userid] = $grade;
-                }
-            } else {
-                // By default, use the highst grade.
-                if ($grade->rawgrade > $grades[$grade->userid]->rawgrade) {
-                    $grades[$grade->userid] = $grade;
-                }
-            }
+        if (empty($attempt->resultvalid) || $attempt->resultpercent === null) {
+            continue;
+        }
+        $attempt->percent = (float) $attempt->resultpercent;
+        $attempt->finished = (int) ($attempt->timefinished ?: $attempt->timemodified);
+
+        $current = $chosen[$attempt->userid] ?? null;
+        if ($current === null || adaptivequiz_attempt_counts_before($adaptivequiz, $attempt, $current)) {
+            $chosen[$attempt->userid] = $attempt;
+            $grades[$attempt->userid]->rawgrade = $attempt->percent;
         }
     }
     return $grades;
+}
+
+/**
+ * Whether one valid attempt replaces another as the one that is graded.
+ *
+ * @param stdClass $adaptivequiz The instance, for its grading method.
+ * @param stdClass $candidate Attempt with percent and finished.
+ * @param stdClass $current Attempt with percent and finished.
+ * @return bool
+ */
+function adaptivequiz_attempt_counts_before(stdClass $adaptivequiz, stdClass $candidate, stdClass $current): bool {
+    $order = [$candidate->finished, $candidate->id] <=> [$current->finished, $current->id];
+    if ($adaptivequiz->grademethod == ADAPTIVEQUIZ_ATTEMPTFIRST) {
+        return $order < 0;
+    }
+    if ($adaptivequiz->grademethod == ADAPTIVEQUIZ_ATTEMPTLAST) {
+        return $order > 0;
+    }
+    // Highest: the better percentage; of two equal ones, the earlier attempt.
+    return $candidate->percent > $current->percent || ($candidate->percent == $current->percent && $order < 0);
+}
+
+/**
+ * The activity's own attempt feedback as HTML for the page (issue #21): cleaned unless a trusted author wrote it.
+ *
+ * @param stdClass $adaptivequiz The activity record.
+ * @param context $context Its module context.
+ * @return string Empty when the activity has no feedback.
+ */
+function adaptivequiz_format_attempt_feedback(stdClass $adaptivequiz, context $context): string {
+    if (trim((string) ($adaptivequiz->attemptfeedback ?? '')) === '') {
+        return '';
+    }
+    return \mod_adaptivequiz\local\feedback\feedback_trust::format(
+        $adaptivequiz->attemptfeedback,
+        (int) $adaptivequiz->attemptfeedbackformat,
+        !empty($adaptivequiz->attemptfeedbacktrusted),
+        $context
+    );
 }

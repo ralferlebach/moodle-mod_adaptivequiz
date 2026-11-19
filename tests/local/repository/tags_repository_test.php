@@ -27,6 +27,12 @@ use context_course;
 use core_question_generator;
 use core_tag_tag;
 
+defined('MOODLE_INTERNAL') || die();
+
+global $CFG;
+// ADAPTIVEQUIZ_QUESTION_TAG: run alone, no other test has loaded it.
+require_once($CFG->dirroot . '/mod/adaptivequiz/locallib.php');
+
 /**
  * @covers \mod_adaptivequiz\local\repository\tags_repository
  */

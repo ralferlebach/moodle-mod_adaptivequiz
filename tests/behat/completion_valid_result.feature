@@ -19,18 +19,33 @@ Feature: Completion requires a valid CAT result.
 
   @javascript
   Scenario: A teacher can enable the valid-result completion rule
-    Given I am on the "Course 1" course page logged in as teacher
-    And I turn editing mode on
-    And I add a "Adaptive Quiz" to section "1"
-    And I set the following fields to these values:
-      | Name                     | Completion Quiz |
-      | Completion tracking      | Show activity as complete when conditions are met |
-      | completionvalidresult    | 1               |
-    And I press "Save and return to course"
+    Given the following "question categories" exist:
+      | contextlevel | reference | name                    |
+      | Course       | C1        | Adaptive Quiz Questions |
+    And the following "questions" exist:
+      | questioncategory        | qtype     | name | questiontext     |
+      | Adaptive Quiz Questions | truefalse | TF1  | First question.  |
+      | Adaptive Quiz Questions | truefalse | TF2  | Second question. |
+    And the following "core_question > Tags" exist:
+      | question | tag    |
+      | TF1      | adpq_1 |
+      | TF2      | adpq_2 |
+    And I log in as "teacher"
+    # The activity chooser step of Moodle < 4.4 is deprecated; this one opens the form directly.
+    And I add a "adaptivequiz" activity to course "Course 1" section "1" and I fill the form with:
+      | Name                         | Completion Quiz             |
+      | Question pool                | Adaptive Quiz Questions (2) |
+      | Starting level of difficulty | 1                           |
+      | Lowest level of difficulty   | 1                           |
+      | Highest level of difficulty  | 2                           |
+      | Minimum number of questions  | 1                           |
+      | Maximum number of questions  | 2                           |
+      | Standard Error to stop       | 25                          |
+      | ID number                    | completionquiz              |
+      | Add requirements             | 1                           |
+      | completionvalidresult        | 1                           |
     Then I should see "Completion Quiz"
     ## The activity now tracks completion on a valid CAT result. Re-opening the
     ## settings keeps the rule enabled (round-trip through the form).
-    When I open "Completion Quiz" actions menu
-    And I choose "Settings" in the open action menu
-    And I wait until the page is ready
+    When I am on the "completionquiz" "Activity editing" page
     Then the field "completionvalidresult" matches value "1"

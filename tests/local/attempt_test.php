@@ -127,8 +127,17 @@ class attempt_test extends advanced_testcase {
         $expected->timefinished = null;
         $expected->resultstatus = null;
         $expected->resultvalid = '0';
+        // The result snapshot is taken at completion (issue #14); a started attempt has none.
+        $snapshot = ['resultreason', 'resultscore', 'resultlower', 'resultupper', 'resultpercent', 'resultlink',
+            'resultlinkversion', 'resulttime'];
+        foreach ($snapshot as $field) {
+            $expected->$field = null;
+        }
         $expected->timemodified = '0';
         $expected->timecreated = '0';
+        // Why the attempt ended is recorded at its end (issue #20); a started attempt has none.
+        $expected->stopcode = null;
+        $expected->stopnoticeack = null;
 
         $this->assertEquals($expected, $data);
     }

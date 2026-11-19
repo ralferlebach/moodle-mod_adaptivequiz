@@ -24,6 +24,7 @@
  */
 
 require_once(__DIR__ . '/../../config.php');
+require_once($CFG->dirroot . '/mod/adaptivequiz/locallib.php');
 
 $attemptid = required_param('attempt', PARAM_INT);
 $confirm = optional_param('confirm', 0, PARAM_INT);
@@ -63,22 +64,7 @@ if (!$customcatmodelinuse) {
 }
 
 if ($confirm) {
-    question_engine::delete_questions_usage_by_activity($attempt->uniqueid);
-    $DB->delete_records('adaptivequiz_attempt', ['id' => $attempt->id]);
-
-    // Allow sub-plugins to run their code when relevant.
-    if ($customcatmodelinuse) {
-        $catmodelcomponentname = 'adaptivequizcatmodel_' . $adaptivequiz->catmodel;
-        $pluginswithfunction = get_plugin_list_with_function('adaptivequizcatmodel', 'post_delete_attempt_callback');
-        if (!array_key_exists($catmodelcomponentname, $pluginswithfunction)) {
-            return;
-        }
-
-        $functionname = $pluginswithfunction[$catmodelcomponentname];
-        $functionname($adaptivequiz, $attempt);
-    }
-
-    adaptivequiz_update_grades($adaptivequiz, $user->id);
+    adaptivequiz_delete_attempt($adaptivequiz, $attempt);
 
     $message = get_string('attemptdeleted', 'adaptivequiz', $a);
     redirect($returnurl, $message, 4);

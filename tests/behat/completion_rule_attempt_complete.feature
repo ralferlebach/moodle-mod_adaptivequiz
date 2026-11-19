@@ -55,7 +55,9 @@ Feature: Set activity as completed when at least one attempt is completed
     And I press "Submit answer"
     And I click on "True" "radio" in the "Second question" "question"
     And I press "Submit answer"
-    And I press "Continue"
+    # Issue #20: an end by precision or by an exhausted pool is explained first.
+    And I click on "OK" "button" in the "Your test has ended" "dialogue"
+    And I press "Return to test"
     And I log out
     And I am on the "adaptivequiz1" "Activity" page logged in as "teacher1"
     Then "Adaptive Quiz" should have the "Complete an attempt" completion condition

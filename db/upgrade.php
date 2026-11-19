@@ -162,5 +162,138 @@ function xmldb_adaptivequiz_upgrade($oldversion) {
         upgrade_mod_savepoint(true, 2026082105, 'adaptivequiz');
     }
 
+    if ($oldversion < 2026092902) {
+        // Issue #121: completionvalidresult is now part of the cached course module info. Courses that
+        // use it are rebuilt so the rule takes part in completion without waiting for a cache purge.
+        $courseids = $DB->get_fieldset_sql(
+            'SELECT DISTINCT course FROM {adaptivequiz} WHERE completionvalidresult = 1'
+        );
+        foreach ($courseids as $courseid) {
+            rebuild_course_cache((int) $courseid, true);
+        }
+
+        upgrade_mod_savepoint(true, 2026092902, 'adaptivequiz');
+    }
+
+    if ($oldversion < 2026100902) {
+        // Issue #14: results go to the gradebook as 0-100 % of their range, from a snapshot taken
+        // when the attempt is completed.
+        $table = new xmldb_table('adaptivequiz');
+        $field = new xmldb_field('passscore', XMLDB_TYPE_NUMBER, '15, 5', null, null, null, null, 'catmodel');
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        $table = new xmldb_table('adaptivequiz_attempt');
+        $fields = [
+            new xmldb_field('resultreason', XMLDB_TYPE_CHAR, '255', null, null, null, null, 'resultvalid'),
+            new xmldb_field('resultscore', XMLDB_TYPE_NUMBER, '15, 5', null, null, null, null, 'resultreason'),
+            new xmldb_field('resultlower', XMLDB_TYPE_NUMBER, '15, 5', null, null, null, null, 'resultscore'),
+            new xmldb_field('resultupper', XMLDB_TYPE_NUMBER, '15, 5', null, null, null, null, 'resultlower'),
+            new xmldb_field('resultpercent', XMLDB_TYPE_NUMBER, '10, 5', null, null, null, null, 'resultupper'),
+            new xmldb_field('resultlink', XMLDB_TYPE_CHAR, '50', null, null, null, null, 'resultpercent'),
+            new xmldb_field('resulttime', XMLDB_TYPE_INTEGER, '10', null, null, null, null, 'resultlink'),
+        ];
+        foreach ($fields as $field) {
+            if (!$dbman->field_exists($table, $field)) {
+                $dbman->add_field($table, $field);
+            }
+        }
+
+        // The snapshots of attempts completed before, and the regrade onto 0-100, need the result
+        // providers of the CAT models - which may themselves still be upgrading. A task does it
+        // once the upgrade is over.
+        \core\task\manager::queue_adhoc_task(new \mod_adaptivequiz\task\snapshot_results(), true);
+
+        upgrade_mod_savepoint(true, 2026100902, 'adaptivequiz');
+    }
+
+    if ($oldversion < 2026100905) {
+        // Issue #20: why an attempt ended, as a code, and whether the participant confirmed the notice.
+        $table = new xmldb_table('adaptivequiz_attempt');
+        $fields = [
+            new xmldb_field('stopcode', XMLDB_TYPE_CHAR, '64', null, null, null, null, 'resulttime'),
+            new xmldb_field('stopnoticeack', XMLDB_TYPE_INTEGER, '10', null, null, null, null, 'stopcode'),
+        ];
+        foreach ($fields as $field) {
+            if (!$dbman->field_exists($table, $field)) {
+                $dbman->add_field($table, $field);
+            }
+        }
+
+        upgrade_mod_savepoint(true, 2026100905, 'adaptivequiz');
+    }
+
+    if ($oldversion < 2026100906) {
+        // Completed attempts of activities whose grading was switched on, or whose settings changed,
+        // before the settings themselves queued a regrade: one pass over every activity brings their
+        // grades in line with the result snapshots, taking the snapshots that are missing.
+        \core\task\manager::queue_adhoc_task(new \mod_adaptivequiz\task\snapshot_results(), true);
+
+        upgrade_mod_savepoint(true, 2026100906, 'adaptivequiz');
+    }
+
+    if ($oldversion < 2026100909) {
+        // Issue #14: a snapshot records the version of the link function it was computed with, so a
+        // later change of the mapping behind an identifier is visible and never applied silently.
+        $table = new xmldb_table('adaptivequiz_attempt');
+        $field = new xmldb_field('resultlinkversion', XMLDB_TYPE_INTEGER, '10', null, null, null, null, 'resultlink');
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+        // Every snapshot so far was computed with the only function there was: linear, version 1.
+        $DB->execute(
+            "UPDATE {adaptivequiz_attempt} SET resultlinkversion = 1 WHERE resultlink = :link AND resultpercent IS NOT NULL",
+            ['link' => 'linear']
+        );
+
+        upgrade_mod_savepoint(true, 2026100909, 'adaptivequiz');
+    }
+
+    if ($oldversion < 2026100910) {
+        // Issue #21: the feedback carries whether a trusted author saved it. Until now every feedback was
+        // shown as it was stored, and only those allowed to edit the activity could write it: existing
+        // feedback stays trusted, so nothing changes for it. The page always treated it as HTML; now the
+        // stored format says so too, and the editor opens it as HTML instead of a text area.
+        $table = new xmldb_table('adaptivequiz');
+        $field = new xmldb_field(
+            'attemptfeedbacktrusted',
+            XMLDB_TYPE_INTEGER,
+            '1',
+            null,
+            XMLDB_NOTNULL,
+            null,
+            '0',
+            'attemptfeedbackformat'
+        );
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+        $DB->set_field('adaptivequiz', 'attemptfeedbacktrusted', 1);
+        $DB->set_field('adaptivequiz', 'attemptfeedbackformat', FORMAT_HTML);
+
+        upgrade_mod_savepoint(true, 2026100910, 'adaptivequiz');
+    }
+
+    if ($oldversion < 2026111700) {
+        // Issue #25: grading can be switched off, the link function, its steepness and whether a settings change
+        // computes existing grades again are settings of the activity. Existing activities stay as they were:
+        // graded, the link function of their result source, steepness 1, and a settings change applies to existing
+        // grades as before (keepgrades 0).
+        $table = new xmldb_table('adaptivequiz');
+        $fields = [
+            new xmldb_field('gradingmode', XMLDB_TYPE_INTEGER, '1', null, XMLDB_NOTNULL, null, '1', 'passscore'),
+            new xmldb_field('linkfunction', XMLDB_TYPE_CHAR, '50', null, null, null, null, 'gradingmode'),
+            new xmldb_field('linksteepness', XMLDB_TYPE_NUMBER, '15, 5', null, null, null, null, 'linkfunction'),
+            new xmldb_field('keepgrades', XMLDB_TYPE_INTEGER, '1', null, XMLDB_NOTNULL, null, '0', 'linksteepness'),
+        ];
+        foreach ($fields as $field) {
+            if (!$dbman->field_exists($table, $field)) {
+                $dbman->add_field($table, $field);
+            }
+        }
+        upgrade_mod_savepoint(true, 2026111700, 'adaptivequiz');
+    }
+
     return true;
 }

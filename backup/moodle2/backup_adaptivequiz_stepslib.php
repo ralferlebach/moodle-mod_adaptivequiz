@@ -23,7 +23,6 @@
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class backup_adaptivequiz_activity_structure_step extends backup_questions_activity_structure_step {
-
     /**
      * Define the backup structure.
      *
@@ -35,15 +34,22 @@ class backup_adaptivequiz_activity_structure_step extends backup_questions_activ
 
         // Define each element separated.
         $nodes = ['name', 'intro', 'introformat', 'attempts', 'password', 'browsersecurity', 'attemptfeedback',
-            'attemptfeedbackformat', 'showabilitymeasure', 'showattemptprogress', 'highestlevel', 'lowestlevel', 'minimumquestions',
+            'attemptfeedbackformat', 'attemptfeedbacktrusted', 'showabilitymeasure', 'showattemptprogress', 'highestlevel',
+            'lowestlevel', 'minimumquestions',
             'maximumquestions', 'standarderror', 'startinglevel', 'timecreated', 'timemodified', 'completionattemptcompleted',
-            'completionvalidresult', 'catmodel'];
+            'completionvalidresult', 'catmodel', 'grademethod', 'passscore', 'gradingmode', 'linkfunction', 'linksteepness',
+            'keepgrades'];
         $adaptivequiz = new backup_nested_element('adaptivequiz', ['id'], $nodes);
+        // What the CAT model keeps for the activity, e.g. its test settings (CAT model adapter, issue #1).
+        // Without it, a duplicated or restored activity had no settings of its own.
+        $this->add_subplugin_structure('adaptivequizcatmodel', $adaptivequiz, false);
 
         // Attempts.
         $adaptiveattempts = new backup_nested_element('adaptiveattempts');
         $nodes = ['userid', 'uniqueid', 'attemptstate', 'attemptstopcriteria', 'questionsattempted', 'difficultysum',
-            'standarderror', 'measure', 'timefinished', 'resultstatus', 'resultvalid', 'timecreated', 'timemodified'];
+            'standarderror', 'measure', 'timefinished', 'resultstatus', 'resultvalid', 'timecreated', 'timemodified',
+            'resultreason', 'resultscore', 'resultlower', 'resultupper', 'resultpercent', 'resultlink', 'resultlinkversion',
+            'resulttime', 'stopcode', 'stopnoticeack'];
         $adaptiveattempt = new backup_nested_element('adaptiveattempt', ['id'], $nodes);
 
         // This module is using questions, so produce the related question states and sessions.
@@ -70,7 +76,7 @@ class backup_adaptivequiz_activity_structure_step extends backup_questions_activ
             $sql = 'SELECT *
                       FROM {adaptivequiz_attempt}
                      WHERE instance = :instance';
-            $param = array('instance' => backup::VAR_PARENTID);
+            $param = ['instance' => backup::VAR_PARENTID];
             $adaptiveattempt->set_source_sql($sql, $param);
         }
 

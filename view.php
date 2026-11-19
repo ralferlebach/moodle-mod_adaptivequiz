@@ -27,6 +27,8 @@ require_once(__DIR__ . '/../../config.php');
 require_once($CFG->libdir . '/tablelib.php');
 require_once($CFG->dirroot.'/mod/adaptivequiz/locallib.php');
 
+use mod_adaptivequiz\local\attempt\resume_actions;
+use mod_adaptivequiz\local\attempt\resume_state;
 use mod_adaptivequiz\local\report\questions_difficulty_range;
 use mod_adaptivequiz\local\report\users_attempts\filter\filter;
 use mod_adaptivequiz\local\report\users_attempts\filter\filter_form;
@@ -152,9 +154,30 @@ if ($canviewattemptsreport && $customcatmodelinuse) {
 if (has_capability('mod/adaptivequiz:attempt', $context)) {
     $completedattemptscount = adaptivequiz_count_user_previous_attempts($adaptivequiz->id, $USER->id);
 
+    // Issue #5: an attempt in progress is not continued silently. Out of time, it is ended as the time limit
+    // ends it; otherwise the person chooses: start anew, or continue - with a new question when the time for
+    // the one on the screen is over.
+    $openattempt = resume_state::open_attempt($adaptivequiz, (int) $USER->id);
+    $resumestate = resume_state::classify($adaptivequiz, $openattempt);
     echo $renderer->container_start('attempt-controls-or-notification-container pb-3');
-    echo $renderer->attempt_controls_or_notification($cm->id,
-        adaptivequiz_allowed_attempt($adaptivequiz->attempts, $completedattemptscount), $adaptivequiz->browsersecurity);
+    if ($resumestate === resume_state::EXPIRED) {
+        resume_actions::end_expired($adaptivequiz, $context, (int) $USER->id, (int) $openattempt->id);
+        $resumestate = resume_state::NONE;
+        $completedattemptscount = adaptivequiz_count_user_previous_attempts($adaptivequiz->id, $USER->id);
+        if (adaptivequiz_allowed_attempt($adaptivequiz->attempts, $completedattemptscount)) {
+            echo $renderer->notification(get_string('attemptexpiredended', 'adaptivequiz'), 'info', false);
+        }
+    }
+    if (in_array($resumestate, [resume_state::RESUMABLE, resume_state::ITEM_EXPIRED], true)) {
+        $canrestart = adaptivequiz_allowed_attempt($adaptivequiz->attempts, $completedattemptscount + 1);
+        echo $renderer->resume_attempt($cm, $openattempt, $resumestate, $canrestart);
+    } else {
+        echo $renderer->attempt_controls_or_notification(
+            $cm->id,
+            adaptivequiz_allowed_attempt($adaptivequiz->attempts, $completedattemptscount),
+            $adaptivequiz->browsersecurity
+        );
+    }
     echo $renderer->container_end();
 
     $allattemptscount = $DB->count_records('adaptivequiz_attempt',

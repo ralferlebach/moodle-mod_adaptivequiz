@@ -28,6 +28,7 @@ defined('MOODLE_INTERNAL') || die();
 require_once($CFG->dirroot.'/question/engine/lib.php');
 
 use mod_adaptivequiz\local\attempt\attempt_state;
+use mod_adaptivequiz\local\result\result_service;
 
 /**
  * Option controlling what options are offered on the quiz settings form.
@@ -125,7 +126,14 @@ function adaptivequiz_add_instance(stdClass $adaptivequiz, ?mod_adaptivequiz_mod
     $time = time();
     $adaptivequiz->timecreated = $time;
     $adaptivequiz->timemodified = $time;
-    $adaptivequiz->attemptfeedbackformat = $adaptivequiz->attemptfeedbackformat ?? 0;
+    $adaptivequiz->attemptfeedbackformat = $adaptivequiz->attemptfeedbackformat ?? FORMAT_HTML;
+    // Issue #21: who may store scripts is decided here, not by the request.
+    \mod_adaptivequiz\local\feedback\feedback_trust::apply_on_save(
+        $adaptivequiz,
+        !empty($adaptivequiz->coursemodule)
+            ? context_module::instance($adaptivequiz->coursemodule)
+            : context_course::instance($adaptivequiz->course)
+    );
 
     $instance = $DB->insert_record('adaptivequiz', $adaptivequiz);
 
@@ -235,6 +243,18 @@ function adaptivequiz_update_instance(stdClass $adaptivequiz, ?mod_adaptivequiz_
     // Get the current value, so we can see what changed.
     $oldquiz = $DB->get_record('adaptivequiz', array('id' => $adaptivequiz->instance));
 
+    // Issue #21: who may store scripts is decided here, not by the request. A save that does not touch
+    // the feedback keeps text and mark as stored.
+    if (property_exists($adaptivequiz, 'attemptfeedback')) {
+        \mod_adaptivequiz\local\feedback\feedback_trust::apply_on_save(
+            $adaptivequiz,
+            context_module::instance($adaptivequiz->coursemodule),
+            $oldquiz
+        );
+    } else {
+        unset($adaptivequiz->attemptfeedbacktrusted);
+    }
+
     $instanceid = $DB->update_record('adaptivequiz', $adaptivequiz);
 
     // Save question tag association data.
@@ -245,6 +265,26 @@ function adaptivequiz_update_instance(stdClass $adaptivequiz, ?mod_adaptivequiz_
         adaptivequiz_update_grades($adaptivequiz);
     } else {
         adaptivequiz_grade_item_update($adaptivequiz);
+    }
+
+    // The attempts that already exist follow the settings just saved - switching grading on, another
+    // grading method, other result settings - in a background task: the grades are rebuilt from the
+    // result snapshots, missing snapshots are taken. Without it they stayed as they were until someone
+    // ran cli/regrade_results.php.
+    // Issue #25: unless the activity keeps its existing grades. Then nothing is computed again - neither
+    // snapshots nor gradebook; cli/regrade_results.php --relink does it on request, with a preview. A changed
+    // grading setting (on/off, link function, pass score, steepness) computes every grade again from its score.
+    $keepgrades = !empty($adaptivequiz->keepgrades ?? $oldquiz->keepgrades ?? 0);
+    $completed = $DB->record_exists('adaptivequiz_attempt', ['instance' => $adaptivequiz->id, 'attemptstate' => 'complete']);
+    if (!$keepgrades && $completed) {
+        $relink = false;
+        foreach (['gradingmode', 'linkfunction', 'linksteepness', 'passscore'] as $field) {
+            $changed = (string) ($adaptivequiz->$field ?? '') !== (string) ($oldquiz->$field ?? '');
+            if (property_exists($adaptivequiz, $field) && $changed) {
+                $relink = true;
+            }
+        }
+        \mod_adaptivequiz\task\regrade_activity::queue((int) $adaptivequiz->id, $relink);
     }
 
     // When a custom CAT model is submitted, wire up its callback for instance update (if exists).
@@ -299,6 +339,27 @@ function adaptivequiz_delete_instance($id) {
         return false;
     }
 
+    // One transaction with the CAT model's deletion: if the CAT model cannot
+    // delete its data, nothing is deleted and the deletion can run again.
+    $transaction = $DB->start_delegated_transaction();
+    try {
+        adaptivequiz_delete_instance_data($adaptivequiz);
+        $transaction->allow_commit();
+    } catch (Throwable $e) {
+        $transaction->rollback($e);
+    }
+    return true;
+}
+
+/**
+ * The deletion of an activity, inside the transaction of adaptivequiz_delete_instance().
+ *
+ * @param stdClass $adaptivequiz The instance record.
+ */
+function adaptivequiz_delete_instance_data(stdClass $adaptivequiz): void {
+    global $DB;
+    $id = $adaptivequiz->id;
+
     // When a custom CAT model was set, wire up its callback for instance deletion (if exists).
     if (!empty($adaptivequiz->catmodel)) {
         adaptivequiz_catmodel_delete_instance_callback($adaptivequiz);
@@ -310,6 +371,8 @@ function adaptivequiz_delete_instance($id) {
     if (!empty($attempts)) {
         foreach ($attempts as $attempt) {
             question_engine::delete_questions_usage_by_activity($attempt->uniqueid);
+            // On MySQL and MariaDB a usage without question attempts stays behind (see adaptivequiz_delete_attempt()).
+            $DB->delete_records('question_usages', ['id' => $attempt->uniqueid]);
         }
 
         // Remove attempts data.
@@ -326,8 +389,6 @@ function adaptivequiz_delete_instance($id) {
 
     // Delete the grade item.
     adaptivequiz_grade_item_delete($adaptivequiz);
-
-    return true;
 }
 
 /**
@@ -699,15 +760,16 @@ function adaptivequiz_grade_item_update(stdClass $adaptivequiz, $grades = null) 
         $params = array('itemname' => $adaptivequiz->name);
     }
 
-    if (isset($adaptivequiz->highestlevel)) {
-        if ($adaptivequiz->highestlevel > 0) {
-            $params['gradetype'] = GRADE_TYPE_VALUE;
-            $params['grademax'] = $adaptivequiz->highestlevel;
-            $params['grademin'] = $adaptivequiz->lowestlevel;
-
-        } else {
-            $params['gradetype'] = GRADE_TYPE_NONE;
-        }
+    // Always 0-100: the host maps every result onto a percentage of its range (issue #14). Only a
+    // source whose results are not meant for the gradebook has no grade item value at all.
+    // Issue #25: an activity that is not graded has no value type - no grade, no pass mark, nothing for LTI.
+    $definition = result_service::definition($adaptivequiz);
+    if ($definition->supportsgrading && result_service::is_graded($adaptivequiz)) {
+        $params['gradetype'] = GRADE_TYPE_VALUE;
+        $params['grademax'] = 100;
+        $params['grademin'] = 0;
+    } else {
+        $params['gradetype'] = GRADE_TYPE_NONE;
     }
 
     if ($grades === 'reset') {
@@ -715,7 +777,76 @@ function adaptivequiz_grade_item_update(stdClass $adaptivequiz, $grades = null) 
         $grades = null;
     }
 
-    return grade_update('mod/adaptivequiz', $adaptivequiz->course, 'mod', 'adaptivequiz', $adaptivequiz->id, 0, $grades, $params);
+    $status = grade_update(
+        'mod/adaptivequiz',
+        $adaptivequiz->course,
+        'mod',
+        'adaptivequiz',
+        $adaptivequiz->id,
+        0,
+        $grades,
+        $params
+    );
+
+    if (!empty($adaptivequiz->id) && property_exists($adaptivequiz, 'passscore')) {
+        adaptivequiz_sync_gradepass($adaptivequiz);
+    }
+
+    return $status;
+}
+
+/**
+ * Sets the pass mark of the grade item from the pass score of the activity.
+ *
+ * The pass score is set in the units of the result source and lies within its range; the
+ * gradebook needs it as a percentage. grade_update() cannot carry a pass mark, so it is written to
+ * the grade item directly. No pass score - or none that fits the range - means no pass mark.
+ *
+ * @param stdClass $adaptivequiz The instance record, with passscore.
+ */
+function adaptivequiz_sync_gradepass(stdClass $adaptivequiz): void {
+    global $CFG;
+    require_once($CFG->libdir . '/gradelib.php');
+
+    $item = grade_item::fetch([
+        'itemtype' => 'mod', 'itemmodule' => 'adaptivequiz', 'iteminstance' => $adaptivequiz->id,
+        'itemnumber' => 0, 'courseid' => $adaptivequiz->course,
+    ]);
+    if (!$item) {
+        return;
+    }
+    $gradepass = result_service::pass_percentage($adaptivequiz) ?? 0.0;
+    if (abs((float) $item->gradepass - $gradepass) > 1e-9) {
+        $item->gradepass = $gradepass;
+        $item->update('mod/adaptivequiz');
+        adaptivequiz_reevaluate_pass_completion($adaptivequiz, $item);
+    }
+}
+
+/**
+ * Re-evaluates the completion of everyone with a grade after the pass mark changed (issue #14).
+ *
+ * Moodle evaluates "receive a passing grade" when a grade changes, not when the pass mark does: a
+ * participant who failed at the old mark stayed "failed" at a new, lower one. The grades
+ * themselves do not change, so nothing else would ever ask again.
+ *
+ * @param stdClass $adaptivequiz The activity instance record.
+ * @param grade_item $item Its grade item, with the new pass mark.
+ */
+function adaptivequiz_reevaluate_pass_completion(stdClass $adaptivequiz, grade_item $item): void {
+    global $CFG, $DB;
+    require_once($CFG->libdir . '/completionlib.php');
+
+    $course = get_course($adaptivequiz->course);
+    $completion = new completion_info($course);
+    $cm = get_coursemodule_from_instance('adaptivequiz', $adaptivequiz->id, $course->id);
+    if (!$cm || !$completion->is_enabled($cm) || empty($cm->completionpassgrade)) {
+        return;
+    }
+    $userids = $DB->get_fieldset_select('grade_grades', 'userid', 'itemid = ? AND finalgrade IS NOT NULL', [$item->id]);
+    foreach ($userids as $userid) {
+        $completion->update_state($cm, COMPLETION_UNKNOWN, (int) $userid);
+    }
 }
 
 function adaptivequiz_update_grades(stdClass $adaptivequiz, $userid=0, $nullifnone = true) {
@@ -772,13 +903,14 @@ function adaptivequiz_reset_userdata($data) {
         foreach ($adaptivequizes as $adaptivequiz) {
             $attempts = $DB->get_records('adaptivequiz_attempt', array('instance' => $adaptivequiz->id));
             if (!empty($attempts)) {
-                // Remove question_usage_by_activity records.
-                foreach ($attempts as $attempt) {
-                    question_engine::delete_questions_usage_by_activity($attempt->uniqueid);
+                // Per activity one transaction with the CAT model's deletion.
+                $transaction = $DB->start_delegated_transaction();
+                try {
+                    adaptivequiz_reset_attempts($adaptivequiz, $attempts);
+                    $transaction->allow_commit();
+                } catch (Throwable $e) {
+                    $transaction->rollback($e);
                 }
-
-                // Remove attempts data.
-                $DB->delete_records('adaptivequiz_attempt', array('instance' => $adaptivequiz->id));
             }
         }
     }
@@ -799,6 +931,33 @@ function adaptivequiz_reset_userdata($data) {
     }
 
     return $status;
+}
+
+/**
+ * Deletes the attempts of an activity for a course reset, inside the transaction of adaptivequiz_reset_userdata().
+ *
+ * @param stdClass $adaptivequiz The instance record.
+ * @param stdClass[] $attempts Its attempts.
+ */
+function adaptivequiz_reset_attempts(stdClass $adaptivequiz, array $attempts): void {
+    global $DB;
+    // Remove question_usage_by_activity records.
+    foreach ($attempts as $attempt) {
+        question_engine::delete_questions_usage_by_activity($attempt->uniqueid);
+        // On MySQL and MariaDB a usage without question attempts stays behind (see adaptivequiz_delete_attempt()).
+        $DB->delete_records('question_usages', ['id' => $attempt->uniqueid]);
+    }
+
+    // Remove attempts data.
+    $DB->delete_records('adaptivequiz_attempt', array('instance' => $adaptivequiz->id));
+    // The CAT model removes what it keeps for each attempt - a reset left that behind.
+    $functions = get_plugin_list_with_function('adaptivequizcatmodel', 'post_delete_attempt_callback');
+    $component = 'adaptivequizcatmodel_' . ($adaptivequiz->catmodel ?? '');
+    if (!empty($adaptivequiz->catmodel) && array_key_exists($component, $functions)) {
+        foreach ($attempts as $attempt) {
+            $functions[$component]($adaptivequiz, $attempt);
+        }
+    }
 }
 
 /**
@@ -832,53 +991,17 @@ function adaptivequiz_reset_gradebook($courseid) {
  */
 function mod_adaptivequiz_question_pluginfile($course, context $context, $component, $filearea, $qubaid, $slot, $args,
     $forcedownload, array $options=[]) {
-    global $CFG, $DB, $USER;
-
-    $attemptrec = $DB->get_record('adaptivequiz_attempt', ['uniqueid' => $qubaid], '*', MUST_EXIST);
-    $adaptivequiz  = $DB->get_record('adaptivequiz', ['id' => $attemptrec->instance], '*', MUST_EXIST);
-    $course = $DB->get_record('course', ['id' => $adaptivequiz->course], '*', MUST_EXIST);
-    $cm = get_coursemodule_from_instance('adaptivequiz', $adaptivequiz->id, $adaptivequiz->course, false, MUST_EXIST);
-
-    require_login($course, true, $cm);
-
-    $modcontext = context_module::instance($cm->id);
-
-    // Check if the user has the attempt capability.
-    if (!has_capability('mod/adaptivequiz:attempt', $modcontext) && !has_capability('mod/adaptivequiz:viewreport', $modcontext)) {
-        throw new moodle_exception('nopermission', 'adaptivequiz');
-    }
-
-    // If we are reviewing an attempt, require the viewreport capability.
-    if ($attemptrec->userid != $USER->id) {
-        require_capability('mod/adaptivequiz:viewreport', $modcontext);
-    } else {
-        // Otherwise, check that the attempt is active.
-        require_once($CFG->dirroot.'/mod/adaptivequiz/locallib.php');
-
-        // Check if the user has any previous attempts at this activity.
-        $count = adaptivequiz_count_user_previous_attempts($adaptivequiz->id, $USER->id);
-        if (!adaptivequiz_allowed_attempt($adaptivequiz->attempts, $count)) {
-            throw new moodle_exception('noattemptsallowed', 'adaptivequiz');
-        }
-        // Check if the uniqueid belongs to the same attempt record the user is currently using.
-        if (!adaptivequiz_uniqueid_part_of_attempt($qubaid, $cm->instance, $USER->id)) {
-            throw new moodle_exception('uniquenotpartofattempt', 'adaptivequiz');
-        }
-        // Verify that the attempt is still in progress.
-        if ($attemptrec->attemptstate != attempt_state::IN_PROGRESS) {
-            throw new moodle_exception('notinprogress', 'adaptivequiz');
-        }
-    }
-
-    $fs = get_file_storage();
-    $relativepath = implode('/', $args);
-    $fullpath = "/$context->id/$component/$filearea/$relativepath";
-
-    $file = $fs->get_file_by_hash(sha1($fullpath));
+    // Access to the attempt, the file tied to its question (issues #16, #18).
+    $file = \mod_adaptivequiz\local\question_file_access::file_for_request(
+        $context,
+        (string) $component,
+        (string) $filearea,
+        (int) $qubaid,
+        (int) $slot,
+        $args,
+        (bool) $forcedownload
+    );
     if (!$file) {
-        send_file_not_found();
-    }
-    if ($file->is_directory()) {
         send_file_not_found();
     }
 
@@ -910,6 +1033,9 @@ function adaptivequiz_get_coursemodule_info(stdClass $coursemodule) {
 
     if ($coursemodule->completion == COMPLETION_TRACKING_AUTOMATIC) {
         $result->customdata['customcompletionrules']['completionattemptcompleted'] = $adaptivequiz->completionattemptcompleted;
+        // Registered so Moodle evaluates it: an unregistered rule is ignored when completion is
+        // recomputed, and the valid-result rule never took part (issue #121).
+        $result->customdata['customcompletionrules']['completionvalidresult'] = $adaptivequiz->completionvalidresult ?? 0;
     }
 
     return $result;

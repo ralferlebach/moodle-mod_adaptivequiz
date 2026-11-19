@@ -1,0 +1,14 @@
+{
+    "name": "mod-adaptivequiz-a11y-screenreader",
+    "private": true,
+    "version": "0.0.0",
+    "description": "Screen reader suite of mod_adaptivequiz, driven with Guidepup and NVDA on Windows.",
+    "scripts": {
+        "test": "playwright test"
+    },
+    "devDependencies": {
+        "@guidepup/playwright": "0.19.1",
+        "@guidepup/setup": "0.29.1",
+        "@playwright/test": "1.57.0"
+    }
+}

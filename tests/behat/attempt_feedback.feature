@@ -91,7 +91,7 @@ Feature: Attempt feedback
     And I press "Submit answer"
     And I click on "True" "radio" in the "Second question" "question"
     And I press "Submit answer"
-    And I press "Continue"
+    And I press "Return to test"
     Then I should see "Attempt Summary"
     And "attemptsummarytable" "table" should exist
     And I should see "Completed" in the "#attemptstatecell" "css_element"
@@ -105,13 +105,13 @@ Feature: Attempt feedback
     And I press "Submit answer"
     And I click on "True" "radio" in the "Second question" "question"
     And I press "Submit answer"
-    And I press "Continue"
+    And I press "Return to test"
     And I click on "Start attempt" "link"
     And I click on "True" "radio" in the "First question" "question"
     And I press "Submit answer"
     And I click on "True" "radio" in the "Second question" "question"
     And I press "Submit answer"
-    And I press "Continue"
+    And I press "Return to test"
     When I am on the "adaptivequiz1" "Activity" page
     Then I should see "Your previous attempts"
     And "userattemptstable" "table" should exist
@@ -152,7 +152,7 @@ Feature: Attempt feedback
     And I press "Submit answer"
     And I click on "True" "radio" in the "Second question" "question"
     And I press "Submit answer"
-    And I press "Continue"
+    And I press "Return to test"
     When I am on the "adaptivequiz1" "Activity" page
     Then "#abilitymeasurecell" "css_element" should not exist
 
@@ -170,12 +170,56 @@ Feature: Attempt feedback
     And I press "Submit answer"
     And I click on "True" "radio" in the "Second question" "question"
     And I press "Submit answer"
-    And I press "Continue"
+    And I press "Return to test"
     And I click on "Start attempt" "link"
     And I click on "True" "radio" in the "First question" "question"
     And I press "Submit answer"
     And I click on "True" "radio" in the "Second question" "question"
     And I press "Submit answer"
-    And I press "Continue"
+    And I press "Return to test"
     When I am on the "adaptivequiz1" "Activity" page
     Then ".abilitymeasurecol" "css_element" should not exist
+
+  @javascript
+  Scenario: A trusted teacher's markup and script survive saving and editing again (issue #21)
+    Given I am on the "adaptivequiz1" "Activity" page logged in as "teacher1"
+    And I navigate to "Settings" in current page administration
+    And I set the following fields to these values:
+      | Attempt feedback               | <div class="aqfb" data-aq="42"><p>Intro <a href="https://example.org">Link</a></p><ul><li>Eins</li></ul><table><tbody><tr><td>Zelle</td></tr></tbody></table><p id="aqfbout">JSNOTRUN</p><script>document.getElementById('aqfbout').textContent = 'JSHASRUN';</script></div> |
+    And I click on "Save and display" "button"
+    And I navigate to "Settings" in current page administration
+    And I click on "Save and return to course" "button"
+    And I log out
+    When I am on the "adaptivequiz1" "Activity" page logged in as "student1"
+    And I click on "Start attempt" "link"
+    And I click on "True" "radio" in the "First question" "question"
+    And I press "Submit answer"
+    And I click on "True" "radio" in the "Second question" "question"
+    And I press "Submit answer"
+    And I wait until the page is ready
+    Then I should see "Zelle"
+    And "Link" "link" should exist
+    And I should see "JSHASRUN"
+
+  @javascript
+  Scenario: A teacher without the trusted feedback capability keeps the markup but not the script (issue #21)
+    Given the following "permission overrides" exist:
+      | capability                       | permission | role           | contextlevel | reference |
+      | mod/adaptivequiz:trustedfeedback | Prohibit   | editingteacher | Course       | C1        |
+    And I am on the "adaptivequiz1" "Activity" page logged in as "teacher1"
+    And I navigate to "Settings" in current page administration
+    And I should see "Scripts and unsafe markup are removed from the feedback when you save it."
+    And I set the following fields to these values:
+      | Attempt feedback               | <div class="aqfb" data-aq="42"><p>Intro <a href="https://example.org">Link</a></p><ul><li>Eins</li></ul><table><tbody><tr><td>Zelle</td></tr></tbody></table><p id="aqfbout">JSNOTRUN</p><script>document.getElementById('aqfbout').textContent = 'JSHASRUN';</script></div> |
+    And I click on "Save and return to course" "button"
+    And I log out
+    When I am on the "adaptivequiz1" "Activity" page logged in as "student1"
+    And I click on "Start attempt" "link"
+    And I click on "True" "radio" in the "First question" "question"
+    And I press "Submit answer"
+    And I click on "True" "radio" in the "Second question" "question"
+    And I press "Submit answer"
+    And I wait until the page is ready
+    Then I should see "Zelle"
+    And I should see "JSNOTRUN"
+    And I should not see "JSHASRUN"

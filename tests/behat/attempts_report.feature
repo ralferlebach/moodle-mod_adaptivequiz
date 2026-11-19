@@ -45,7 +45,9 @@ Feature: View students results in adaptive quiz
     And I press "Submit answer"
     And I click on "True" "radio" in the "Second question" "question"
     And I press "Submit answer"
-    And I press "Continue"
+    # Issue #20: an end by precision or by an exhausted pool is explained first.
+    And I click on "OK" "button" in the "Your test has ended" "dialogue"
+    And I press "Return to test"
     And I log out
 
   @javascript
@@ -72,7 +74,9 @@ Feature: View students results in adaptive quiz
     And I press "Submit answer"
     And I click on "True" "radio" in the "Second question" "question"
     And I press "Submit answer"
-    And I press "Continue"
+    # Issue #20: an end by precision or by an exhausted pool is explained first.
+    And I click on "OK" "button" in the "Your test has ended" "dialogue"
+    And I press "Return to test"
     And I log out
     And I log in as "admin"
     And I navigate to "Users > Accounts > Bulk user actions" in site administration

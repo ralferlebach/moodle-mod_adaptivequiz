@@ -83,7 +83,7 @@ final class default_item_administration implements item_administration {
         if (empty($attemptstatus)) {
             $message = $this->attempt->get_status();
 
-            return item_administration_evaluation::with_stoppage_reason($message);
+            return item_administration_evaluation::with_stoppage_reason($message, $this->attempt->get_stop_code());
         }
 
         return item_administration_evaluation::with_next_item(

@@ -372,7 +372,10 @@ class locallib_test extends advanced_testcase {
         $this->assertEquals($attemptid, $event->objectid);
         $this->assertEquals($context, $attemptcompletedevent->get_context());
         $this->assertEquals($userid, $event->userid);
-        $this->assertEquals($attempt, $event->get_record_snapshot('adaptivequiz_attempt', $attemptid));
+        // The snapshot describes the attempt as completed, not as it was before (issue #121).
+        $completedrecord = $DB->get_record('adaptivequiz_attempt', ['id' => $attemptid]);
+        $this->assertSame(attempt_state::COMPLETED, $completedrecord->attemptstate);
+        $this->assertEquals($completedrecord, $event->get_record_snapshot('adaptivequiz_attempt', $attemptid));
         $this->assertEquals($adaptivequiz, $event->get_record_snapshot('adaptivequiz', $adaptivequizid));
     }
 

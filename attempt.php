@@ -29,6 +29,7 @@ require_once($CFG->dirroot . '/tag/lib.php');
 
 use mod_adaptivequiz\cat_session;
 use mod_adaptivequiz\local\attempt;
+use mod_adaptivequiz\local\request_timing;
 
 $id = required_param('cmid', PARAM_INT); // Course module id.
 $uniqueid  = optional_param('uniqueid', 0, PARAM_INT);  // Unique id of the attempt.
@@ -101,8 +102,37 @@ if (!empty($adaptivequiz->password)) {
     }
 }
 
+// Issue #5: without the password nothing is started - no attempt, no CAT record, no question, no clock.
+if (!empty($adaptivequiz->password) && empty(adaptivequiz_user_entered_password($adaptivequiz->id))) {
+    if ($passwordattempt) {
+        $mform->set_data(['message' => get_string('wrongpassword', 'adaptivequiz')]);
+    }
+    $PAGE->set_heading(format_string($course->fullname));
+    echo $output->header();
+    $mform->display();
+    echo $output->print_footer();
+    exit;
+}
+
+// Issue #5: what the person chose for an open attempt on the activity page. Each action names its attempt and
+// is done once; the redirect afterwards keeps a reload from sending it again.
+$resumeaction = optional_param('resume', '', PARAM_ALPHA);
+if ($resumeaction !== '') {
+    require_sesskey();
+    $resumeattemptid = required_param('attemptid', PARAM_INT);
+    if ($resumeaction === 'restart' && adaptivequiz_allowed_attempt($adaptivequiz->attempts, $count + 1)) {
+        \mod_adaptivequiz\local\attempt\resume_actions::restart($adaptivequiz, $context, (int) $USER->id, $resumeattemptid);
+    } else if ($resumeaction === 'newquestion') {
+        \mod_adaptivequiz\local\attempt\resume_actions::new_question($adaptivequiz, (int) $USER->id, $resumeattemptid);
+    }
+    redirect(new moodle_url('/mod/adaptivequiz/attempt.php', ['cmid' => $cm->id]));
+}
+
 // Create an instance of the adaptiveattempt class.
 $adaptiveattempt = new attempt($adaptivequiz, $USER->id);
+// The correlation id of this request, before any output or redirect: the browser, a proxy log and a CAT
+// model's trace can be matched on it (mod_adaptivequiz #17).
+request_timing::send_request_id_header();
 $standarderror = 0.0;
 $message = '';
 
@@ -115,7 +145,10 @@ if (!empty($uniqueid) && confirm_sesskey()) {
             $quba->process_all_actions($time);
             $quba->finish_all_questions($time);
         };
-        cat_session::process_administered_item_result($uniqueid, $adaptivequiz, $adaptiveattempt, $qubahelper);
+        $processed = request_timing::measure(
+            'process_response',
+            fn() => cat_session::process_administered_item_result($uniqueid, $adaptivequiz, $adaptiveattempt, $qubahelper, $context)
+        );
     } catch (question_out_of_sequence_exception $e) {
         $url = new moodle_url('/mod/adaptivequiz/attempt.php', array('cmid' => $id));
         throw new moodle_exception('submissionoutofsequencefriendlymessage', 'question', $url);
@@ -129,9 +162,32 @@ if (!empty($uniqueid) && confirm_sesskey()) {
 
         throw new moodle_exception('errorprocessingresponses', 'question', $url, $e->getMessage(), $debuginfo);
     }
+    // A second POST of an answer already processed (audit 18.10.): nothing was changed. If that answer ended
+    // the attempt, its result is shown - the item administration below would start a new attempt.
+    if (!$processed) {
+        $running = ['uniqueid' => $uniqueid, 'attemptstate' => \mod_adaptivequiz\local\attempt\attempt_state::IN_PROGRESS];
+        if (!$DB->record_exists('adaptivequiz_attempt', $running)) {
+            $param = ['cmid' => $cm->id, 'id' => $cm->instance, 'uattid' => $uniqueid];
+            redirect(new moodle_url('/mod/adaptivequiz/attemptfinished.php', $param));
+        }
+    }
 }
 
-cat_session::run_item_administration($uniqueid, $adaptivequiz, $context, $adaptiveattempt);
+try {
+    request_timing::measure(
+        'administer_item',
+        fn() => cat_session::run_item_administration($uniqueid, $adaptivequiz, $context, $adaptiveattempt)
+    );
+} catch (\mod_adaptivequiz\local\catmodel\catmodel_session_exception $e) {
+    // The CAT model cannot go on with this attempt and says why (CAT model, upstream issue #96). Back to the activity
+    // with that message; the attempt is left as it is - completing it would need the same state again.
+    redirect(
+        new moodle_url('/mod/adaptivequiz/view.php', ['id' => $cm->id]),
+        $e->get_user_message(),
+        null,
+        \core\output\notification::NOTIFY_ERROR
+    );
+}
 
 $attemptcompleted = !empty($adaptiveattempt->get_status());
 if ($attemptcompleted) {
@@ -182,7 +238,11 @@ if (!empty($adaptivequiz->password) && empty($condition)) {
         echo $output->container_end();
     }
 
-    echo $output->question_submit_form($id, $quba, $slot, $attemptrecord->questionsattempted + 1);
+    // The question as it is put on the page, measured on its own (mod_adaptivequiz #17).
+    echo request_timing::measure(
+        'render_question',
+        fn() => $output->question_submit_form($id, $quba, $slot, $attemptrecord->questionsattempted + 1)
+    );
 }
 
 echo $output->print_footer();

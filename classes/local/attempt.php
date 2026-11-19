@@ -45,6 +45,9 @@ class attempt {
      */
     private const TABLE = 'adaptivequiz_attempt';
 
+    /** @var int Seconds a first request waits for the lock to create the attempt (mod_adaptivequiz #17: settable for tests). */
+    public static int $createlocktimeout = 10;
+
     /**
      * The name of the module
      */
@@ -102,6 +105,9 @@ class attempt {
 
     /** @var array $status status message storing the reason why the attempt was stopped */
     protected $status = '';
+
+    /** @var string|null Why it stops, as a code (issue #20); see \mod_adaptivequiz\local\attempt\stop_reason. */
+    protected ?string $stopcode = null;
 
     /** @var int $level the difficulty level the attempt is currently set at */
     protected $level = 0;
@@ -218,16 +224,29 @@ class attempt {
     }
 
     /**
+     * Why it stops, as a code (issue #20), or null.
+     *
+     * @return string|null
+     */
+    public function get_stop_code(): ?string {
+        return $this->stopcode;
+    }
+
+    /**
      * Sets the status value, may be used when alternative CAT implementation is used.
      *
      * @param string $status
+     * @param string|null $code Why, as a code (issue #20); see \mod_adaptivequiz\local\attempt\stop_reason.
      */
-    public function set_status(string $status): void {
+    public function set_status(string $status, ?string $code = null): void {
         if (empty(trim($status))) {
             throw new coding_exception('the status value must be a meaningful string');
         }
 
         $this->status = $status;
+        if ($code !== null) {
+            $this->stopcode = $code;
+        }
     }
 
     /**
@@ -245,12 +264,14 @@ class attempt {
             $var = new stdClass();
             $var->level = $this->level;
             $this->status = get_string('leveloutofbounds', 'adaptivequiz', $var);
+            $this->stopcode = \mod_adaptivequiz\local\attempt\stop_reason::NO_ELIGIBLE;
             return false;
         }
 
         // Check if the attempt has reached the maximum number of questions attempted.
         if ($this->max_questions_answered()) {
             $this->status = get_string('maxquestattempted', 'adaptivequiz');
+            $this->stopcode = \mod_adaptivequiz\local\attempt\stop_reason::MAXIMUM;
             return false;
         }
 
@@ -322,6 +343,7 @@ class attempt {
             $this->print_debug('start_attempt() - something went horribly wrong since the quba has no slot number AND the number '.
                     'of question answered is greater than 0');
             $this->status = get_string('errorattemptstate', 'adaptivequiz');
+            $this->stopcode = \mod_adaptivequiz\local\attempt\stop_reason::ERROR;
 
             $fetchquestion->store_tagquestsum_in_session();
 
@@ -346,6 +368,7 @@ class attempt {
             $var = new stdClass();
             $var->level = $this->level;
             $this->status = get_string('errorfetchingquest', 'adaptivequiz', $var);
+            $this->stopcode = \mod_adaptivequiz\local\attempt\stop_reason::NO_ELIGIBLE;
             return false;
         }
 
@@ -444,7 +467,9 @@ class attempt {
             $this->print_debug('initialized_quba() - question usage created');
         } else {
             // Load a previously used question by usage object.
+            request_timing::start('quba_load');
             $quba = question_engine::load_questions_usage_by_activity($this->adpqattempt->uniqueid);
+            request_timing::stop('quba_load', ['slots' => count($quba->get_slots())]);
             $this->print_debug('initialized_quba() - Re-using unfinishd attempt');
         }
 
@@ -460,6 +485,7 @@ class attempt {
      * If no attempt is found it creates a new attempt. Lastly, $adpqattempt instance property gets set.
      *
      * @return stdClass An adaptivequiz_attempt data object.
+     * @throws moodle_exception attemptcreatelocktimeout - no open attempt, and the lock to create one was not had in time.
      */
     public function get_attempt(): stdClass {
         global $DB;
@@ -467,7 +493,44 @@ class attempt {
         $param = ['instance' => $this->adaptivequiz->id, 'userid' => $this->userid, 'attemptstate' => attempt_state::IN_PROGRESS];
         $attempt = $DB->get_records(self::TABLE, $param, 'timemodified DESC', '*', 0, 1);
 
+        // Issue #5: two first requests at once - a double click on "Start" - each created an attempt. The
+        // check and the insert run under a lock, and the second request finds the attempt of the first.
+        $lock = null;
         if (empty($attempt)) {
+            request_timing::start('attempt_create_lock_wait');
+            $lock = \core\lock\lock_config::get_lock_factory('mod_adaptivequiz')
+                ->get_lock('adaptivequiz_attemptcreate_' . $this->adaptivequiz->id . '_' . $this->userid, self::$createlocktimeout);
+            request_timing::stop('attempt_create_lock_wait', ['acquired' => (bool) $lock]);
+            $attempt = $DB->get_records(self::TABLE, $param, 'timemodified DESC', '*', 0, 1);
+            // Issue #17: after a timeout the lock is not ours. Creating anyway is exactly the double attempt the
+            // lock is there to prevent - the other request may still be about to insert. Its attempt, if it is
+            // there by now, is taken; otherwise this request stops with an error the person can retry.
+            if (!$lock && empty($attempt)) {
+                throw new moodle_exception('attemptcreatelocktimeout', 'adaptivequiz');
+            }
+        }
+
+        try {
+            $this->load_or_create_attempt($attempt);
+        } finally {
+            if ($lock) {
+                $lock->release();
+            }
+        }
+
+        return $this->adpqattempt;
+    }
+
+    /**
+     * Takes the attempt found, or creates one - with the creation lock held when there was none.
+     *
+     * @param array $attempt The open attempt found, or empty.
+     */
+    private function load_or_create_attempt(array $attempt): void {
+        global $DB;
+
+        if (empty($attempt)) {
+            request_timing::start('attempt_create');
             $time = time();
             $attempt = new stdClass();
             $attempt->instance = $this->adaptivequiz->id;
@@ -483,6 +546,7 @@ class attempt {
 
             $attempt->id = $id;
             $this->adpqattempt = $attempt;
+            request_timing::stop('attempt_create');
 
             $this->print_debug('get_attempt() - new attempt created: '.$this->vardump($attempt));
 
@@ -493,7 +557,7 @@ class attempt {
                 $pluginswithfunction = get_plugin_list_with_function('adaptivequizcatmodel', 'post_create_attempt_callback');
                 if (array_key_exists($catmodelcomponentname, $pluginswithfunction)) {
                     $functionname = $pluginswithfunction[$catmodelcomponentname];
-                    $functionname($this->adaptivequiz, $this);
+                    request_timing::measure('catmodel_attempt_created', fn() => $functionname($this->adaptivequiz, $this));
                 }
             }
         } else {
@@ -502,8 +566,6 @@ class attempt {
 
             $this->print_debug('get_attempt() - previous attempt loaded: '.$this->vardump($attempt));
         }
-
-        return $attempt;
     }
 
     /**
@@ -620,15 +682,18 @@ class attempt {
         $quest = array_pop($quest);
 
         // Create the question_definition object.
-        $question = question_bank::load_question($quest->id);
+        // Measured as on the path of a CAT model (mod_adaptivequiz #17).
+        $question = request_timing::measure_db('load_question', fn() => question_bank::load_question($quest->id));
+        request_timing::start('question_usage');
         // Add the question to the usage question_usable_by_activity object.
-        $this->slot = $this->quba->add_question($question);
+        $this->slot = request_timing::measure('quba_add', fn() => $this->quba->add_question($question));
         // Start the question attempt.
-        $this->quba->start_question($this->slot);
+        request_timing::measure('quba_start', fn() => $this->quba->start_question($this->slot));
         // Save the question usage and question attempt state to the DB.
-        question_engine::save_questions_usage_by_activity($this->quba);
+        request_timing::measure('quba_save', fn() => question_engine::save_questions_usage_by_activity($this->quba));
         // Update the attempt unique id.
         $this->set_attempt_uniqueid();
+        request_timing::stop('question_usage', ['slots' => count($this->quba->get_slots())]);
 
         // Set class level property to the difficulty level of the question returned from fetchquestion class.
         $this->level = $fetchquestion->get_level();
