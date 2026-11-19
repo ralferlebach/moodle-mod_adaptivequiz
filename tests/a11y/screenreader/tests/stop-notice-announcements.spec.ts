@@ -62,7 +62,7 @@ function archive(name: string, phrases: string[]): void {
 }
 
 /** Reading steps after the dialog was closed: enough for the notice and the feedback below it. */
-const READING_STEPS = 12;
+const READING_STEPS = 20;
 
 nvdaTest.describe('A11Y-AQ-SR-01 - the end of the test is announced', () => {
     nvdaTest('the dialog is announced with its reason; afterwards NVDA reads the notice', async({page, nvda}, testInfo) => {
@@ -82,11 +82,16 @@ nvdaTest.describe('A11Y-AQ-SR-01 - the end of the test is announced', () => {
         await nvdaTest.step('submit the last answer; the dialog opens', async() => {
             await nvda.navigateToWebContent();
             await nvda.clearSpokenPhraseLog();
-            await page.getByRole('button', {name: /submit answer/i}).click();
-            await expect(page.getByRole('dialog', {name: 'Your test has ended'})).toBeVisible();
-            // NVDA speaks in real time; the opening announcement follows the focus change.
-            await page.waitForTimeout(4_000);
-            spoken.push(...await nvda.spokenPhraseLog());
+            // Guidepup only logs what NVDA says during an action it runs itself. The click is
+            // Playwright's, so it goes through nvda.capture(): everything NVDA says from the click
+            // until the dialog is open and the announcement is over is recorded.
+            const opening = await nvda.capture(async() => {
+                await page.getByRole('button', {name: /submit answer/i}).click();
+                await expect(page.getByRole('dialog', {name: 'Your test has ended'})).toBeVisible();
+                // NVDA speaks in real time; the opening announcement follows the focus change.
+                await page.waitForTimeout(4_000);
+            }, {capture: true});
+            spoken.push(opening.spokenPhrase);
         });
 
         await nvdaTest.step('close it with Escape and read on', async() => {

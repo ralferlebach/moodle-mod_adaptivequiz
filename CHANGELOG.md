@@ -1,5 +1,13 @@
 # Changelog – mod_adaptivequiz (ALiSe)
 
+## 2026111705 – Screenreader-Test: Ansage beim Öffnen des Dialogs wird mitgeschnitten (19.11.2026)
+
+- Erster Lauf in GitHub (4.5 und 5.1): Site, Tunnel, NVDA-Installation und Sprache funktionieren; gescheitert ist
+  nur die Prüfung der Ansage beim Öffnen des Dialogs – das Protokoll war leer. Ursache: Guidepup protokolliert nur,
+  was NVDA während einer eigenen Aktion sagt; der Klick auf „Submit answer“ lief über Playwright. Jetzt in
+  `nvda.capture()` (Klick, Warten auf den Dialog, Sprechpause), wie von Guidepup für Playwright-Aktionen vorgesehen.
+- Nach dem Schließen liest NVDA 20 statt 12 Schritte, damit das Feedback unter dem Hinweis sicher erfasst wird.
+
 ## 2026111704 – Screenreader-Workflow läuft vollständig in GitHub (19.11.2026)
 
 - `a11y-screenreader.yml` nach dem Muster von local_adele umgebaut: Ein Linux-Job baut die Testsite wie
