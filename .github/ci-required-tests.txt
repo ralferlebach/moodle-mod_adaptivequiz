@@ -1,0 +1,17 @@
+# Tests the issues of mod_adaptivequiz name (re-audit 19.11.2026, CI matrix P0). Each must run, pass and not be
+# skipped in every PHPUnit cell; .github/scripts/ci_evidence.py checks it against the JUnit log.
+custom_completion_test               # #23 (sort order with completionpassgrade)
+grading_settings_test                # #25
+link_functions_test                  # #25
+builtin_grading_test                 # #25
+result_service_test                  # #25
+regrade_test                         # #25
+backup_restore_result_test           # #25
+lang_de_grading_test                 # #25
+concurrent_answer_test               # #23, #17
+stop_notice_test                     # #23, adapter #12
+request_timing_test                  # #17
+request_timing_switch_test           # #17 (trace off by default)
+attempt_creation_lock_test           # #17
+question_pluginfile_test             # #16, #168
+cat_session_test                     # #17 lock wait
