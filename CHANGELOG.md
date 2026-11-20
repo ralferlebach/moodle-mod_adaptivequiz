@@ -1,5 +1,18 @@
 # Changelog – mod_adaptivequiz (ALiSe)
 
+## 2026111704 – CI-Nachweis je Zelle (Re-Audit 19.11.2026)
+
+- PHPUnit läuft wie bisher über die Testsuite der Komponente, schreibt aber ein JUnit-Protokoll; Behat schreibt sein
+  Protokoll mit. `.github/scripts/ci_evidence.py` legt je Zelle die eingebauten Commits und Versionen, Moodle, PHP,
+  Datenbank, Tests/Assertions/Skips und Wiederholungen in die Zusammenfassung des Laufs (Artefakt
+  `evidence-…`) und prüft gegen `.github/ci-required-tests.txt` (15 Tests der Issues #16, #17, #23, #25) und
+  `.github/ci-required-features.txt` (`result_after_technical_error`, `grading_settings`,
+  `result_gradebook_completion`, `attempt_stop_notice`): Läuft einer nicht, scheitert oder wird übersprungen, ist die
+  Zelle rot.
+- Host #23: Die Regel „gültige Messung nach dem Minimum zählt trotz technischem Ende, Stoppcode bleibt `error`“ ist
+  am 19.11.2026 fachlich freigegeben (Adapter `stop-contract.md` §3). Im Browser belegt in local_catquiz
+  `tests/playwright/tests/cat-attempt-path.spec.ts` (Dialog, Fokus, axe, Note/Abschluss) – keine Codeänderung hier.
+
 ## 2026111703 – Screenreader-Test: Ansage beim Öffnen des Dialogs wird mitgeschnitten (19.11.2026)
 
 - Erster Lauf in GitHub (4.5 und 5.1): Site, Tunnel, NVDA-Installation und Sprache funktionieren; gescheitert ist

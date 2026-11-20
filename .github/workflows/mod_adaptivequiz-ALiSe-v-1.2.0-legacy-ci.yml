@@ -122,7 +122,39 @@ jobs:
         env:
           # The concurrency tests (pcntl) fail instead of being skipped: a skip is no green (audit 18.10.).
           CATQUIZ_REQUIRE_CONCURRENCY: '1'
-        run: set -o pipefail; moodle-plugin-ci phpunit --fail-on-warning --testdox 2>&1 | tee ci-logs/phpunit.log
+        # Re-audit 19.11.2026 (CI P0): the call moodle-plugin-ci makes - vendor/bin/phpunit with the testsuite of the
+        # component, from the Moodle root - plus a JUnit log, which the evidence step below reads.
+        run: |
+          set -o pipefail
+          cd moodle
+          vendor/bin/phpunit --testsuite mod_adaptivequiz_testsuite --testdox --fail-on-warning \
+            --log-junit "$GITHUB_WORKSPACE/ci-logs/junit.xml" 2>&1 | tee "$GITHUB_WORKSPACE/ci-logs/phpunit.log"
+
+      # Re-audit 19.11.2026 (CI P0): which commits of engine, host and adapter ran together, on which Moodle, PHP
+      # and database, how many tests and assertions, what was skipped - and the tests the issues name ran, passed
+      # and were not skipped (the job fails otherwise). Also in the job summary.
+      - name: Evidence (commits, versions, tests)
+        if: ${{ always() }}
+        env:
+          CI_EVIDENCE_SELF: mod_adaptivequiz
+        run: >-
+          python3 plugin/.github/scripts/ci_evidence.py
+          --title "PHPUnit / ${{ matrix.moodle-branch }} / PHP ${{ matrix.php }} / ${{ matrix.database }}"
+          --moodle moodle --db ${{ matrix.database }}
+          --component mod_adaptivequiz=plugin
+          --junit ci-logs/junit.xml --required plugin/.github/ci-required-tests.txt
+          --out ci-logs/evidence
+
+      - name: Upload evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: evidence-phpunit-${{ matrix.moodle-branch }}-${{ matrix.php }}-${{ matrix.database }}
+          path: |
+            ci-logs/evidence
+            ci-logs/junit.xml
+          retention-days: 90
+          if-no-files-found: warn
 
       # Beratend - siehe Kopf. PSR1.Classes.ClassDeclaration ist ausgenommen:
       # mod_adaptivequiz_csv_renderer muss laut Moodles renderer_factory in renderer.php stehen.
@@ -170,6 +202,33 @@ jobs:
         if: ${{ always() }}
         continue-on-error: true
         run: set -o pipefail; moodle-plugin-ci behat --profile chrome 2>&1 | tee ci-logs/behat.log
+
+      # Re-audit 19.11.2026 (CI P0): which commits of engine, host and adapter ran together, on which Moodle, PHP
+      # and database, how many tests and assertions, what was skipped - and the tests the issues name ran, passed
+      # and were not skipped (the job fails otherwise). Also in the job summary.
+      - name: Evidence (commits, versions, Behat)
+        if: ${{ always() }}
+        env:
+          CI_EVIDENCE_SELF: mod_adaptivequiz
+        run: >-
+          python3 plugin/.github/scripts/ci_evidence.py
+          --title "Behat / ${{ matrix.moodle-branch }} / PHP ${{ matrix.php }} / ${{ matrix.database }}"
+          --moodle moodle --db ${{ matrix.database }}
+          --component mod_adaptivequiz=plugin
+          --behat-log ci-logs/behat.log --required-features plugin/.github/ci-required-features.txt
+          --features-dir plugin/tests/behat --tag @mod_adaptivequiz
+          --out ci-logs/evidence-behat
+
+      - name: Upload evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: evidence-behat-${{ matrix.moodle-branch }}-${{ matrix.php }}-${{ matrix.database }}
+          path: |
+            ci-logs/evidence-behat
+            ci-logs/behat.log
+          retention-days: 90
+          if-no-files-found: warn
 
       - name: Fehlerzusammenfassung
         if: ${{ always() }}

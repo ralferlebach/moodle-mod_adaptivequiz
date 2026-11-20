@@ -1,0 +1,5 @@
+# Behat features the issues of mod_adaptivequiz name; each must exist, carry @mod_adaptivequiz and no skip tag.
+result_after_technical_error         # #23
+grading_settings                     # #25
+result_gradebook_completion          # #25
+attempt_stop_notice                  # #20, #23
