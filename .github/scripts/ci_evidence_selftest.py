@@ -87,6 +87,44 @@ class check_features_test(unittest.TestCase):
         self.assertEqual([], problems)
         self.assertNotIn('ran', rows[0]['note'])
 
+    # Re-audit of 22.11.2026, #176 DoD3: the edge cases.
+
+    def test_red_when_the_run_was_aborted_within_the_feature(self):
+        # The run ended after the second scenario: the rest has no record.
+        rows, problems = self.check([self.record(line) for line in RUNS[:2]])
+        self.assertFalse(rows[0]['ok'])
+        self.assertIn('ran 2 of 4', problems[0])
+        self.assertIn('not run: lines 15, 16', problems[0])
+
+    def test_red_when_a_required_scenario_was_skipped(self):
+        # A scenario that skips itself (a missing plugin) did not show what it is required for.
+        rows, problems = self.check([self.record(line) for line in RUNS[:-1]] + [self.record(16, 'skipped')])
+        self.assertFalse(rows[0]['ok'])
+        self.assertIn('not passed: lines 16 (skipped)', problems[0])
+
+    def test_scenarios_of_the_same_name_are_told_apart_by_their_line(self):
+        feature = FEATURE.replace('Scenario: Second', 'Scenario: First')
+        with open(os.path.join(self.dir, 'catquiz_sample.feature'), 'w', encoding='utf-8') as f:
+            f.write(feature)
+        self.assertEqual(RUNS, ci_evidence.expected_runs(feature))
+        # Only the first of the two "First" ran: the record of a title does not stand for its namesake.
+        rows, problems = self.check([self.record(line) for line in (4, 15, 16)])
+        self.assertFalse(rows[0]['ok'])
+        self.assertIn('not run: lines 7', problems[0])
+
+    def test_red_when_the_record_is_of_another_state_of_the_feature(self):
+        # A record from another branch, whose feature has an extra line on top: no line matches this one.
+        rows, problems = self.check([self.record(line + 1) for line in RUNS])
+        self.assertFalse(rows[0]['ok'])
+        self.assertIn('ran 1 of 4', problems[0])
+        self.assertIn('no scenario of this file: 5, 8, 17', problems[0])
+
+    def test_red_when_the_record_holds_more_than_this_state_of_the_feature(self):
+        # Every scenario ran and passed, and the record has one more: it is not of this state of the feature.
+        rows, problems = self.check([self.record(line) for line in RUNS] + [self.record(21)])
+        self.assertFalse(rows[0]['ok'])
+        self.assertIn('no scenario of this file: 21', problems[0])
+
 
 class main_test(unittest.TestCase):
     def run_evidence(self, executed_lines=None, with_file=True):

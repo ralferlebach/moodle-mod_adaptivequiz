@@ -180,7 +180,8 @@ def check_features(required, directory, tag, executed=None):
             rows.append({'feature': name, 'ok': False, 'note': 'missing'})
             problems.append(f'{name}: feature file missing')
             continue
-        text = open(path, encoding='utf-8').read()
+        with open(path, encoding='utf-8') as handle:
+            text = handle.read()
         tags = set(re.findall(r'@[\w-]+', '\n'.join(l for l in text.splitlines() if l.strip().startswith('@'))))
         scenarios = len(re.findall(r'^\s*Scenario( Outline)?:', text, re.M))
         examples = len(re.findall(r'^\s*\|', text, re.M))
@@ -197,17 +198,23 @@ def check_features(required, directory, tag, executed=None):
             expected = expected_runs(text)
             notrun = [line for line in expected if line not in last]
             notpassed = [line for line in expected if line in last and last[line] != 'passed']
+            # Re-audit of 22.11.2026 (#176 DoD3): what ran is counted on the scenarios of this file, not on the records;
+            # a recorded line that is no scenario of it means the record is of another state of the feature.
+            ran = len(expected) - len(notrun)
+            foreign = sorted(line for line in last if line not in expected)
             reruns = len(mine) - len(last)
-            row.update({'expected': len(expected), 'ran': len(last), 'passed': len(expected) - len(notrun) - len(notpassed),
-                        'reruns': reruns})
-            if notrun or notpassed:
+            row.update({'expected': len(expected), 'ran': ran, 'passed': ran - len(notpassed), 'reruns': reruns,
+                        'foreign': foreign})
+            if notrun or notpassed or foreign:
                 ok = False
                 row['ok'] = False
-            note += f'; ran {len(last)} of {len(expected)}, passed {row["passed"]}' + (f', {reruns} rerun(s)' if reruns else '')
+            note += f'; ran {ran} of {len(expected)}, passed {row["passed"]}' + (f', {reruns} rerun(s)' if reruns else '')
             if notrun:
                 note += '; not run: lines ' + ', '.join(map(str, notrun))
             if notpassed:
                 note += '; not passed: lines ' + ', '.join(f'{l} ({last[l]})' for l in notpassed)
+            if foreign:
+                note += '; recorded lines that are no scenario of this file: ' + ', '.join(map(str, foreign))
             row['note'] = note
         rows.append(row)
         if not ok:
