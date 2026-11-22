@@ -1,5 +1,20 @@
 # Changelog – mod_adaptivequiz (ALiSe)
 
+## 2026111705 – Bewertungsmatrix und Behat-Ausführungsnachweis (Re-Audit 20.11.2026)
+
+- **#25 DoD5 – Bewertungsmethoden über mehrere Versuche:** neuer Test `tests/local/result/grade_method_matrix_test.php`.
+  Jede Folge von Versuchen wird je Methode (höchste, erste, letzte) gespielt, live bewertet und danach mit jeder Methode
+  neu bewertet. Die Folgen: drei gültige; ein gültiger zwischen ungültigen; nur ungültige (keine Note, nicht 0);
+  Gleichstand; anders beendet als begonnen; ungültiger nach gültigem. Zahntest: Ordnet „erste“ nach ID statt nach
+  Beendigung, ist der Test rot. In die Pflichtliste aufgenommen.
+- **local_catquiz #176 – Pflichtfeatures müssen gelaufen sein:** Der Kontext `tests/behat/behat_mod_adaptivequiz_evidence.php`
+  schreibt mit `ADAPTIVEQUIZ_BEHAT_EXECUTED` jedes Szenario mit Ergebnis. `ci_evidence.py --behat-executed` prüft jedes
+  Pflichtfeature Szenario für Szenario: gelaufen und im letzten Lauf bestanden. Fehlt die Aufzeichnung, ist die Evidenz
+  rot. Ein Selbsttest (`ci_evidence_selftest.py`) läuft vor dem Evidenzschritt.
+  Auf dieser Linie bleibt Behat beratend. Ein Pflichtfeature, das nicht läuft oder scheitert, macht jetzt aber den
+  Evidenzschritt und damit den Job rot.
+- `version.php` 2026111705.
+
 ## 2026111704 – CI-Nachweis je Zelle (Re-Audit 19.11.2026)
 
 - PHPUnit läuft wie bisher über die Testsuite der Komponente, schreibt aber ein JUnit-Protokoll; Behat schreibt sein
