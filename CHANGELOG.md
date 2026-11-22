@@ -1,5 +1,23 @@
 # Changelog – mod_adaptivequiz (ALiSe)
 
+## 2026111708 – #25 DoD5 vervollständigt, Behat-Evidenz-Randfälle (Re-Audit 22.11.2026)
+
+- **#25 DoD5 – Bewertung über mehrere Versuche, vervollständigt** (`tests/local/catmodel/grade_method_matrix_test.php`):
+  - **Erneute Finalisierung desselben Versuchs:** Note, Reihenfolge, Abschlusszeit, Stoppcode, Ergebnis und Meldung
+    bleiben; kein zweites Abschluss-Event; die Finalisierung über die ID meldet „schon abgeschlossen“. Befund dabei:
+    `adaptivequiz_complete_attempt()` prüfte das selbst nicht. Ein zweiter Aufruf überschrieb die Meldung des Endes und
+    lief Callback, Bewertung und Event erneut durch. Die produktiven Aufrufer prüfen vorher (`cat_session`:
+    nur ein laufender Versuch; `closeattempt.php`: Fehler bei einem abgeschlossenen). Die Funktion lässt einen
+    abgeschlossenen Versuch jetzt selbst unverändert, wie `adaptivequiz_complete_attempt_by_id()` es schon tat. Im Betrieb
+    ändert sich dadurch nichts. Zahntest: ohne die Prüfung rot.
+  - **Technischer Stopp vor bzw. nach einer gültigen Messung:** zählt nach seinem Ergebnis, nicht nach dem Stoppcode;
+    der Stoppcode bleibt der technische (#23). Vier Folgen, je Methode.
+  - **Gradebook und Completion über mehrere Versuche:** „Bestehensnote erhalten“ folgt der Note, die die Methode wählt,
+    live und nach Neubewertung mit jeder anderen Methode; „gültiges Ergebnis“ gilt, sobald ein Versuch eines hatte;
+    „Versuch abgeschlossen“, sobald einer abgeschlossen ist. Fünf Folgen, darunter genau auf der Grenze und nur ungültige.
+- **#176-Randfälle (local_catquiz):** `.github/scripts/ci_evidence.py` zählt „gelaufen“ an den Szenarien der Datei und
+  wertet Zeilen eines anderen Stands der Feature-Datei als rot; Selbsttest 15 Fälle.
+
 ## 2026111707 – Bewertungsmatrix und Behat-Ausführungsnachweis (Re-Audit 20.11.2026)
 
 - **#25 DoD5 – Bewertungsmethoden über mehrere Versuche:** neuer Test `tests/local/catmodel/grade_method_matrix_test.php` (mit dem Test-CAT-Modell, nicht im Release-Paket).

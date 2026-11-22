@@ -339,6 +339,12 @@ function adaptivequiz_complete_attempt(
         '*',
         MUST_EXIST
     );
+    // An attempt completed already stays as it is, as with the completion by id (re-audit of 22.11.2026, issue #25):
+    // called again, this overwrote the message of the end and told the CAT model, the gradebook and the log once more.
+    // The callers check it before; this keeps the layer below from depending on that.
+    if ($attempt->attemptstate === attempt_state::COMPLETED) {
+        return;
+    }
     $attempt->standarderror = $standarderror;
     adaptivequiz_complete_attempt_record($attempt, $adaptivequiz, $context, $userid, $statusmessage, $stopcode);
 }
