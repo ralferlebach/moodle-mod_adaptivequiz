@@ -1,4 +1,5 @@
-# Behat features the issues of mod_adaptivequiz name; each must exist, carry @mod_adaptivequiz and no skip tag.
+# Behat features the issues of mod_adaptivequiz name; each must exist, carry @mod_adaptivequiz and no skip tag - and,
+# since local_catquiz #176, every scenario of it must have run and passed in the CI run (behat-executed.jsonl).
 result_after_technical_error         # #23
 grading_settings                     # #25
 result_gradebook_completion          # #25

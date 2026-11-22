@@ -134,7 +134,45 @@ def behat_summary(path):
     return {'summary': summary, 'reruns': reruns, 'failed_sections': failed}
 
 
-def check_features(required, directory, tag):
+def expected_runs(text):
+    """The lines a run of the feature reports (issue #176): each Scenario, and each example row of an outline."""
+    lines = text.splitlines()
+    runs, in_outline, in_examples, header = [], False, False, False
+    for number, raw in enumerate(lines, start=1):
+        line = raw.strip()
+        if re.match(r'^Scenario Outline:|^Scenario Template:', line):
+            in_outline, in_examples = True, False
+        elif re.match(r'^Scenario:|^Example:', line):
+            in_outline, in_examples = False, False
+            runs.append(number)
+        elif in_outline and re.match(r'^(Examples|Scenarios):', line):
+            in_examples, header = True, True
+        elif in_examples and line.startswith('|'):
+            if header:
+                header = False
+            else:
+                runs.append(number)
+        elif in_examples and line and not line.startswith('#') and not line.startswith('@'):
+            in_examples = False
+    return runs
+
+
+def read_executed(path):
+    """The scenarios a Behat run recorded (tests/behat/behat_catquiz_evidence.php), one JSON object per line."""
+    records = []
+    for raw in open(path, encoding='utf-8', errors='replace'):
+        raw = raw.strip()
+        if raw:
+            try:
+                records.append(json.loads(raw))
+            except ValueError:
+                continue
+    return records
+
+
+def check_features(required, directory, tag, executed=None):
+    """Each required feature: present, tagged, not skipped - and, with the record of the run, every scenario of it run
+    and passed in its last run (a rerun after a failure counts). Without the record a run is not shown (issue #176)."""
     rows, problems = [], []
     for name in required:
         path = os.path.join(directory, name if name.endswith('.feature') else name + '.feature')
@@ -149,7 +187,29 @@ def check_features(required, directory, tag):
         skip = sorted(t for t in tags if t in ('@skip', '@_skip', '@wip'))
         ok = tag in tags and not skip
         note = f'{scenarios} scenario(s)' + (f'; skip tags {skip}' if skip else '') + ('' if tag in tags else f'; no {tag}')
-        rows.append({'feature': name, 'ok': ok, 'note': note, 'scenarios': scenarios, 'table_rows': examples})
+        row = {'feature': name, 'ok': ok, 'note': note, 'scenarios': scenarios, 'table_rows': examples}
+        if executed is not None:
+            filename = os.path.basename(path)
+            mine = [r for r in executed if r.get('feature') == filename]
+            last = {}
+            for record in mine:
+                last[record.get('line')] = record.get('result')
+            expected = expected_runs(text)
+            notrun = [line for line in expected if line not in last]
+            notpassed = [line for line in expected if line in last and last[line] != 'passed']
+            reruns = len(mine) - len(last)
+            row.update({'expected': len(expected), 'ran': len(last), 'passed': len(expected) - len(notrun) - len(notpassed),
+                        'reruns': reruns})
+            if notrun or notpassed:
+                ok = False
+                row['ok'] = False
+            note += f'; ran {len(last)} of {len(expected)}, passed {row["passed"]}' + (f', {reruns} rerun(s)' if reruns else '')
+            if notrun:
+                note += '; not run: lines ' + ', '.join(map(str, notrun))
+            if notpassed:
+                note += '; not passed: lines ' + ', '.join(f'{l} ({last[l]})' for l in notpassed)
+            row['note'] = note
+        rows.append(row)
         if not ok:
             problems.append(f'{name}: {note}')
     return rows, problems
@@ -166,6 +226,7 @@ def main():
     parser.add_argument('--behat-log')
     parser.add_argument('--required-features')
     parser.add_argument('--features-dir')
+    parser.add_argument('--behat-executed', help='Scenarios the run recorded (CATQUIZ_BEHAT_EXECUTED, issue #176).')
     parser.add_argument('--tag', default='')
     parser.add_argument('--out', required=True)
     args = parser.parse_args()
@@ -231,7 +292,15 @@ def main():
         else:
             problems.append(f'Behat log {args.behat_log} missing')
         if args.required_features and args.features_dir:
-            rows, missing = check_features(read_list(args.required_features), args.features_dir, args.tag)
+            executed = None
+            if args.behat_executed:
+                if os.path.isfile(args.behat_executed):
+                    executed = read_executed(args.behat_executed)
+                else:
+                    executed = []
+                    problems.append(f'Record of the executed scenarios {args.behat_executed} missing - nothing ran, '
+                                    'or the recording context was not loaded')
+            rows, missing = check_features(read_list(args.required_features), args.features_dir, args.tag, executed)
             record.setdefault('behat', {})['required'] = rows
             problems += missing
             md += ['', '#### Required features (issues)', '', '| Feature | | Note |', '|---|---|---|']
