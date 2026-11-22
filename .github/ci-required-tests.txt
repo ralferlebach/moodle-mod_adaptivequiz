@@ -6,6 +6,7 @@ link_functions_test                  # #25
 builtin_grading_test                 # #25
 result_service_test                  # #25
 regrade_test                         # #25
+grade_method_matrix_test             # #25 DoD5
 backup_restore_result_test           # #25
 lang_de_grading_test                 # #25
 concurrent_answer_test               # #23, #17
