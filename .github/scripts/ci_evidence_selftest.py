@@ -127,7 +127,7 @@ class check_features_test(unittest.TestCase):
 
 
 class main_test(unittest.TestCase):
-    def run_evidence(self, executed_lines=None, with_file=True):
+    def run_evidence(self, executed_lines=None, with_file=True, with_option=True):
         work = tempfile.mkdtemp()
         features = os.path.join(work, 'features')
         os.makedirs(features)
@@ -153,7 +153,8 @@ class main_test(unittest.TestCase):
         return subprocess.run(
             [sys.executable, os.path.join(HERE, 'ci_evidence.py'), '--title', 'selftest', '--moodle', moodle,
              '--behat-log', log, '--required-features', required, '--features-dir', features,
-             '--tag', '@local_catquiz', '--behat-executed', executed, '--out', os.path.join(work, 'out')],
+             '--tag', '@local_catquiz', '--out', os.path.join(work, 'out')]
+            + (['--behat-executed', executed] if with_option else []),
             capture_output=True, text=True, env=env)
 
     def test_the_job_fails_for_a_required_feature_that_did_not_run(self):
@@ -163,6 +164,13 @@ class main_test(unittest.TestCase):
         result = self.run_evidence(with_file=False)
         self.assertEqual(1, result.returncode)
         self.assertIn('Record of the executed scenarios', result.stdout)
+
+    def test_the_job_fails_without_the_option_for_the_record(self):
+        # Re-audit of 23.11.2026, case B: the required features without --behat-executed are an inventory only.
+        result = self.run_evidence(RUNS, with_option=False)
+        self.assertEqual(1, result.returncode)
+        self.assertIn('without --behat-executed', result.stdout)
+        self.assertNotIn('All required tests ran', result.stdout)
 
     def test_the_job_passes_when_everything_ran(self):
         result = self.run_evidence(RUNS)

@@ -1,5 +1,12 @@
 # Changelog – mod_adaptivequiz (ALiSe)
 
+## 2026111709 – CI-Evidenz fail-closed ohne Ausführungsnachweis (Critical-Friend-Re-Audit 23.11.2026)
+
+- **Behat-Evidenz (wie local_catquiz #176, Fall B):** `ci_evidence.py` mit Pflicht-Features, aber ohne
+  `--behat-executed` hat nur die Dateien und Tags geprüft und trotzdem „All required tests ran …“ ausgegeben. Jetzt
+  ist das ein Befund und der Job rot: ohne Aufzeichnung des Laufs ist es eine Inventur, kein Lauf. Der Workflow gibt die
+  Aufzeichnung immer an; an ihm ändert sich nichts. Selbsttest für den Fall, Zahntest: mit dem alten Skript rot.
+
 ## 2026111708 – #25 DoD5 vervollständigt, Behat-Evidenz-Randfälle (Re-Audit 22.11.2026)
 
 - **#25 DoD5 – Bewertung über mehrere Versuche, vervollständigt** (`tests/local/catmodel/grade_method_matrix_test.php`):

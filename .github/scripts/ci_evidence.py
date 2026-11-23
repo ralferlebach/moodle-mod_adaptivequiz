@@ -300,7 +300,12 @@ def main():
             problems.append(f'Behat log {args.behat_log} missing')
         if args.required_features and args.features_dir:
             executed = None
-            if args.behat_executed:
+            if not args.behat_executed:
+                # Critical-friend re-audit of 23.11.2026 (#176, case B): without the record of the run only the files
+                # are checked - an inventory, not a run. Never reported as required features that ran.
+                problems.append('Required features given without --behat-executed: only the feature files were '
+                                'checked, not that their scenarios ran')
+            else:
                 if os.path.isfile(args.behat_executed):
                     executed = read_executed(args.behat_executed)
                 else:
