@@ -15,6 +15,7 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 namespace mod_adaptivequiz\local\result\link;
+
 /**
  * Piecewise linear with the pass score at 50 % (issue #25): from L to P linear onto 0-50 %, from P to U onto
  * 50-100 %. Needs L < P < U.

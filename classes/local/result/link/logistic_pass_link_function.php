@@ -15,6 +15,7 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 namespace mod_adaptivequiz\local\result\link;
+
 /**
  * Logistic with 50 % at the pass score (issue #25): p = 100 / (1 + exp(-k (score - P))).
  *

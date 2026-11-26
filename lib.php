@@ -754,7 +754,8 @@ function adaptivequiz_grade_item_update(stdClass $adaptivequiz, $grades = null) 
     require_once($CFG->dirroot . '/mod/adaptivequiz/locallib.php');
     require_once($CFG->libdir . '/gradelib.php');
 
-    if (!empty($adaptivequiz->id)) { // May not be always present.
+    if (!empty($adaptivequiz->id)) {
+        // May not be always present.
         $params = array('itemname' => $adaptivequiz->name, 'idnumber' => $adaptivequiz->id);
     } else {
         $params = array('itemname' => $adaptivequiz->name);

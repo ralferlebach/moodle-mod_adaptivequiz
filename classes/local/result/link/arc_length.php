@@ -15,6 +15,7 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 namespace mod_adaptivequiz\local\result\link;
+
 /**
  * The Fisher-Rao arc length of a scale: the integral of sqrt(I(t)) (issue #25).
  *
