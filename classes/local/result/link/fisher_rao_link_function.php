@@ -15,6 +15,7 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 namespace mod_adaptivequiz\local\result\link;
+
 /**
  * Normalised Fisher-Rao arc length (issue #25): p = 100 * A(L, score) / A(L, U), A(a, b) = integral of sqrt(I_B(t))
  * from a to b, with I_B the test information of the calibrated item battery as it is now.

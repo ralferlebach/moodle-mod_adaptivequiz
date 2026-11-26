@@ -15,6 +15,7 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 namespace mod_adaptivequiz\local\result\link;
+
 /**
  * All or nothing at the pass score (issue #25): 100 % from P on, 0 % below. A score equal to P passes; a
  * difference below the rounding of the stored numbers (1e-9, relative to P) counts as equal.

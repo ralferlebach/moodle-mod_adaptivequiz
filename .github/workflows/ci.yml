@@ -138,6 +138,18 @@ jobs:
         if: ${{ always() }}
         run: moodle-plugin-ci mustache
 
+      # moodle-plugin-ci grunt copies the plugin to a backup and afterwards back over the plugin (override). git keeps
+      # its pack files read-only, so copying back failed on every .git directory inside the plugin (run of 23.11.2026,
+      # moodle-plugin-ci 4.5.12: "Failed to copy ... .git/objects/pack/... Permission denied"). Only the .git
+      # directories get write permission; the plugin's own files stay as they are.
+      - name: Make the .git directories of the plugin writable for grunt
+        if: ${{ always() }}
+        run: |
+          MOODLE="${MOODLE_DIR:-$(pwd)/moodle}"
+          for d in "$MOODLE/public/mod/adaptivequiz" "$MOODLE/mod/adaptivequiz"; do
+            if [ -d "$d" ]; then find "$d" -name .git -type d -prune -exec chmod -R u+w {} +; fi
+          done
+
       - name: Grunt
         if: ${{ always() }}
         run: moodle-plugin-ci grunt --max-lint-warnings 0

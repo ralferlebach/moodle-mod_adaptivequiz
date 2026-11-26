@@ -15,6 +15,7 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 namespace mod_adaptivequiz\local\result\link;
+
 /**
  * The logistic function in percent, without overflow for any finite argument (issue #25).
  *

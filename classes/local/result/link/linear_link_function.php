@@ -15,6 +15,7 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 namespace mod_adaptivequiz\local\result\link;
+
 /**
  * The linear mapping: p = 100 * (score - L) / (U - L) (issue #14).
  *

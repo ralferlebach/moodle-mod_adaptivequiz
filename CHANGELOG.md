@@ -1,5 +1,14 @@
 # Changelog – mod_adaptivequiz (ALiSe)
 
+## 2026112301 – CI-Werkzeugwechsel (23.11.2026)
+
+- **Code-Style:** `moodle-plugin-ci ^4` zog 4.5.12 mit phpcs 4.0.4 und moodle-cs 3.9.2. Neu verlangt: Leerzeile nach
+  dem namespace-Block (die acht Dateien unter `classes/local/result/link/`, phpcbf) und kein Kommentar hinter `{`
+  (`lib.php`, Kommentar jetzt als erste Zeile im Block). Nur Leerzeilen und Kommentarposition.
+- **Grunt:** `moodle-plugin-ci grunt` kopiert das Plugin weg und danach zurück; das Zurückkopieren scheiterte an den
+  schreibgeschützten Packdateien von `.git` im Plugin („Permission denied“). Ein Schritt vor Grunt gibt nur den
+  `.git`-Verzeichnissen des Plugins Schreibrecht. Nachgestellt als Nicht-root: ohne den Schritt rot, mit grün.
+
 ## 2026111709 – CI-Evidenz fail-closed ohne Ausführungsnachweis (Critical-Friend-Re-Audit 23.11.2026)
 
 - **Behat-Evidenz (wie local_catquiz #176, Fall B):** `ci_evidence.py` mit Pflicht-Features, aber ohne

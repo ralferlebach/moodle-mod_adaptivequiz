@@ -15,6 +15,7 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 namespace mod_adaptivequiz\local\result\link;
+
 /**
  * Logistic with 50 % at the middle of the range (issue #25): p = 100 / (1 + exp(-k (score - M))), M = (L + U) / 2.
  * It does not reach 0 % or 100 % at the ends of the range.
