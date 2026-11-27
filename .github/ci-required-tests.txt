@@ -16,3 +16,5 @@ request_timing_switch_test           # #17 (trace off by default)
 attempt_creation_lock_test           # #17
 question_pluginfile_test             # #16, #168
 cat_session_test                     # #17 lock wait
+lifecycle_generation_test            # #27 reset and deletion by the attempts read
+page_binding_test                    # #27 AK01 no question form for a lost attempt

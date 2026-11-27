@@ -347,18 +347,19 @@ function adaptivequiz_delete_instance_data(stdClass $adaptivequiz): void {
         $handler->delete_instance_callback($adaptivequiz);
     }
 
-    // Remove question_usage_by_activity records.
-    $attempts = $DB->get_records('adaptivequiz_attempt', ['instance' => $id]);
-
-    if (!empty($attempts)) {
+    // Remove the attempts with their question usages (host #27): each row with its own usage, by the rows read. An
+    // attempt started meanwhile is read by the next pass, so none is removed without its usage and none is left.
+    for ($pass = 0; $pass < 3; $pass++) {
+        $attempts = $DB->get_records('adaptivequiz_attempt', ['instance' => $id]);
+        if (!$attempts) {
+            break;
+        }
         foreach ($attempts as $attempt) {
             question_engine::delete_questions_usage_by_activity($attempt->uniqueid);
             // On MySQL and MariaDB a usage without question attempts stays behind (see adaptivequiz_delete_attempt()).
             $DB->delete_records('question_usages', ['id' => $attempt->uniqueid]);
         }
-
-        // Remove attempts data.
-        $DB->delete_records('adaptivequiz_attempt', ['instance' => $id]);
+        $DB->delete_records_list('adaptivequiz_attempt', 'id', array_keys($attempts));
     }
 
     // Remove association table data.
@@ -939,8 +940,12 @@ function adaptivequiz_reset_attempts(stdClass $adaptivequiz, array $attempts): v
         $DB->delete_records('question_usages', ['id' => $attempt->uniqueid]);
     }
 
-    // Remove attempts data.
-    $DB->delete_records('adaptivequiz_attempt', ['instance' => $adaptivequiz->id]);
+    // Remove the attempts read before (host #27): an attempt started while the course is reset belongs to no
+    // generation read here - its usage and its CAT data stay, so its row stays, too. Removed by the whole activity,
+    // its row was gone and its usage and CAT data were left without it.
+    if ($attempts) {
+        $DB->delete_records_list('adaptivequiz_attempt', 'id', array_map(fn($attempt) => $attempt->id, $attempts));
+    }
     // The CAT model removes what it keeps for each attempt - a reset left that behind.
     foreach ($attempts as $attempt) {
         \mod_adaptivequiz\local\catmodel\catmodel_resolver::callback(

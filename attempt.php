@@ -317,6 +317,20 @@ if (is_null($nextdiff)) {
     $level = $adaptiveattempt->get_level();
 }
 
+// Host #27 AK01: a question is rendered only for the attempt it belongs to - read again before any output. An attempt
+// removed meanwhile (reset, deletion) ends the request with an error, not with a question form, and no new attempt
+// is started for it; one completed meanwhile shows its result.
+$attemptrecord = \mod_adaptivequiz\local\attempt\page_binding::verify(
+    $adaptivequiz,
+    (int) $USER->id,
+    (int) $quba->get_id(),
+    (int) $cm->id
+);
+if ($attemptrecord->attemptstate !== \mod_adaptivequiz\local\attempt\attempt_state::IN_PROGRESS) {
+    $finished = ['cmid' => $cm->id, 'id' => $cm->instance, 'uattid' => (int) $attemptrecord->uniqueid];
+    redirect(new moodle_url('/mod/adaptivequiz/attemptfinished.php', $finished));
+}
+
 $headtags = $output->init_metadata($quba, $slot);
 $PAGE->requires->js_init_call(
     'M.mod_adaptivequiz.init_attempt_form',
@@ -345,9 +359,8 @@ if (!empty($adaptivequiz->password) && empty($condition)) {
 
     $mform->display();
 } else {
-    // Read again, never created: get_attempt() would start a new attempt if another request had just
-    // completed this one (audit 18.10.).
-    $attemptrecord = $DB->get_record('adaptivequiz_attempt', ['id' => $attemptrecord->id], '*', MUST_EXIST);
+    // Read again before the output (page_binding above), never created: get_attempt() would start a new attempt if
+    // another request had just completed this one (audit 18.10.).
 
     if ($adaptivequiz->showattemptprogress) {
         echo $output->container_start('attempt-progress-container');
