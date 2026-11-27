@@ -198,6 +198,20 @@ if ($attemptcompleted) {
 $quba = $adaptiveattempt->get_quba();
 $slot = $adaptiveattempt->get_question_slot_number();
 
+// Host #27 AK01: a question is rendered only for the attempt it belongs to - read again before any output. An attempt
+// removed meanwhile (reset, deletion) ends the request with an error, not with a question form, and no new attempt
+// is started for it; one completed meanwhile shows its result.
+$attemptrecord = \mod_adaptivequiz\local\attempt\page_binding::verify(
+    $adaptivequiz,
+    (int) $USER->id,
+    (int) $quba->get_id(),
+    (int) $cm->id
+);
+if ($attemptrecord->attemptstate !== \mod_adaptivequiz\local\attempt\attempt_state::IN_PROGRESS) {
+    $finished = ['cmid' => $cm->id, 'id' => $cm->instance, 'uattid' => (int) $attemptrecord->uniqueid];
+    redirect(new moodle_url('/mod/adaptivequiz/attemptfinished.php', $finished));
+}
+
 $headtags = $output->init_metadata($quba, $slot);
 $PAGE->requires->js_init_call('M.mod_adaptivequiz.init_attempt_form', array($viewurl->out(), $adaptivequiz->browsersecurity),
     false, $output->adaptivequiz_get_js_module());
@@ -222,7 +236,8 @@ if (!empty($adaptivequiz->password) && empty($condition)) {
 
     $mform->display();
 } else {
-    $attemptrecord = $adaptiveattempt->get_attempt();
+    // Read again before the output (page_binding above): get_attempt() here started a new attempt when this one had
+    // been completed or removed meanwhile (host #27).
 
     if ($adaptivequiz->showattemptprogress) {
         echo $output->container_start('attempt-progress-container');

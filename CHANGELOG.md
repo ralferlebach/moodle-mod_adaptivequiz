@@ -1,5 +1,24 @@
 # Changelog – mod_adaptivequiz (ALiSe)
 
+## 2026112700 – #27 Lebenszyklus: Reset und Löschung nach Generation, Frage nur für den eigenen Versuch (27.11.2026)
+
+- **Reset:**
+  - `adaptivequiz_reset_attempts()` entfernt die gelesenen Versuche nach ID.
+  - Vorher entfernte er alle Versuche der Aktivität, auch einen, der zwischen dem Lesen und dem Löschen gestartet
+    wurde. Dessen Usage und CAT-Daten blieben ohne Versuch zurück. Das ist das Muster von CLARA 27.11.: Host 29477
+    fehlt, CAT-Versuch und QUBA bestehen.
+  - Test `lifecycle_generation_test`, rot gegen den alten Stand.
+- **Löschen der Aktivität:** `adaptivequiz_delete_instance_data()` entfernt jeden Versuch mit seiner Usage, nach den
+  gelesenen Zeilen, in bis zu drei Durchgängen. Ein dazwischen gestarteter Versuch wird ebenfalls erfasst.
+- **Frageseite** (`attempt.php`, `local\attempt\page_binding`, AK01):
+  - Vor jeder Ausgabe wird der Versuch der angezeigten Usage für Person und Aktivität neu gelesen.
+  - Fehlt er (Reset, Löschung), endet die Anfrage mit dem Fehler `attemptlost`, ohne HTTP 200 mit Frageformular.
+  - Für ihn wird kein neuer Versuch gestartet.
+  - Ein inzwischen abgeschlossener Versuch zeigt sein Ergebnis.
+  - In der Legacy-Linie startete `get_attempt()` nach dem Seitenkopf bisher einen neuen Versuch.
+- **Offen, nicht in dieser Version:** atomare Initialisierung (AK02), Koordination von Start und Reset über Sperren,
+  Fault-Injection und parallele Requests (DoD02, DoD03).
+
 ## 2026112300 – CI-Werkzeugwechsel (23.11.2026)
 
 - **Code-Style:** `moodle-plugin-ci ^4` zog 4.5.12 mit phpcs 4.0.4 und moodle-cs 3.9.2. Neu verlangt: Leerzeile nach
