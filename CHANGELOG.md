@@ -1,5 +1,12 @@
 # Changelog – mod_adaptivequiz (ALiSe)
 
+## 2026112800 – #28 Reihenfolge der Sprachstrings (28.11.2026)
+
+- `attemptlost` (aus #27) steht in `lang/en` und `lang/de` an der alphabetisch richtigen Stelle. In der CI ist der Code-Style hier beratend; die übrigen 67 Altbefunde in `lang/en` bleiben unberührt.
+- Keine Text- oder Funktionsänderung.
+- Damit das nicht wieder passiert, prüft die Entwicklungsumgebung den Code-Style jetzt im Moodle-Baum wie die CI. Die
+  Regel zur Reihenfolge greift nur dort. Vor jedem Commit läuft ein Hook, vor jedem Paket ein grüner Preflight.
+
 ## 2026112700 – #27 Lebenszyklus: Reset und Löschung nach Generation, Frage nur für den eigenen Versuch (27.11.2026)
 
 - **Reset:**
